@@ -24,7 +24,8 @@ public:
   virtual bool select (const edm::Event&) const;
   virtual ~JetEventSelector () {}
 private:
-  edm::InputTag jetTag_;      ///< tag for input collection
-  std::vector<double> minEt_; ///< lower Et cuts (defines also min. #jets)
+  edm::InputTag jetTag_;       ///< tag for input collection
+  std::vector<double> minEt_;  ///< lower Et cuts (defines also min. #jets)
+  std::vector<double> maxEta_; ///< upper |eta| cuts (defines also min. #jets)
 };
 #endif
