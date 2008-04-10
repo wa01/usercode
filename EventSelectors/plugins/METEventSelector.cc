@@ -11,6 +11,10 @@ METEventSelector::METEventSelector (const edm::ParameterSet& pset) :
   metTag_ = pset.getParameter<edm::InputTag>("src");
   // lower cut on MET
   minMet_ = pset.getParameter<double>("minMET");
+
+  edm::LogInfo("METEventSelector") << "constructed with \n"
+				   << "  src = " << metTag_ << "\n"
+				   << "  minMET = " << minMet_;
 }
 
 bool
@@ -36,5 +40,6 @@ METEventSelector::select (const edm::Event& event) const
   //
   // apply cut
   //
+  LogDebug("METEventSelector") << " result = " << (metHandle->front().et()>minMet_);
   return metHandle->front().et()>minMet_;
 }

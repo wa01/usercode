@@ -11,6 +11,10 @@ HLTEventSelector::HLTEventSelector (const edm::ParameterSet& pset) :
   triggerResults_ = pset.getParameter<edm::InputTag>("triggerResults");
   // trigger path names
   pathNames_ = pset.getParameter< std::vector<std::string> >("pathNames");
+
+  edm::LogInfo("HLTEventSelector") << "constructed with \n"
+				   << "  src = " << triggerResults_ << "\n"
+				   << "  #pathnames = " << pathNames_.size();
 }
 
 bool
@@ -52,8 +56,12 @@ HLTEventSelector::select (const edm::Event& event) const
       continue;
     }
 //     if ( !hltHandle->accept(index) )  return false;
-    if ( hltHandle->accept(index) )  return true;
+    if ( hltHandle->accept(index) ) {
+      LogDebug("HLTEventSelector") << "Event selected by " << *i;
+      return true;
+    }
   }
 //   return true;
+  LogDebug("HLTEventSelector") << "Event rejected";
   return false;
 }

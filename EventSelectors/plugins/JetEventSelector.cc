@@ -13,6 +13,10 @@ JetEventSelector::JetEventSelector (const edm::ParameterSet& pset) :
   minEt_ = pset.getParameter< std::vector<double> >("minEt");
   // upper cuts on jet |eta| (defines also min. nr. of jets)
   maxEta_ = pset.getParameter< std::vector<double> >("maxEta");
+
+  edm::LogInfo("JetEventSelector") << "constructed with \n"
+				   << "  src = " << jetTag_ << "\n"
+				   << "  min #jets = " << minEt_.size();
 }
 
 bool
@@ -42,7 +46,11 @@ JetEventSelector::select (const edm::Event& event) const
   //
   for ( unsigned int i=0; i<minEt_.size(); ++i ) {
     if ( (*jetHandle)[i].et()<minEt_[i] ||
-	 fabs((*jetHandle)[i].eta())>maxEta_[i] )  return false;
+	 fabs((*jetHandle)[i].eta())>maxEta_[i] ) {
+      LogDebug("JetEventSelector") << "failed at jet " << (i+1);
+      return false;
+    }
   }
+  LogDebug("JetEventSelector") << "all jets passed";
   return true;
 }

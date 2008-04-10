@@ -5,7 +5,9 @@
 #include <iostream>
 
 EventSelectorAND::EventSelectorAND (const edm::ParameterSet& pset) :
-  SusyEventSelector(pset), sequence_(pset) {}
+  SusyEventSelector(pset), sequence_(pset) {
+  edm::LogInfo("EventSelectorAND") << "constructed with " << sequence_.size() << " components";
+}
 
 bool
 EventSelectorAND::select (const edm::Event& event) const
@@ -15,7 +17,11 @@ EventSelectorAND::select (const edm::Event& event) const
   //
   const std::vector<const SusyEventSelector*>& selectors = sequence_.selectors();
   for ( unsigned int i=0; i<selectors.size(); ++i ) 
-    if ( !selectors[i]->select(event) )  return false;
+    if ( !selectors[i]->select(event) ) {
+      LogDebug("EventSelectorAND") << "Event rejected by " << selectors[i]->name();
+      return false;
+    }
   //
+  LogDebug("EventSelectorAND") << "Event accepted";
   return true;
 }

@@ -13,6 +13,11 @@ BJetEventSelector::BJetEventSelector (const edm::ParameterSet& pset) :
   tagLabel_ = pset.getParameter<std::string>("tagLabel");
   // lower cuts on discriminator (defines also min. nr. of jets)
   minTag_ = pset.getParameter< std::vector<double> >("minTag");
+  
+  edm::LogInfo("BJetEventSelector") << "constructed with \n"
+				    << "  src = " << jetTag_ << "\n"
+				    << "  tagger = " << tagLabel_ << "\n"
+				    << "  min #jets = " << minTag_.size();
 }
 
 bool
@@ -41,7 +46,11 @@ BJetEventSelector::select (const edm::Event& event) const
   // apply cuts
   //
   for ( unsigned int i=0; i<minTag_.size(); ++i ) {
-    if ( discriminators[i]<minTag_[i] )  return false;
+    if ( discriminators[i]<minTag_[i] ) {
+      LogDebug("BJetEventSelector") << "failed at jet " << (i+1);
+      return false;
+    }
   }
+  LogDebug("BJetEventSelector") << "all jets passed";
   return true;
 }

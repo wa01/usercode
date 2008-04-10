@@ -3,7 +3,9 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 EventSelectorOR::EventSelectorOR (const edm::ParameterSet& pset) :
-  SusyEventSelector(pset), sequence_(pset) {}
+  SusyEventSelector(pset), sequence_(pset) {
+  edm::LogInfo("EventSelectorOR") << "constructed with " << sequence_.size() << " components";
+}
 
 bool
 EventSelectorOR::select (const edm::Event& event) const
@@ -13,7 +15,11 @@ EventSelectorOR::select (const edm::Event& event) const
   //
   const std::vector<const SusyEventSelector*>& selectors = sequence_.selectors();
   for ( unsigned int i=0; i<selectors.size(); ++i ) 
-    if ( selectors[i]->select(event) )  return true;
+    if ( selectors[i]->select(event) ) {
+      LogDebug("EventSelectorOR") << "Event accepted by " << selectors[i]->name();
+      return true;
+    }
   //
+  LogDebug("EventSelectorOR") << "Event rejected";
   return false;
 }
