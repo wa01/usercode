@@ -16,16 +16,16 @@ class SusyEventSelector;
 class SelectorSequence {
 public:
   explicit SelectorSequence (const edm::ParameterSet&);
-  ~SelectorSequence();
+  virtual ~SelectorSequence();
   
   /// access to individual selectors
-  const std::vector<const SusyEventSelector*>& selectors () const {
+  virtual const std::vector<const SusyEventSelector*>& selectors () const {
     return selectors_;
   }
   /// number of selectors
-  unsigned int size () const {return selectors_.size();}
+  virtual unsigned int size () const {return selectors_.size();}
   /// selector results (in the same order as defined in selectors()
-  std::vector<bool> decisions (const edm::Event&) const;
+  virtual std::vector<bool> decisions (const edm::Event&) const;
   
 
 private:
