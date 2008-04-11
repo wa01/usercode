@@ -13,6 +13,8 @@ JetEventSelector::JetEventSelector (const edm::ParameterSet& pset) :
   minEt_ = pset.getParameter< std::vector<double> >("minEt");
   // upper cuts on jet |eta| (defines also min. nr. of jets)
   maxEta_ = pset.getParameter< std::vector<double> >("maxEta");
+  // upper cuts on jet EM fraction (defines also min. nr. of jets)
+  maxFem_ = pset.getParameter< std::vector<double> >("maxEMFraction");
 
   edm::LogInfo("JetEventSelector") << "constructed with \n"
 				   << "  src = " << jetTag_ << "\n"
@@ -23,7 +25,8 @@ bool
 JetEventSelector::select (const edm::Event& event) const
 {
   //
-  if ( minEt_.size() != maxEta_.size() ) {
+  if ( minEt_.size()!=maxEta_.size() ||
+       maxFem_.size()!=maxEta_.size() ) {
     edm::LogError("JetEventSelector") << "Inconsistent length of vector of cut values";
     return false;
   }
@@ -46,7 +49,8 @@ JetEventSelector::select (const edm::Event& event) const
   //
   for ( unsigned int i=0; i<minEt_.size(); ++i ) {
     if ( (*jetHandle)[i].et()<minEt_[i] ||
-	 fabs((*jetHandle)[i].eta())>maxEta_[i] ) {
+	 fabs((*jetHandle)[i].eta())>maxEta_[i] ||
+	 (*jetHandle)[i].emEnergyFraction()>maxFem_[i] ) {
       LogDebug("JetEventSelector") << "failed at jet " << (i+1);
       return false;
     }

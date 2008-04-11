@@ -27,5 +27,6 @@ private:
   edm::InputTag jetTag_;       ///< tag for input collection
   std::vector<double> minEt_;  ///< lower Et cuts (defines also min. #jets)
   std::vector<double> maxEta_; ///< upper |eta| cuts (defines also min. #jets)
+  std::vector<double> maxFem_; ///< upper cut on EM fraction
 };
 #endif
