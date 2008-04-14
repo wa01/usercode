@@ -10,24 +10,27 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
 #include <vector>
+#include <string>
 
 class SusyEventSelector;
 
 class SelectorSequence {
 public:
   explicit SelectorSequence (const edm::ParameterSet&);
-  virtual ~SelectorSequence();
+  ~SelectorSequence();
   
+  /// number of selectors
+  inline unsigned int size () const {return selectors_.size();}
+  /// names of selectors
+  std::vector<std::string> names () const;
   /// access to individual selectors
-  virtual const std::vector<const SusyEventSelector*>& selectors () const {
+  const std::vector<const SusyEventSelector*>& selectors () const {
     return selectors_;
   }
-  /// number of selectors
-  virtual unsigned int size () const {return selectors_.size();}
   /// selector results (in the same order as defined in selectors()
-  virtual std::vector<bool> decisions (const edm::Event&) const;
+  std::vector<bool> decisions (const edm::Event&) const;
   
-
+  
 private:
   std::vector<const SusyEventSelector*> selectors_;
 };

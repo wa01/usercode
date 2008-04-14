@@ -32,11 +32,21 @@ SelectorSequence::~SelectorSequence()
 	i!=selectors_.end(); ++i )  delete *i;
 }
 
+std::vector<std::string>
+SelectorSequence::names () const
+{
+  std::vector<std::string> result;
+  result.reserve(size());
+  for ( unsigned int i=0; i<size(); ++i )
+    result.push_back(selectors_[i]->name());
+  return result;
+  
+}
 
 std::vector<bool>
 SelectorSequence::decisions (const edm::Event& iEvent) const
 {
-  std::vector<bool> selection(selectors_.size(),false);
+  std::vector<bool> selection(size(),false);
   for ( unsigned int i=0; i<selectors_.size(); ++i )
     selection[i] = selectors_[i]->select(iEvent);
   return selection;
