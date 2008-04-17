@@ -1,5 +1,7 @@
 #include "Workspace/EventSelectors/interface/SelectorSequence.h"
 
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
+
 #include "Workspace/EventSelectors/interface/SusyEventSelector.h"
 #include "Workspace/EventSelectors/interface/EventSelectorFactory.h"
 
@@ -32,14 +34,15 @@ SelectorSequence::~SelectorSequence()
 	i!=selectors_.end(); ++i )  delete *i;
 }
 
-std::vector<std::string>
-SelectorSequence::names () const
+const std::vector<std::string>&
+SelectorSequence::selectorNames () const
 {
-  std::vector<std::string> result;
-  result.reserve(size());
-  for ( unsigned int i=0; i<size(); ++i )
-    result.push_back(selectors_[i]->name());
-  return result;
+  if ( selectorNames_.empty() ) {
+    selectorNames_.reserve(size());
+    for ( size_t i=0; i<size(); ++i )
+      selectorNames_.push_back(selectors_[i]->name());
+  }
+  return selectorNames_;
   
 }
 
@@ -47,7 +50,30 @@ std::vector<bool>
 SelectorSequence::decisions (const edm::Event& iEvent) const
 {
   std::vector<bool> selection(size(),false);
-  for ( unsigned int i=0; i<selectors_.size(); ++i )
+  for ( size_t i=0; i<selectors_.size(); ++i )
     selection[i] = selectors_[i]->select(iEvent);
   return selection;
+}
+
+size_t
+SelectorSequence::selectorIndex (const std::string& name) const
+{
+  const std::vector<std::string>& names = selectorNames();
+  std::vector<std::string>::const_iterator idx = 
+    find(names.begin(),names.end(),name);
+  if ( idx==names.end() ) 
+    edm::LogError("SelectorSequence") << "undefined selector " << name;
+  return idx-names.begin();
+}
+
+std::string
+SelectorSequence::selectorName (size_t index) const
+{
+  if ( index<size() ) {
+    return selectorNames()[index];
+  }
+  else {
+    edm::LogError("SelectorSequence") << "selector index outside range: " << index;
+    return std::string();
+  }
 }

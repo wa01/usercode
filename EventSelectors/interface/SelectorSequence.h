@@ -20,19 +20,25 @@ public:
   ~SelectorSequence();
   
   /// number of selectors
-  inline unsigned int size () const {return selectors_.size();}
+  inline size_t size () const {return selectors_.size();}
   /// names of selectors
-  std::vector<std::string> names () const;
+  const std::vector<std::string>& selectorNames () const;
   /// access to individual selectors
   const std::vector<const SusyEventSelector*>& selectors () const {
     return selectors_;
   }
+  /// selector index from name 
+  size_t selectorIndex (const std::string& name) const;
+  /// selector name from index
+  std::string selectorName (size_t index) const;
+
   /// selector results (in the same order as defined in selectors()
   std::vector<bool> decisions (const edm::Event&) const;
   
   
 private:
   std::vector<const SusyEventSelector*> selectors_;
+  mutable std::vector<std::string> selectorNames_;
 };
 
 #endif

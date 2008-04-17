@@ -8,8 +8,8 @@ SusySelectorExample::SusySelectorExample (const edm::ParameterSet& iConfig) :
   nrEventTotal_(0), nrEventSelected_(0), selectors_(iConfig) {
   // should change to LogInfo ...
   std::cout << "Selectors defined are:" << std::endl;
-  std::vector<std::string> names = selectors_.names();
-  for ( unsigned int i=0; i<nrOfSelectors(); ++i ) 
+  std::vector<std::string> names = selectors_.selectorNames();
+  for ( size_t i=0; i<nrOfSelectors(); ++i ) 
     std::cout << "  " << names[i] << std::endl;
 }
 
@@ -27,7 +27,7 @@ SusySelectorExample::analyze (const edm::Event& iEvent, const edm::EventSetup& i
   //
   ++nrEventTotal_;
   std::vector<bool> exclusiveSelected(nrOfSelectors(),true);
-  for ( unsigned int i=0; i<nrOfSelectors(); ++i ) {
+  for ( size_t i=0; i<nrOfSelectors(); ++i ) {
     if ( !selection[i] )  return;
   }
   ++nrEventSelected_;
