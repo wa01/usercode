@@ -1,7 +1,6 @@
 #include "Workspace/EventSelectors/interface/JetEventSelector.h"
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
-#include "DataFormats/PatCandidates/interface/Jet.h"
 
 #include <vector>
 
@@ -9,6 +8,8 @@ JetEventSelector::JetEventSelector (const edm::ParameterSet& pset) :
   SusyEventSelector(pset) {
   // input collection
   jetTag_ = pset.getParameter<edm::InputTag>("src");
+  // jet correction
+  correction_ = pat::Jet::correctionType(pset.getParameter<std::string>("correction"));
   // lower cuts on jet Et (defines also min. nr. of jets)
   minEt_ = pset.getParameter< std::vector<double> >("minEt");
   // upper cuts on jet |eta| (defines also min. nr. of jets)
@@ -43,6 +44,33 @@ JetEventSelector::select (const edm::Event& event) const
   if ( jetHandle->size()<minEt_.size() )  return false;
 //   std::cout << "Jet Et =";
 //   for ( unsigned int i=0; i<jetHandle->size(); ++i )  std::cout << " " << (*jetHandle)[i].et();
+//   std::cout << std::endl;
+  //
+  // sort jets by corrected eta
+  //
+  std::vector<float> correctedEts;
+  correctedEts.reserve(jetHandle->size());
+  for ( size_t i=0; i<jetHandle->size(); ++i ) {
+    const pat::Jet& jet = (*jetHandle)[i];
+    float et = jet.et();
+    if ( correction_ != pat::Jet::DefaultCorrection ) {
+      et *= jet.correctionFactor(pat::Jet::NoCorrection);
+      if ( correction_ != pat::Jet::NoCorrection )  
+	et *= jet.correctionFactor(correction_);
+    }
+    correctedEts.push_back(et);
+//     std::cout << "Applying jet correction original / nocorr / " << correction_
+// 	      << " / new = " << jet.et() 
+// 	      << " " << jet.correctionFactor(pat::Jet::NoCorrection)
+// 	      << " " << jet.correctionFactor(correction_) 
+// 	      << " " << correctedEts.back() << std::endl;
+  }
+//   std::cout << "Ets before sorting =";
+//   for ( size_t i=0; i<jetHandle->size(); ++i )  std::cout << " " << (*jetHandle)[i].et();
+//   std::cout << std::endl;
+//   std::vector<size_t> sortedIndices = IndexSorter< std::vector<float> >(correctedEts,true)();
+//   std::cout << "Ets after sorting =";
+//   for ( size_t i=0; i<jetHandle->size(); ++i )  std::cout << " " << correctedEts[sortedIndices[i]];
 //   std::cout << std::endl;
   //
   // check cuts (assume that jets are sorted by Et)
