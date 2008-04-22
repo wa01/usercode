@@ -40,6 +40,6 @@ METEventSelector::select (const edm::Event& event) const
   //
   // apply cut
   //
-  LogDebug("METEventSelector") << " result = " << (metHandle->front().et()>minMet_);
+  LogTrace("METEventSelector") << " METEventSelector result = " << (metHandle->front().et()>minMet_);
   return metHandle->front().et()>minMet_;
 }

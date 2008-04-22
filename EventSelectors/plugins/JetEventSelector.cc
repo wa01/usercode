@@ -79,10 +79,10 @@ JetEventSelector::select (const edm::Event& event) const
     if ( (*jetHandle)[i].et()<minEt_[i] ||
 	 fabs((*jetHandle)[i].eta())>maxEta_[i] ||
 	 (*jetHandle)[i].emEnergyFraction()>maxFem_[i] ) {
-      LogDebug("JetEventSelector") << "failed at jet " << (i+1);
+      LogTrace("JetEventSelector") << "JetEventSelector: failed at jet " << (i+1);
       return false;
     }
   }
-  LogDebug("JetEventSelector") << "all jets passed";
+  LogTrace("JetEventSelector") << "JetEventSelector: all jets passed";
   return true;
 }

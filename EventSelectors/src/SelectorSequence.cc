@@ -9,21 +9,49 @@
 
 SelectorSequence::SelectorSequence (const edm::ParameterSet& iConfig) 
 {
+  edm::LogInfo("SelectorSequence") << "created by PSet";
   // retrieve parameter sets defining the selector modules
-  std::vector<edm::ParameterSet> selectorConfigs =
-    iConfig.getParameter< std::vector<edm::ParameterSet> >("Selectors");
+  edm::ParameterSet filters =
+    iConfig.getParameter<edm::ParameterSet>("filters");
+  std::vector<std::string> sequence = 
+    iConfig.getParameter< std::vector<std::string> >("selectionSequence");
   //
-  // instantiate selectors according to parameter
-  //
-  for ( std::vector<edm::ParameterSet>::const_iterator i=selectorConfigs.begin();
-	i!=selectorConfigs.end(); ++i ) {
-    std::string selectorType = i->getParameter<std::string>("selector");
-    const SusyEventSelector* selector = EventSelectorFactory::get()->create(selectorType,*i);
-    selectors_.push_back(selector);
-  }
-  
+  createSelectors(sequence,filters);
 }
 
+SelectorSequence::SelectorSequence (const std::vector<std::string>& sequence,
+				    const edm::ParameterSet& filters)
+{
+  edm::LogInfo("SelectorSequence") << "created by strings";
+  createSelectors(sequence,filters);
+}
+
+void
+SelectorSequence::createSelectors (const std::vector<std::string>& sequence,
+				   const edm::ParameterSet& filters)
+{
+  //
+  // go through sequence and instantiate selectors
+  //
+  for ( std::vector<std::string>::const_iterator i=sequence.begin();
+	i!=sequence.end(); ++i ) {
+    // retrieve filter definition
+    edm::ParameterSet filterPSet = filters.getParameter<edm::ParameterSet>(*i);
+    // get selector type
+    std::string selectorType = filterPSet.getParameter<std::string>("selector");
+    // add name
+    filterPSet.addUntrackedParameter<std::string>("name",*i);
+    edm::LogInfo("SelectorSequence") << "creating selector of type " << selectorType
+				     << " with name " << *i;
+    // add full list of filters (for combined selectors)
+    filterPSet.addParameter<edm::ParameterSet>("_AllFilters",filters);
+    // create selector
+    const SusyEventSelector* selector = EventSelectorFactory::get()->create(selectorType,filterPSet);
+    selectors_.push_back(selector);
+  }
+  // prepare cached decision vector
+  currentDecisions_.resize(selectors_.size(),false);
+}
 
 SelectorSequence::~SelectorSequence()
 {
@@ -49,10 +77,14 @@ SelectorSequence::selectorNames () const
 std::vector<bool>
 SelectorSequence::decisions (const edm::Event& iEvent) const
 {
-  std::vector<bool> selection(size(),false);
-  for ( size_t i=0; i<selectors_.size(); ++i )
-    selection[i] = selectors_[i]->select(iEvent);
-  return selection;
+  if ( newEvent(iEvent) ) {
+    // calculate results for all selectors and update cache
+    for ( size_t i=0; i<selectors_.size(); ++i )
+      currentDecisions_[i] = selectors_[i]->select(iEvent);
+    currentEventId_ = iEvent.id();
+  }
+
+  return currentDecisions_;
 }
 
 size_t
@@ -76,4 +108,54 @@ SelectorSequence::selectorName (size_t index) const
     edm::LogError("SelectorSequence") << "selector index outside range: " << index;
     return std::string();
   }
+}
+
+bool 
+SelectorSequence::globalDecision (const edm::Event& event) const
+{
+  // make sure that cache is updated
+  decisions(event);
+  //
+  for ( size_t i=0; i<size(); ++i ) {
+    if ( !currentDecisions_[i] )  return false;
+  }
+  return true;
+}
+
+bool 
+SelectorSequence::decision (const edm::Event& event, size_t index) const
+{
+  if ( index>=size() ) {
+    edm::LogError("SelectorSequence") << "selector index outside range: " << index;
+    return false;
+  }
+  return decisions(event)[index];
+}
+
+bool 
+SelectorSequence::decision (const edm::Event& event, const std::string& name) const
+{
+  return decisions(event)[selectorIndex(name)];
+}
+
+bool 
+SelectorSequence::complementaryDecision (const edm::Event& event, size_t index) const
+{
+  // make sure that cache is updated
+  decisions(event);
+  //
+  for ( size_t i=0; i<size(); ++i ) {
+    // ignore decision of selector "index"
+    if ( i==index ) continue;
+    // implement AND of other selectors
+    if ( !currentDecisions_[i] )  return false;
+  }
+  return true;
+}
+
+bool 
+SelectorSequence::complementaryDecision (const edm::Event& event, 
+					 const std::string& name) const
+{
+  return complementaryDecision(event,selectorIndex(name));
 }

@@ -3,7 +3,9 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 EventSelectorOR::EventSelectorOR (const edm::ParameterSet& pset) :
-  SusyEventSelector(pset), sequence_(pset) {
+  SusyEventSelector(pset),
+  sequence_(pset.getParameter< std::vector<std::string> >("components"),
+	    pset.getParameter<edm::ParameterSet>("_AllFilters")) {
   edm::LogInfo("EventSelectorOR") << "constructed with " << sequence_.size() << " components";
 }
 

@@ -5,7 +5,9 @@
 #include <iostream>
 
 EventSelectorAND::EventSelectorAND (const edm::ParameterSet& pset) :
-  SusyEventSelector(pset), sequence_(pset) {
+  SusyEventSelector(pset), 
+  sequence_(pset.getParameter< std::vector<std::string> >("components"),
+	    pset.getParameter<edm::ParameterSet>("_AllFilters")) {
   edm::LogInfo("EventSelectorAND") << "constructed with " << sequence_.size() << " components";
 }
 
