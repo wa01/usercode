@@ -38,8 +38,23 @@ private:
 
 EventSelectorFilter::EventSelectorFilter (const edm::ParameterSet& pset)
 {
-   std::string selectorType = pset.getParameter<std::string>("selector");
-   selector_ = EventSelectorFactory::get()->create(selectorType,pset);
+  // definition of the selector(s)
+  edm::ParameterSet filters = pset.getParameter<edm::ParameterSet>("filters");
+  // name of the selector
+  std::string name = pset.getParameter<std::string>("selector");
+
+  // retrieve configuration of the selector
+  edm::ParameterSet filterPSet = filters.getParameter<edm::ParameterSet>(name);
+  // get selector type
+  std::string selectorType = filterPSet.getParameter<std::string>("selector");
+  // add name
+  filterPSet.addUntrackedParameter<std::string>("name",name);
+  edm::LogInfo("EventSelectorFilter") << "creating selector of type " << selectorType
+				      << " with name " << name;
+  // add full list of filters (for combined selectors)
+  filterPSet.addParameter<edm::ParameterSet>("_AllFilters",filters);
+  // create selector
+  selector_ = EventSelectorFactory::get()->create(selectorType,filterPSet);
 }
 
 //define this as a plug-in
