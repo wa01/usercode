@@ -42,6 +42,8 @@ SusySelectorExample::analyze (const edm::Event& iEvent, const edm::EventSetup& i
 	<< " " << selectors_.decision(iEvent,name)
 	<< " " << selectors_.complementaryDecision(iEvent,i)
 	<< " " << selectors_.complementaryDecision(iEvent,name)
+	<< " " << selectors_.cumulativeDecision(iEvent,i)
+	<< " " << selectors_.cumulativeDecision(iEvent,name)
 	<< " " << dec << std::endl;
   }
   dbg << " global decision = " << selectors_.globalDecision(iEvent);

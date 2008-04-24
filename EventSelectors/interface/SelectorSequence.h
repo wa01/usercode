@@ -52,6 +52,14 @@ public:
   /// complementary selection result by name (i.e., excluding one selector)
   bool complementaryDecision (const edm::Event& event, const std::string& name) const;
 
+  /** cumulative selection result by index (AND of the selectors in the list 
+   *  from 0 to - and including - "index") */
+  bool cumulativeDecision (const edm::Event& event, size_t index) const;
+
+  /** cumulative selection result by name (AND of the selectors in the list 
+   *  up to and including the one identified by "name") */
+  bool cumulativeDecision (const edm::Event& event, const std::string& name) const;
+
 private:
   void createSelectors (const std::vector<std::string>& sequence,
 			const edm::ParameterSet& filters);

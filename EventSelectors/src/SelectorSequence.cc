@@ -159,3 +159,27 @@ SelectorSequence::complementaryDecision (const edm::Event& event,
 {
   return complementaryDecision(event,selectorIndex(name));
 }
+
+bool 
+SelectorSequence::cumulativeDecision (const edm::Event& event, size_t index) const
+{
+  // check index
+  if ( index >= size() ) {
+    edm::LogError("SelectorSequence") << "selector index outside range: " << index;
+    return false;
+  }
+  // make sure that cache is updated
+  decisions(event);
+  //
+  for ( size_t i=0; i<=index; ++i ) {
+    if ( !currentDecisions_[i] )  return false;
+  }
+  return true;
+}
+
+bool 
+SelectorSequence::cumulativeDecision (const edm::Event& event, 
+				      const std::string& name) const
+{
+  return cumulativeDecision(event,selectorIndex(name));
+}
