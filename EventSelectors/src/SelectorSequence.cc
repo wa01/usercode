@@ -88,13 +88,14 @@ SelectorSequence::decisions (const edm::Event& iEvent) const
 }
 
 size_t
-SelectorSequence::selectorIndex (const std::string& name) const
+SelectorSequence::selectorIndex (const std::string& selectorName) const
 {
   const std::vector<std::string>& names = selectorNames();
   std::vector<std::string>::const_iterator idx = 
-    find(names.begin(),names.end(),name);
+    find(names.begin(),names.end(),selectorName);
   if ( idx==names.end() ) 
-    edm::LogError("SelectorSequence") << "undefined selector " << name;
+    edm::LogError("SelectorSequence") << "undefined selector " 
+				      << selectorName;
   return idx-names.begin();
 }
 
@@ -133,9 +134,10 @@ SelectorSequence::decision (const edm::Event& event, size_t index) const
 }
 
 bool 
-SelectorSequence::decision (const edm::Event& event, const std::string& name) const
+SelectorSequence::decision (const edm::Event& event, 
+			    const std::string& selectorName) const
 {
-  return decisions(event)[selectorIndex(name)];
+  return decisions(event)[selectorIndex(selectorName)];
 }
 
 bool 
@@ -155,9 +157,9 @@ SelectorSequence::complementaryDecision (const edm::Event& event, size_t index) 
 
 bool 
 SelectorSequence::complementaryDecision (const edm::Event& event, 
-					 const std::string& name) const
+					 const std::string& selectorName) const
 {
-  return complementaryDecision(event,selectorIndex(name));
+  return complementaryDecision(event,selectorIndex(selectorName));
 }
 
 bool 
@@ -179,7 +181,64 @@ SelectorSequence::cumulativeDecision (const edm::Event& event, size_t index) con
 
 bool 
 SelectorSequence::cumulativeDecision (const edm::Event& event, 
-				      const std::string& name) const
+				      const std::string& selectorName) const
 {
-  return cumulativeDecision(event,selectorIndex(name));
+  return cumulativeDecision(event,selectorIndex(selectorName));
+}
+
+size_t
+SelectorSequence::numberOfVariables () const
+{
+  size_t result(0);
+  for ( std::vector<const SusyEventSelector*>::const_iterator i=selectors_.begin();
+	i!=selectors_.end(); ++i ) result += (**i).numberOfVariables();
+  return result;
+}
+
+std::vector<std::string>
+SelectorSequence::variableNames () const 
+{
+  std::vector<std::string> result;
+  result.reserve(numberOfVariables());
+
+  std::string sName;
+  std::vector<std::string> vNames;
+  for ( size_t i=0; i<size(); ++i ) {
+    sName = selectorNames_[i] + ":";
+    vNames = selectors_[i]->variableNames();
+    for ( std::vector<std::string>::const_iterator j=vNames.begin();
+	  j!=vNames.end(); ++j ) 
+      result.push_back(sName+*j);
+  }
+  
+  return result;
+}
+
+std::vector<double>
+SelectorSequence::values () const 
+{
+  std::vector<double> result;
+  result.reserve(numberOfVariables());
+
+  std::vector<double> values;
+  for ( std::vector<const SusyEventSelector*>::const_iterator i=selectors_.begin();
+	i!=selectors_.end(); ++i ) {
+    values = (**i).values();
+    result.insert(result.end(),values.begin(),values.end());
+  }
+  
+  return result;
+}
+
+double
+SelectorSequence::value (const std::string& selectorName,
+			 const std::string& variableName) const
+{
+  size_t iSel = selectorIndex(selectorName);
+  if ( iSel==selectors_.size() ) {
+    edm::LogError("SelectorSequence") << "undefined selector " 
+				      << selectorName;
+    return 1.e-30;
+  }
+  return selectors_[iSel]->value(variableName);
 }

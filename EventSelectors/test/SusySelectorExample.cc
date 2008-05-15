@@ -14,7 +14,14 @@ SusySelectorExample::SusySelectorExample (const edm::ParameterSet& iConfig) :
   msg << "Selectors are" << std::endl;
   std::vector<std::string> names = selectors_.selectorNames();
   for ( size_t i=0; i<nrOfSelectors(); ++i ) msg << "  " << names[i];
+  msg << std::endl;
+  msg << "Variable names are " << selectors_.numberOfVariables() << std::endl;
+  selVarNames_ = selectors_.variableNames();
+  for ( std::vector<std::string>::const_iterator iv=selVarNames_.begin();
+	iv!=selVarNames_.end(); ++iv )  msg << " " << *iv;
   edm::LogInfo("SusySelectorExample") << msg.str();
+
+
 }
 
 SusySelectorExample::~SusySelectorExample() {}
@@ -50,6 +57,18 @@ SusySelectorExample::analyze (const edm::Event& iEvent, const edm::EventSetup& i
   LogTrace("SusySelectorExample") << "SusySelectorExample: " << dbg.str();
   if ( !selectors_.globalDecision(iEvent) )  return;
   ++nrEventSelected_;
+  //
+  // Access to cached variables (all and a specific one)
+  //
+  std::ostringstream dbg1;
+  std::vector<double> vars = selectors_.values();
+  dbg1 << "All variable values" << std::endl;
+  for ( size_t i=0; i<selVarNames_.size(); ++i ) {
+    dbg1 << selVarNames_[i] << " " << vars[i] << "\n";
+  }
+  dbg1 << "Specific variable: " << "JetEt:Jet0Et"
+       << selectors_.value("JetEt","Jet0Et");
+  LogTrace("SusySelectorExample") << dbg1.str();
 }
 
 

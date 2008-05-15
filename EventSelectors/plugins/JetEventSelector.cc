@@ -3,6 +3,7 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 #include <vector>
+#include <sstream>
 
 JetEventSelector::JetEventSelector (const edm::ParameterSet& pset) :
   SusyEventSelector(pset) {
@@ -17,6 +18,20 @@ JetEventSelector::JetEventSelector (const edm::ParameterSet& pset) :
   // upper cuts on jet EM fraction (defines also min. nr. of jets)
   maxFem_ = pset.getParameter< std::vector<double> >("maxEMFraction");
 
+  /// definition of variables to be cached
+  defineVariable("NumberOfJets");
+  for ( size_t i=0; i<minEt_.size(); ++i ) {
+    std::ostringstream strEt;
+    strEt << "Jet" << i << "Et";
+    defineVariable(strEt.str());
+    std::ostringstream strEta;
+    strEta << "Jet" << i << "Eta";
+    defineVariable(strEta.str());
+    std::ostringstream strFem;
+    strFem << "Jet" << i << "EMfraction";
+    defineVariable(strFem.str());
+  }
+
   edm::LogInfo("JetEventSelector") << "constructed with \n"
 				   << "  src = " << jetTag_ << "\n"
 				   << "  min #jets = " << minEt_.size();
@@ -25,6 +40,8 @@ JetEventSelector::JetEventSelector (const edm::ParameterSet& pset) :
 bool
 JetEventSelector::select (const edm::Event& event) const
 {
+  // reset cached variables
+  resetVariables();
   //
   if ( minEt_.size()!=maxEta_.size() ||
        maxFem_.size()!=maxEta_.size() ) {
@@ -41,6 +58,7 @@ JetEventSelector::select (const edm::Event& event) const
   //
   // check number of jets
   //
+  setVariable(0,jetHandle->size());
   if ( jetHandle->size()<minEt_.size() )  return false;
 //   std::cout << "Jet Et =";
 //   for ( unsigned int i=0; i<jetHandle->size(); ++i )  std::cout << " " << (*jetHandle)[i].et();
@@ -59,30 +77,22 @@ JetEventSelector::select (const edm::Event& event) const
 	et *= jet.correctionFactor(correction_);
     }
     correctedEts.push_back(et);
-//     std::cout << "Applying jet correction original / nocorr / " << correction_
-// 	      << " / new = " << jet.et() 
-// 	      << " " << jet.correctionFactor(pat::Jet::NoCorrection)
-// 	      << " " << jet.correctionFactor(correction_) 
-// 	      << " " << correctedEts.back() << std::endl;
   }
-//   std::cout << "Ets before sorting =";
-//   for ( size_t i=0; i<jetHandle->size(); ++i )  std::cout << " " << (*jetHandle)[i].et();
-//   std::cout << std::endl;
-//   std::vector<size_t> sortedIndices = IndexSorter< std::vector<float> >(correctedEts,true)();
-//   std::cout << "Ets after sorting =";
-//   for ( size_t i=0; i<jetHandle->size(); ++i )  std::cout << " " << correctedEts[sortedIndices[i]];
-//   std::cout << std::endl;
   //
   // check cuts (assume that jets are sorted by Et)
   //
+  bool result(true);
   for ( unsigned int i=0; i<minEt_.size(); ++i ) {
     if ( (*jetHandle)[i].et()<minEt_[i] ||
 	 fabs((*jetHandle)[i].eta())>maxEta_[i] ||
 	 (*jetHandle)[i].emEnergyFraction()>maxFem_[i] ) {
       LogTrace("JetEventSelector") << "JetEventSelector: failed at jet " << (i+1);
-      return false;
+      result = false;
     }
+    setVariable(3*i+1,(*jetHandle)[i].et());
+    setVariable(3*i+2,(*jetHandle)[i].eta());
+    setVariable(3*i+3,(*jetHandle)[i].emEnergyFraction());
   }
   LogTrace("JetEventSelector") << "JetEventSelector: all jets passed";
-  return true;
+  return result;
 }

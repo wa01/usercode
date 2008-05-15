@@ -30,7 +30,7 @@ public:
     return selectors_;
   }
   /// selector index from name 
-  size_t selectorIndex (const std::string& name) const;
+  size_t selectorIndex (const std::string& selectorName) const;
   /// selector name from index
   std::string selectorName (size_t index) const;
 
@@ -41,7 +41,8 @@ public:
   bool decision (const edm::Event& event, size_t index) const;
 
   /// selector result by name
-  bool decision (const edm::Event& event, const std::string& name) const;
+  bool decision (const edm::Event& event, 
+		 const std::string& selectorName) const;
 
   /// global decision (AND of all selectors)
   bool globalDecision (const edm::Event& event) const;
@@ -50,7 +51,8 @@ public:
   bool complementaryDecision (const edm::Event& event, size_t index) const;
 
   /// complementary selection result by name (i.e., excluding one selector)
-  bool complementaryDecision (const edm::Event& event, const std::string& name) const;
+  bool complementaryDecision (const edm::Event& event, 
+			      const std::string& selectorName) const;
 
   /** cumulative selection result by index (AND of the selectors in the list 
    *  from 0 to - and including - "index") */
@@ -58,7 +60,18 @@ public:
 
   /** cumulative selection result by name (AND of the selectors in the list 
    *  up to and including the one identified by "name") */
-  bool cumulativeDecision (const edm::Event& event, const std::string& name) const;
+  bool cumulativeDecision (const edm::Event& event, 
+			   const std::string& selectorName) const;
+
+  /// number of variables
+  size_t numberOfVariables () const;
+  /// get all variable names
+  std::vector<std::string> variableNames () const;
+  /// get all variable values
+  std::vector<double> values () const;
+  /// get value of a specific variable
+  double value (const std::string& selectorName,
+		const std::string& variableName) const;
 
 private:
   void createSelectors (const std::vector<std::string>& sequence,

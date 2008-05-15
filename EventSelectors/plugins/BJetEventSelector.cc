@@ -14,6 +14,14 @@ BJetEventSelector::BJetEventSelector (const edm::ParameterSet& pset) :
   // lower cuts on discriminator (defines also min. nr. of jets)
   minTag_ = pset.getParameter< std::vector<double> >("minTag");
   
+  /// definition of variables to be cached
+  defineVariable("NumberOfJets");
+  for ( size_t i=0; i<minTag_.size(); ++i ) {
+    std::ostringstream strTag;
+    strTag << "Jet" << i << "Bdisc";
+    defineVariable(strTag.str());
+  }
+
   edm::LogInfo("BJetEventSelector") << "constructed with \n"
 				    << "  src = " << jetTag_ << "\n"
 				    << "  tagger = " << tagLabel_ << "\n"
@@ -23,6 +31,8 @@ BJetEventSelector::BJetEventSelector (const edm::ParameterSet& pset) :
 bool
 BJetEventSelector::select (const edm::Event& event) const
 {
+  // reset cached variables
+  resetVariables();
   // get the jets
   edm::Handle< std::vector<pat::Jet> > jetHandle;
   event.getByLabel(jetTag_, jetHandle);
@@ -33,6 +43,7 @@ BJetEventSelector::select (const edm::Event& event) const
   //
   // check number of jets
   //
+  setVariable(0,jetHandle->size());
   if ( jetHandle->size()<minTag_.size() )  return false;
   //
   // sort discriminator value
@@ -45,11 +56,13 @@ BJetEventSelector::select (const edm::Event& event) const
   //
   // apply cuts
   //
+  bool result(true);
   for ( unsigned int i=0; i<minTag_.size(); ++i ) {
     if ( discriminators[i]<minTag_[i] ) {
       LogDebug("BJetEventSelector") << "failed at jet " << (i+1);
-      return false;
+      result = false;
     }
+    setVariable(i+1,discriminators[i]);
   }
   LogDebug("BJetEventSelector") << "all jets passed";
   return true;

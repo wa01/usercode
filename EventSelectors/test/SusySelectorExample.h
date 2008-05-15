@@ -35,5 +35,6 @@ private:
   unsigned int nrEventSelected_;
 
   SelectorSequence selectors_;
+  std::vector<std::string> selVarNames_;
 };
 #endif

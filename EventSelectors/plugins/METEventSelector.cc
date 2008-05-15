@@ -12,6 +12,9 @@ METEventSelector::METEventSelector (const edm::ParameterSet& pset) :
   // lower cut on MET
   minMet_ = pset.getParameter<double>("minMET");
 
+  // definition of the variable to be cached
+  defineVariable("MET");
+
   edm::LogInfo("METEventSelector") << "constructed with \n"
 				   << "  src = " << metTag_ << "\n"
 				   << "  minMET = " << minMet_;
@@ -20,6 +23,8 @@ METEventSelector::METEventSelector (const edm::ParameterSet& pset) :
 bool
 METEventSelector::select (const edm::Event& event) const
 {
+  // reset cached variables
+  resetVariables();
   //
   // get the MET result
   //
@@ -40,6 +45,7 @@ METEventSelector::select (const edm::Event& event) const
   //
   // apply cut
   //
+  setVariable(0,metHandle->front().et());
   LogTrace("METEventSelector") << " METEventSelector result = " << (metHandle->front().et()>minMet_);
   return metHandle->front().et()>minMet_;
 }

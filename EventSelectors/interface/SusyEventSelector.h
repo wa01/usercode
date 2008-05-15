@@ -5,6 +5,7 @@
 // Original author: W. Adam, 10/4/08
 
 // system include files
+#include <vector>
 #include <string>
 
 // user include files
@@ -25,7 +26,35 @@ public:
   /// decision of the selector module
   virtual bool select (const edm::Event&) const = 0;
 
+  /// number of cached variables
+  size_t numberOfVariables () const {return variableNames_.size();}
+  /// variable names
+  std::vector<std::string> variableNames () const {return variableNames_;}
+  /// variable values
+  std::vector<double> values () const {return variableValues_;}
+  /// variable value by name
+  double value (const std::string& name) const;
+
+protected:
+  /// definition of a cached variable (returns index)
+  size_t defineVariable (const std::string& name);
+  /// reset of all variables
+  void resetVariables () const {
+    fill(variableValues_.begin(),variableValues_.end(),-1.e30);
+  }
+  /// setting the value of a variable by index
+  void setVariable (size_t index, const double& value) const;
+  /// setting the value of a variable by name
+  void setVariable (const std::string& name, const double& value) const;
+
+private:
+  /// index from name
+  size_t variableIndex (const std::string& name) const;
+
 private:
   std::string name_;
+
+  std::vector<std::string> variableNames_;
+  mutable std::vector<double> variableValues_;
 };
 #endif
