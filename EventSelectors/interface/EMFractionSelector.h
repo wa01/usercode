@@ -24,7 +24,9 @@ public:
 
 private:
   edm::InputTag jetTag_; ///< tag for input collection
-  float minFraction_;    ///< lower Et cuts (defines also min. #jets)
+  float minFraction_;    ///< lower EM fraction cut
+  float maxEta_;         ///< upper |eta| cut on all jets
+  float minPt_;          ///< lower pt cut on all jets
 
 };
 #endif
