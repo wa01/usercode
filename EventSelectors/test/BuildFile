@@ -1,5 +1,5 @@
 <export></export>
-<use name=Workspace/EventSelectors>
-<library name=WorkspaceEventSelectorsTest file=*.cc>
+<use name=SusyAnalysis/EventSelector>
+<library name=SusyAnalysisEventSelectorTest file=*.cc>
   <flags EDM_PLUGIN=1>
 </library>

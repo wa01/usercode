@@ -12,8 +12,8 @@
 #include "FWCore/Framework/interface/MakerMacros.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "Workspace/EventSelectors/interface/SusyEventSelector.h"
-#include "Workspace/EventSelectors/interface/EventSelectorFactory.h"
+#include "SusyAnalysis/EventSelector/interface/SusyEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/EventSelectorFactory.h"
 
 //
 // class declaration
@@ -39,22 +39,22 @@ private:
 EventSelectorFilter::EventSelectorFilter (const edm::ParameterSet& pset)
 {
   // definition of the selector(s)
-  edm::ParameterSet filters = pset.getParameter<edm::ParameterSet>("filters");
+  edm::ParameterSet selectors = pset.getParameter<edm::ParameterSet>("selectors");
   // name of the selector
   std::string name = pset.getParameter<std::string>("selector");
 
   // retrieve configuration of the selector
-  edm::ParameterSet filterPSet = filters.getParameter<edm::ParameterSet>(name);
+  edm::ParameterSet selectorPSet = selectors.getParameter<edm::ParameterSet>(name);
   // get selector type
-  std::string selectorType = filterPSet.getParameter<std::string>("selector");
+  std::string selectorType = selectorPSet.getParameter<std::string>("selector");
   // add name
-  filterPSet.addUntrackedParameter<std::string>("name",name);
+  selectorPSet.addUntrackedParameter<std::string>("name",name);
   edm::LogInfo("EventSelectorFilter") << "creating selector of type " << selectorType
 				      << " with name " << name;
-  // add full list of filters (for combined selectors)
-  filterPSet.addParameter<edm::ParameterSet>("_AllFilters",filters);
+  // add full list of selectors (for combined selectors)
+  selectorPSet.addParameter<edm::ParameterSet>("_AllFilters",selectors);
   // create selector
-  selector_ = EventSelectorFactory::get()->create(selectorType,filterPSet);
+  selector_ = EventSelectorFactory::get()->create(selectorType,selectorPSet);
 }
 
 //define this as a plug-in

@@ -1,4 +1,4 @@
-#include "Workspace/EventSelectors/interface/HLTEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/HLTEventSelector.h"
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
@@ -12,6 +12,13 @@ HLTEventSelector::HLTEventSelector (const edm::ParameterSet& pset) :
   // trigger path names
   pathNames_ = pset.getParameter< std::vector<std::string> >("pathNames");
 
+  // Add all path names as variables
+  for ( std::vector<std::string>::const_iterator i=pathNames_.begin();
+	i!=pathNames_.end(); ++i )
+    {
+      defineVariable( *i );
+    }
+
   edm::LogInfo("HLTEventSelector") << "constructed with \n"
 				   << "  src = " << triggerResults_ << "\n"
 				   << "  #pathnames = " << pathNames_.size();
@@ -20,48 +27,42 @@ HLTEventSelector::HLTEventSelector (const edm::ParameterSet& pset) :
 bool
 HLTEventSelector::select (const edm::Event& event) const
 {
-  //
-  // get the trigger results and check validity
-  //
+  // Reset cached variables
+  resetVariables();
+
+  // Get the trigger results and check validity
   edm::Handle<edm::TriggerResults> hltHandle;
   event.getByLabel(triggerResults_, hltHandle);
   if ( !hltHandle.isValid() ) {
     edm::LogWarning("HLTEventSelector") << "No trigger results for InputTag " << triggerResults_;
     return false;
   }
-  //
-  // get results
-  //
+
+  // Get results
   edm::TriggerNames trgNames;
   trgNames.init(*hltHandle);
   unsigned int trgSize = trgNames.size();
-//   static int first(true);
-//   if ( first ) {
-//     first = false;
-//     std::cout << "Trigger menu" << std::endl;
-//     for ( unsigned int i=0; i<trgSize; ++i ) {
-//       std::cout << trgNames.triggerName(i) << std::endl;
-//     }
-//   }
-//
-// example for OR of all specified triggers
-//
+  bool result(false);
+
+  // Example for OR of all specified triggers
   for ( std::vector<std::string>::const_iterator i=pathNames_.begin();
 	i!=pathNames_.end(); ++i ) {
-    // get index
+    // Get index
     unsigned int index = trgNames.triggerIndex(*i);
     if ( index==trgSize ) {
       edm::LogWarning("HLTEventSelector") << "Unknown trigger name " << *i;
-//       return false;
       continue;
     }
-//     if ( !hltHandle->accept(index) )  return false;
     if ( hltHandle->accept(index) ) {
       LogDebug("HLTEventSelector") << "Event selected by " << *i;
-      return true;
+      result = true;
+      setVariable( *i, true );
+    } else {
+      setVariable( *i, false );
     }
   }
-//   return true;
-  LogDebug("HLTEventSelector") << "Event rejected";
-  return false;
+
+  if (!result) LogDebug("HLTEventSelector") << "Event rejected";
+
+  return result;
 }

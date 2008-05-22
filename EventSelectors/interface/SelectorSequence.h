@@ -1,5 +1,5 @@
-#ifndef EventSelectors_SelectorSequence_h_
-#define EventSelectors_SelectorSequence_h_
+#ifndef EventSelector_SelectorSequence_h_
+#define EventSelector_SelectorSequence_h_
 
 /** Class regrouping a series of selector modules. The modules are instantiated 
  *  according to specifications in the configuration files.
@@ -18,7 +18,7 @@ class SelectorSequence {
 public:
   explicit SelectorSequence (const edm::ParameterSet&);
   explicit SelectorSequence (const std::vector<std::string>& sequence,
-			     const edm::ParameterSet& filters);
+			     const edm::ParameterSet& selectors);
   ~SelectorSequence();
   
   /// number of selectors
@@ -75,7 +75,7 @@ public:
 
 private:
   void createSelectors (const std::vector<std::string>& sequence,
-			const edm::ParameterSet& filters);
+			const edm::ParameterSet& selectors);
   inline bool newEvent (const edm::Event& event) const {return event.id()!=currentEventId_;}
   
 private:

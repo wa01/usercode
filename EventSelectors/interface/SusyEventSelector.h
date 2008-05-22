@@ -1,8 +1,12 @@
-#ifndef Workspace_SusyEventSelector_h_
-#define Workspace_SusyEventSelector_h_
-/** Base class for event selection modules for SUSY analysis.
- */
-// Original author: W. Adam, 10/4/08
+#ifndef SusyAnalysis_SusyEventSelector_h_
+#define SusyAnalysis_SusyEventSelector_h_
+///
+/// Base class for event selection modules for SUSY analysis.
+///
+/// Original author: W. Adam, 10/4/08
+///
+/// $Id: $
+
 
 // system include files
 #include <vector>
@@ -12,6 +16,11 @@
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+
+// default (extreme) value for a variable
+namespace susy {
+  static const double DEFAULT_VALUE = -1.e30;
+}
 
 class SusyEventSelector {
 public:
@@ -27,20 +36,20 @@ public:
   virtual bool select (const edm::Event&) const = 0;
 
   /// number of cached variables
-  size_t numberOfVariables () const {return variableNames_.size();}
+  virtual size_t numberOfVariables () const {return variableNames_.size();}
   /// variable names
-  std::vector<std::string> variableNames () const {return variableNames_;}
+  virtual std::vector<std::string> variableNames () const {return variableNames_;}
   /// variable values
-  std::vector<double> values () const {return variableValues_;}
+  virtual std::vector<double> values () const {return variableValues_;}
   /// variable value by name
-  double value (const std::string& name) const;
+  virtual double value (const std::string& name) const;
 
 protected:
   /// definition of a cached variable (returns index)
   size_t defineVariable (const std::string& name);
   /// reset of all variables
   void resetVariables () const {
-    fill(variableValues_.begin(),variableValues_.end(),-1.e30);
+    fill(variableValues_.begin(),variableValues_.end(),susy::DEFAULT_VALUE);
   }
   /// setting the value of a variable by index
   void setVariable (size_t index, const double& value) const;

@@ -1,4 +1,4 @@
-#include "Workspace/EventSelectors/interface/SusyEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/SusyEventSelector.h"
 
 #include "FWCore/Utilities/interface/Exception.h"
 
@@ -15,7 +15,7 @@ SusyEventSelector::defineVariable (const std::string& name)
 {
   size_t result = variableNames_.size();
   variableNames_.push_back(name);
-  variableValues_.push_back(-1.e30);
+  variableValues_.push_back(susy::DEFAULT_VALUE); // Initialise to extreme value...
   return result;
 }
 

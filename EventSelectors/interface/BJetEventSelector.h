@@ -1,5 +1,5 @@
-#ifndef Workspace_BJetEventSelector_h_
-#define Workspace_BJetEventSelector_h_
+#ifndef SusyAnalysis_BJetEventSelector_h_
+#define SusyAnalysis_BJetEventSelector_h_
 /** Trivial example for a b-jet selector.
  *  To be modified for analysis!
  */
@@ -9,7 +9,7 @@
 #include <memory>
 
 // user include files
-#include "Workspace/EventSelectors/interface/SusyEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/SusyEventSelector.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"

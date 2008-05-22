@@ -1,58 +1,63 @@
-#include "Workspace/EventSelectors/interface/SelectorSequence.h"
+#include "SusyAnalysis/EventSelector/interface/SelectorSequence.h"
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
-#include "Workspace/EventSelectors/interface/SusyEventSelector.h"
-#include "Workspace/EventSelectors/interface/EventSelectorFactory.h"
+#include "SusyAnalysis/EventSelector/interface/SusyEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/EventSelectorFactory.h"
 
 #include <iostream>
 
+//________________________________________________________________________________________
 SelectorSequence::SelectorSequence (const edm::ParameterSet& iConfig) 
 {
   edm::LogInfo("SelectorSequence") << "created by PSet";
+  
   // retrieve parameter sets defining the selector modules
-  edm::ParameterSet filters =
-    iConfig.getParameter<edm::ParameterSet>("filters");
+  edm::ParameterSet selectors =
+    iConfig.getParameter<edm::ParameterSet>("selectors");
   std::vector<std::string> sequence = 
     iConfig.getParameter< std::vector<std::string> >("selectionSequence");
   //
-  createSelectors(sequence,filters);
+  createSelectors(sequence,selectors);
 }
 
+//________________________________________________________________________________________
 SelectorSequence::SelectorSequence (const std::vector<std::string>& sequence,
-				    const edm::ParameterSet& filters)
+				    const edm::ParameterSet& selectors)
 {
   edm::LogInfo("SelectorSequence") << "created by strings";
-  createSelectors(sequence,filters);
+  createSelectors(sequence,selectors);
 }
 
+//________________________________________________________________________________________
 void
 SelectorSequence::createSelectors (const std::vector<std::string>& sequence,
-				   const edm::ParameterSet& filters)
+				   const edm::ParameterSet& selectors)
 {
   //
   // go through sequence and instantiate selectors
   //
   for ( std::vector<std::string>::const_iterator i=sequence.begin();
 	i!=sequence.end(); ++i ) {
-    // retrieve filter definition
-    edm::ParameterSet filterPSet = filters.getParameter<edm::ParameterSet>(*i);
+    // retrieve selector definition
+    edm::ParameterSet selectorPSet = selectors.getParameter<edm::ParameterSet>(*i);
     // get selector type
-    std::string selectorType = filterPSet.getParameter<std::string>("selector");
+    std::string selectorType = selectorPSet.getParameter<std::string>("selector");
     // add name
-    filterPSet.addUntrackedParameter<std::string>("name",*i);
-    edm::LogInfo("SelectorSequence") << "creating selector of type " << selectorType
-				     << " with name " << *i;
-    // add full list of filters (for combined selectors)
-    filterPSet.addParameter<edm::ParameterSet>("_AllFilters",filters);
+    selectorPSet.addUntrackedParameter<std::string>("name",*i);
+    edm::LogVerbatim("SelectorSequence") << "creating selector of type " << selectorType
+                                         << " with name " << *i;
+    // add full list of selectors (for combined selectors)
+    selectorPSet.addParameter<edm::ParameterSet>("_AllFilters",selectors);
     // create selector
-    const SusyEventSelector* selector = EventSelectorFactory::get()->create(selectorType,filterPSet);
+    const SusyEventSelector* selector = EventSelectorFactory::get()->create(selectorType,selectorPSet);
     selectors_.push_back(selector);
   }
   // prepare cached decision vector
   currentDecisions_.resize(selectors_.size(),false);
 }
 
+//________________________________________________________________________________________
 SelectorSequence::~SelectorSequence()
 {
   //
@@ -62,6 +67,7 @@ SelectorSequence::~SelectorSequence()
 	i!=selectors_.end(); ++i )  delete *i;
 }
 
+//________________________________________________________________________________________
 const std::vector<std::string>&
 SelectorSequence::selectorNames () const
 {
@@ -74,6 +80,7 @@ SelectorSequence::selectorNames () const
   
 }
 
+//________________________________________________________________________________________
 std::vector<bool>
 SelectorSequence::decisions (const edm::Event& iEvent) const
 {
@@ -87,6 +94,7 @@ SelectorSequence::decisions (const edm::Event& iEvent) const
   return currentDecisions_;
 }
 
+//________________________________________________________________________________________
 size_t
 SelectorSequence::selectorIndex (const std::string& selectorName) const
 {
@@ -99,6 +107,7 @@ SelectorSequence::selectorIndex (const std::string& selectorName) const
   return idx-names.begin();
 }
 
+//________________________________________________________________________________________
 std::string
 SelectorSequence::selectorName (size_t index) const
 {
@@ -111,6 +120,7 @@ SelectorSequence::selectorName (size_t index) const
   }
 }
 
+//________________________________________________________________________________________
 bool 
 SelectorSequence::globalDecision (const edm::Event& event) const
 {
@@ -123,6 +133,7 @@ SelectorSequence::globalDecision (const edm::Event& event) const
   return true;
 }
 
+//________________________________________________________________________________________
 bool 
 SelectorSequence::decision (const edm::Event& event, size_t index) const
 {
@@ -133,6 +144,7 @@ SelectorSequence::decision (const edm::Event& event, size_t index) const
   return decisions(event)[index];
 }
 
+//________________________________________________________________________________________
 bool 
 SelectorSequence::decision (const edm::Event& event, 
 			    const std::string& selectorName) const
@@ -140,6 +152,7 @@ SelectorSequence::decision (const edm::Event& event,
   return decisions(event)[selectorIndex(selectorName)];
 }
 
+//________________________________________________________________________________________
 bool 
 SelectorSequence::complementaryDecision (const edm::Event& event, size_t index) const
 {
@@ -155,6 +168,7 @@ SelectorSequence::complementaryDecision (const edm::Event& event, size_t index) 
   return true;
 }
 
+//________________________________________________________________________________________
 bool 
 SelectorSequence::complementaryDecision (const edm::Event& event, 
 					 const std::string& selectorName) const
@@ -162,6 +176,7 @@ SelectorSequence::complementaryDecision (const edm::Event& event,
   return complementaryDecision(event,selectorIndex(selectorName));
 }
 
+//________________________________________________________________________________________
 bool 
 SelectorSequence::cumulativeDecision (const edm::Event& event, size_t index) const
 {
@@ -179,6 +194,7 @@ SelectorSequence::cumulativeDecision (const edm::Event& event, size_t index) con
   return true;
 }
 
+//________________________________________________________________________________________
 bool 
 SelectorSequence::cumulativeDecision (const edm::Event& event, 
 				      const std::string& selectorName) const
@@ -186,6 +202,7 @@ SelectorSequence::cumulativeDecision (const edm::Event& event,
   return cumulativeDecision(event,selectorIndex(selectorName));
 }
 
+//________________________________________________________________________________________
 size_t
 SelectorSequence::numberOfVariables () const
 {
@@ -195,25 +212,28 @@ SelectorSequence::numberOfVariables () const
   return result;
 }
 
+//________________________________________________________________________________________
 std::vector<std::string>
 SelectorSequence::variableNames () const 
 {
+
   std::vector<std::string> result;
   result.reserve(numberOfVariables());
 
   std::string sName;
   std::vector<std::string> vNames;
   for ( size_t i=0; i<size(); ++i ) {
-    sName = selectorNames_[i] + ":";
+    sName = selectorNames()[i] + ":";
     vNames = selectors_[i]->variableNames();
     for ( std::vector<std::string>::const_iterator j=vNames.begin();
 	  j!=vNames.end(); ++j ) 
-      result.push_back(sName+*j);
+      result.push_back( sName+(*j) );
   }
   
   return result;
 }
 
+//________________________________________________________________________________________
 std::vector<double>
 SelectorSequence::values () const 
 {
@@ -230,6 +250,7 @@ SelectorSequence::values () const
   return result;
 }
 
+//________________________________________________________________________________________
 double
 SelectorSequence::value (const std::string& selectorName,
 			 const std::string& variableName) const
@@ -238,7 +259,7 @@ SelectorSequence::value (const std::string& selectorName,
   if ( iSel==selectors_.size() ) {
     edm::LogError("SelectorSequence") << "undefined selector " 
 				      << selectorName;
-    return 1.e-30;
+    return susy::DEFAULT_VALUE;
   }
   return selectors_[iSel]->value(variableName);
 }

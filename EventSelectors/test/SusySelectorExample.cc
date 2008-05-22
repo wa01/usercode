@@ -1,14 +1,14 @@
-#include "Workspace/EventSelectors/test/SusySelectorExample.h"
+#include "SusyAnalysis/EventSelector/test/SusySelectorExample.h"
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
-#include "Workspace/EventSelectors/interface/SusyEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/SusyEventSelector.h"
 
 #include <iostream>
 #include <sstream>
 
 SusySelectorExample::SusySelectorExample (const edm::ParameterSet& iConfig) :
   nrEventTotal_(0), nrEventSelected_(0), 
-  selectors_(iConfig.getParameter<edm::ParameterSet>("selections")) {
+  selectors_( iConfig.getParameter<edm::ParameterSet>("selections") ) {
   // should change to LogInfo ...
   std::ostringstream msg;
   msg << "Selectors are" << std::endl;
@@ -54,7 +54,7 @@ SusySelectorExample::analyze (const edm::Event& iEvent, const edm::EventSetup& i
 	<< " " << dec << std::endl;
   }
   dbg << " global decision = " << selectors_.globalDecision(iEvent);
-  LogTrace("SusySelectorExample") << "SusySelectorExample: " << dbg.str();
+  edm::LogVerbatim("SusySelectorExample") << "SusySelectorExample: " << dbg.str();
   if ( !selectors_.globalDecision(iEvent) )  return;
   ++nrEventSelected_;
   //
@@ -68,7 +68,7 @@ SusySelectorExample::analyze (const edm::Event& iEvent, const edm::EventSetup& i
   }
   dbg1 << "Specific variable: " << "JetEt:Jet0Et"
        << selectors_.value("JetEt","Jet0Et");
-  LogTrace("SusySelectorExample") << dbg1.str();
+  edm::LogVerbatim("SusySelectorExample") << dbg1.str();
 }
 
 

@@ -2,16 +2,14 @@
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/ModuleFactory.h"
 
-DEFINE_SEAL_MODULE();
+#include "SusyAnalysis/EventSelector/interface/EventSelectorFactory.h"
 
-#include "Workspace/EventSelectors/interface/EventSelectorFactory.h"
-
-#include "Workspace/EventSelectors/interface/EventSelectorAND.h"
-#include "Workspace/EventSelectors/interface/EventSelectorOR.h"
-#include "Workspace/EventSelectors/interface/HLTEventSelector.h"
-#include "Workspace/EventSelectors/interface/METEventSelector.h"
-#include "Workspace/EventSelectors/interface/JetEventSelector.h"
-#include "Workspace/EventSelectors/interface/BJetEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/EventSelectorAND.h"
+#include "SusyAnalysis/EventSelector/interface/EventSelectorOR.h"
+#include "SusyAnalysis/EventSelector/interface/HLTEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/METEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/JetEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/BJetEventSelector.h"
 
 DEFINE_EDM_PLUGIN(EventSelectorFactory, EventSelectorAND, "EventSelectorAND");
 DEFINE_EDM_PLUGIN(EventSelectorFactory, EventSelectorOR, "EventSelectorOR");

@@ -1,4 +1,4 @@
-#include "Workspace/EventSelectors/interface/JetEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/JetEventSelector.h"
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
@@ -60,11 +60,8 @@ JetEventSelector::select (const edm::Event& event) const
   //
   setVariable(0,jetHandle->size());
   if ( jetHandle->size()<minEt_.size() )  return false;
-//   std::cout << "Jet Et =";
-//   for ( unsigned int i=0; i<jetHandle->size(); ++i )  std::cout << " " << (*jetHandle)[i].et();
-//   std::cout << std::endl;
   //
-  // sort jets by corrected eta
+  // sort jets by corrected Et
   //
   std::vector<float> correctedEts;
   correctedEts.reserve(jetHandle->size());

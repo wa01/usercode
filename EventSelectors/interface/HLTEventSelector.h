@@ -1,5 +1,5 @@
-#ifndef Workspace_HLTEventSelector_h_
-#define Workspace_HLTEventSelector_h_
+#ifndef SusyAnalysis_HLTEventSelector_h_
+#define SusyAnalysis_HLTEventSelector_h_
 
 /** Trivial example for a HLT selector.
  *  To be modified for analysis!
@@ -10,7 +10,7 @@
 #include <memory>
 
 // user include files
-#include "Workspace/EventSelectors/interface/SusyEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/SusyEventSelector.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"

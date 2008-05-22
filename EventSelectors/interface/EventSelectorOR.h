@@ -1,15 +1,18 @@
-#ifndef Workspace_EventSelectorOR_h_
-#define Workspace_EventSelectorOR_h_
-/** Combination of selectors by logical OR.
- */
-// Original author: W. Adam, 10/4/08
+#ifndef SusyAnalysis_EventSelectorOR_h_
+#define SusyAnalysis_EventSelectorOR_h_
+///
+/// Combination of selectors by logical OR.
+///
+/// Original author: W. Adam, 10/4/08
+///
+/// $Id: $
 
 // system include files
 #include <memory>
 
 // user include files
-#include "Workspace/EventSelectors/interface/SusyEventSelector.h"
-#include "Workspace/EventSelectors/interface/SelectorSequence.h"
+#include "SusyAnalysis/EventSelector/interface/CombinedEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/SelectorSequence.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -19,13 +22,14 @@
 
 class SelectorSequence;
 
-class EventSelectorOR : public SusyEventSelector {
+class EventSelectorOR : public CombinedEventSelector {
 public:
   EventSelectorOR ();
   EventSelectorOR (const edm::ParameterSet&);
-  virtual bool select (const edm::Event&) const;
   virtual ~EventSelectorOR () {}
-private:
-  SelectorSequence sequence_;
+
+  /// Selection: OR of all selectors
+  virtual bool select (const edm::Event&) const;
+
 };
 #endif

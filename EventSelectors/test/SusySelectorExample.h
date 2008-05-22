@@ -1,5 +1,5 @@
-#ifndef Workspace_EventSelectors_h_
-#define Workspace_EventSelectors_h_
+#ifndef SusyAnalysis_EventSelector_h_
+#define SusyAnalysis_EventSelector_h_
 /** Example code for the use of a SelectorSequence (i.e.,
  *  a series of selector modules) in an EDAnalyzer.
  */
@@ -13,7 +13,7 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
-#include "Workspace/EventSelectors/interface/SelectorSequence.h"
+#include "SusyAnalysis/EventSelector/interface/SelectorSequence.h"
 
 #include <vector>
 

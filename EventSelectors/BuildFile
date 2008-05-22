@@ -3,7 +3,7 @@
 <use name=FWCore/ParameterSet>
 <use name=DataFormats/PatCandidates>
 <export>
-   <lib name=WorkspaceEventSelectors>
+   <lib name=SusyAnalysisEventSelector>
    <use name=FWCore/Framework>
    <use name=FWCore/PluginManager>
    <use name=FWCore/ParameterSet>
