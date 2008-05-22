@@ -4,7 +4,8 @@
 /// Selector for presence of a primary vertex.
 ///
 /// Just checks that there is (at least) one primary vertex.
-/// $Id $
+///
+/// $Id: $
 
 // system include files
 #include <memory>

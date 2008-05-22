@@ -1,10 +1,12 @@
 #ifndef EventSelector_SelectorSequence_h_
 #define EventSelector_SelectorSequence_h_
 
-/** Class regrouping a series of selector modules. The modules are instantiated 
- *  according to specifications in the configuration files.
- */
-// Original author: W. Adam, 10/4/08
+/// Class regrouping a series of selector modules. The modules are instantiated 
+/// according to specifications in the configuration files.
+///
+/// Original author: W. Adam, 10/4/08
+///
+/// $Id: $ 
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"

@@ -1,9 +1,12 @@
 #ifndef SusyAnalysis_JetEventSelector_h_
 #define SusyAnalysis_JetEventSelector_h_
-/** Trivial example for a Jet selector.
- *  To be modified for analysis!
- */
-// Original author: W. Adam, 10/4/08
+/// Jet selector.
+/// 
+/// Selects on Et, eta and EM fraction
+///
+/// Original author: W. Adam, 10/4/08
+///
+/// $Id: $
 
 // system include files
 #include <memory>

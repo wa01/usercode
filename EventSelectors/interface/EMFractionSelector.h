@@ -5,6 +5,7 @@
 ///
 /// Calculates the total EM fraction of all jets
 ///
+/// $Id: $
 
 // system include files
 #include <memory>

@@ -1,10 +1,13 @@
 #ifndef SusyAnalysis_HLTEventSelector_h_
 #define SusyAnalysis_HLTEventSelector_h_
 
-/** Trivial example for a HLT selector.
- *  To be modified for analysis!
- */
-// Original author: W. Adam, 10/4/08
+/// Trivial example for a HLT selector.
+///
+/// To be modified for analysis!
+///
+/// Original author: W. Adam, 10/4/08
+///
+/// $Id: $
 
 // system include files
 #include <memory>

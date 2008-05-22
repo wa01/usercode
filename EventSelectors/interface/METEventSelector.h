@@ -1,9 +1,11 @@
 #ifndef SusyAnalysis_METEventSelector_h_
 #define SusyAnalysis_METEventSelector_h_
-/** Trivial example for a MET selector.
- *  To be modified for analysis!
- */
-// Original author: W. Adam, 10/4/08
+/// Trivial example for a MET selector.
+/// To be modified for analysis!
+///
+/// Original author: W. Adam, 10/4/08
+///
+/// $Id: $
 
 // system include files
 #include <memory>

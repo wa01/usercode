@@ -4,6 +4,7 @@
 ///
 /// Computes HT from all jets and cuts on it
 ///
+/// $Id: $
 
 // system include files
 #include <memory>
