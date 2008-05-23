@@ -20,7 +20,7 @@ HLTEventSelector::HLTEventSelector (const edm::ParameterSet& pset) :
     }
 
   edm::LogInfo("HLTEventSelector") << "constructed with \n"
-				   << "  src = " << triggerResults_ << "\n"
+				   << "  source     = " << triggerResults_ << "\n"
 				   << "  #pathnames = " << pathNames_.size();
 }
 
@@ -66,3 +66,11 @@ HLTEventSelector::select (const edm::Event& event) const
 
   return result;
 }
+
+
+//________________________________________________________________________________________
+#include "FWCore/PluginManager/interface/ModuleDef.h"
+#include "FWCore/Framework/interface/MakerMacros.h"
+#include "FWCore/Framework/interface/ModuleFactory.h"
+#include "SusyAnalysis/EventSelector/interface/EventSelectorFactory.h"
+DEFINE_EDM_PLUGIN(EventSelectorFactory, HLTEventSelector, "HLTEventSelector");

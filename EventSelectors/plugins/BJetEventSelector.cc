@@ -9,7 +9,7 @@
 BJetEventSelector::BJetEventSelector (const edm::ParameterSet& pset) :
   SusyEventSelector(pset) {
   // input collection
-  jetTag_ = pset.getParameter<edm::InputTag>("src");
+  jetTag_ = pset.getParameter<edm::InputTag>("jetTag");
   // name of tagger
   tagLabel_ = pset.getParameter<std::string>("tagLabel");
   // lower cuts on discriminator (defines also min. nr. of jets)
@@ -24,7 +24,7 @@ BJetEventSelector::BJetEventSelector (const edm::ParameterSet& pset) :
   }
 
   edm::LogInfo("BJetEventSelector") << "constructed with \n"
-				    << "  src = " << jetTag_ << "\n"
+				    << "  jetTag = " << jetTag_   << "\n"
 				    << "  tagger = " << tagLabel_ << "\n"
 				    << "  min #jets = " << minTag_.size();
 }
@@ -70,3 +70,10 @@ BJetEventSelector::select (const edm::Event& event) const
   return result;
 
 }
+
+//________________________________________________________________________________________
+#include "FWCore/PluginManager/interface/ModuleDef.h"
+#include "FWCore/Framework/interface/MakerMacros.h"
+#include "FWCore/Framework/interface/ModuleFactory.h"
+#include "SusyAnalysis/EventSelector/interface/EventSelectorFactory.h"
+DEFINE_EDM_PLUGIN(EventSelectorFactory, BJetEventSelector, "BJetEventSelector");

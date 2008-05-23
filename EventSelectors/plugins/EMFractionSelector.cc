@@ -5,10 +5,10 @@
 
 #include <vector>
 
-//__________________________________________________________________________________________________
+//________________________________________________________________________________________
 EMFractionSelector::EMFractionSelector (const edm::ParameterSet& pset) :
   SusyEventSelector(pset),
-  jetTag_( pset.getParameter<edm::InputTag>("src") ),
+  jetTag_( pset.getParameter<edm::InputTag>("jetTag") ),
   minFraction_( pset.getParameter<double>("minFraction") ),
   maxEta_     ( pset.getParameter<double>("maxEta")      ),
   minPt_      ( pset.getParameter<double>("minPt")       )
@@ -19,7 +19,7 @@ EMFractionSelector::EMFractionSelector (const edm::ParameterSet& pset) :
 
 }
 
-//__________________________________________________________________________________________________
+//________________________________________________________________________________________
 bool
 EMFractionSelector::select (const edm::Event& event) const
 {

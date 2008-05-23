@@ -6,7 +6,7 @@
 //________________________________________________________________________________________
 PrimaryVertexEventSelector::PrimaryVertexEventSelector (const edm::ParameterSet& pset) :
   SusyEventSelector(pset),
-  vertexTag_( pset.getParameter<edm::InputTag>("src") )
+  vertexTag_( pset.getParameter<edm::InputTag>("vertexTag") )
 { 
 
   defineVariable("numberOfVertices");
@@ -39,5 +39,4 @@ PrimaryVertexEventSelector::select (const edm::Event& event) const
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/ModuleFactory.h"
 #include "SusyAnalysis/EventSelector/interface/EventSelectorFactory.h"
-
 DEFINE_EDM_PLUGIN(EventSelectorFactory, PrimaryVertexEventSelector, "PrimaryVertexEventSelector");

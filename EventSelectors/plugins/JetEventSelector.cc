@@ -8,7 +8,7 @@
 JetEventSelector::JetEventSelector (const edm::ParameterSet& pset) :
   SusyEventSelector(pset) {
   // input collection
-  jetTag_ = pset.getParameter<edm::InputTag>("src");
+  jetTag_ = pset.getParameter<edm::InputTag>("jetTag");
   // jet correction
   correction_ = pat::Jet::correctionType(pset.getParameter<std::string>("correction"));
   // lower cuts on jet Et (defines also min. nr. of jets)
@@ -33,7 +33,7 @@ JetEventSelector::JetEventSelector (const edm::ParameterSet& pset) :
   }
 
   edm::LogInfo("JetEventSelector") << "constructed with \n"
-				   << "  src = " << jetTag_ << "\n"
+				   << "  jetTag    = " << jetTag_ << "\n"
 				   << "  min #jets = " << minEt_.size();
 }
 
@@ -93,3 +93,10 @@ JetEventSelector::select (const edm::Event& event) const
   LogTrace("JetEventSelector") << "JetEventSelector: all jets passed";
   return result;
 }
+
+//________________________________________________________________________________________
+#include "FWCore/PluginManager/interface/ModuleDef.h"
+#include "FWCore/Framework/interface/MakerMacros.h"
+#include "FWCore/Framework/interface/ModuleFactory.h"
+#include "SusyAnalysis/EventSelector/interface/EventSelectorFactory.h"
+DEFINE_EDM_PLUGIN(EventSelectorFactory, JetEventSelector, "JetEventSelector");

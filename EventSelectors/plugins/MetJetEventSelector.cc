@@ -1,4 +1,4 @@
-#include "SusyAnalysis/AnalysisSkeleton/interface/MetJetEventSelector.h"
+#include "SusyAnalysis/EventSelector/interface/MetJetEventSelector.h"
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "DataFormats/PatCandidates/interface/Jet.h"
@@ -108,5 +108,4 @@ MetJetEventSelector::select (const edm::Event& event) const
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/ModuleFactory.h"
 #include "SusyAnalysis/EventSelector/interface/EventSelectorFactory.h"
-
 DEFINE_EDM_PLUGIN(EventSelectorFactory, MetJetEventSelector, "MetJetEventSelector");
