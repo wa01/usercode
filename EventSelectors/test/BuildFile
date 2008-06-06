@@ -1,5 +1,0 @@
-<export></export>
-<use name=SusyAnalysis/EventSelector>
-<library name=SusyAnalysisEventSelectorTest file=*.cc>
-  <flags EDM_PLUGIN=1>
-</library>
