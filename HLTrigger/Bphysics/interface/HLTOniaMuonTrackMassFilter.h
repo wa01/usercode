@@ -1,69 +1,38 @@
 #ifndef HLTOniaMuonTrackMassFilter_h_
 #define HLTOniaMuonTrackMassFilter_h_
-// -*- C++ -*-
-//
-// Package:    HLTOniaMuonTrackMassFilter
-// Class:      HLTOniaMuonTrackMassFilter
-// 
-/**\class HLTOniaMuonTrackMassFilter HLTOniaMuonTrackMassFilter.cc HLTrigger/HLTOniaMuonTrackMassFilter/src/HLTOniaMuonTrackMassFilter.cc
-
- Description: <one line class summary>
-
- Implementation:
-     <Notes on implementation>
+/** HLT filter by muon+track mass (taken from two RecoChargedCandidate collections). 
+ *  The muon candidates are forced to be contained in a previous filter collection.
+ *  Muons and tracks are subject to quality and momentum cuts.
 */
-//
-// Original Author:  Wolfgang ADAM
-//         Created:  Wed Oct 14 17:57:21 CEST 2009
-// $Id: HLTOniaMuonTrackMassFilter.h,v 1.1.1.1 2009/10/26 11:42:53 adamwo Exp $
-//
-//
-
-// user include files
 #include "HLTrigger/HLTcore/interface/HLTFilter.h"
 
-// system include files
-#include <memory>
 #include <vector>
-
-
-
-//
-// class declaration
-//
 
 class HLTOniaMuonTrackMassFilter : public HLTFilter {
 public:
   explicit HLTOniaMuonTrackMassFilter(const edm::ParameterSet&);
-  ~HLTOniaMuonTrackMassFilter();
+  ~HLTOniaMuonTrackMassFilter() {}
 
 private:
-//   virtual void beginJob() ;
   virtual bool filter(edm::Event&, const edm::EventSetup&);
-//   virtual void endJob() ;
       
 private:
-  edm::InputTag beamspotTag_;
-  edm::InputTag muonTag_;
-  edm::InputTag trackTag_;
-  edm::InputTag prevCandTag_;
-  bool saveTag_;
-  std::vector<double> minMasses_;
-  std::vector<double> maxMasses_;
-  bool checkCharge_;
-  double minMuonPt_;
-  double minMuonP_;
-  double maxMuonEta_;
-  double maxMuonDxy_;
-  double maxMuonDz_;
-  double minTrackPt_;
-  double minTrackP_;
-  double maxTrackEta_;
-  double maxTrackDxy_;
-  double maxTrackDz_;
-  int minTrackHits_;
-  double maxTrackNormChi2_;
-  double maxDzMuonTrack_;
+  edm::InputTag beamspotTag_;   ///< beamspot used for quality cuts
+  edm::InputTag muonTag_;       ///< RecoChargedCandidateCollection (muons)
+  edm::InputTag trackTag_;      ///< RecoChargedCandidateCollection (tracks)
+  edm::InputTag prevCandTag_;   ///< filter objects from previous filter
+  bool saveTag_;                ///< save tags in filter object collection?
+  std::vector<double> minMasses_; ///< lower mass limits
+  std::vector<double> maxMasses_; ///< higher mass limits
+  bool checkCharge_;            ///< check opposite charge?
+  double minTrackPt_;           ///< track pt cut
+  double minTrackP_;            ///< track p cut
+  double maxTrackEta_;          ///< track |eta| cut
+  double maxTrackDxy_;          ///< track tip cut w.r.t. beamspot
+  double maxTrackDz_;           ///< track lip cut w.r.t. beamspot
+  int minTrackHits_;            ///< # valid hits on track
+  double maxTrackNormChi2_;     ///< normalized chi2 of track
+  double maxDzMuonTrack_;       ///< relative deltaZ between muon and track
 };
 
 #endif

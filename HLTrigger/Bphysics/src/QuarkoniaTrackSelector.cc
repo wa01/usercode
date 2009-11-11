@@ -1,6 +1,5 @@
 #include "HLTrigger/Bphysics/interface/QuarkoniaTrackSelector.h"
 
-// user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 
 #include "FWCore/Framework/interface/Event.h"
@@ -17,27 +16,20 @@
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
-// system include files
 #include <memory>
 #include <iostream>
 #include <sstream>
 
-//
-// constructors and destructor
-//
 QuarkoniaTrackSelector::QuarkoniaTrackSelector(const edm::ParameterSet& iConfig) :
   muonTag_(iConfig.getParameter<edm::InputTag>("muonCandidates")),
-  trackTag_(iConfig.getParameter<edm::InputTag>("trackCandidates")),
+  trackTag_(iConfig.getParameter<edm::InputTag>("tracks")),
   minMasses_(iConfig.getParameter< std::vector<double> >("MinMasses")),
   maxMasses_(iConfig.getParameter< std::vector<double> >("MaxMasses")),
-  checkCharge_(iConfig.getParameter<bool>("checkCharge"))
+  checkCharge_(iConfig.getParameter<bool>("checkCharge")),
+  minTrackPt_(iConfig.getParameter<double>("MinTrackPt")),
+  minTrackP_(iConfig.getParameter<double>("MinTrackP")),
+  maxTrackEta_(iConfig.getParameter<double>("MaxTrackEta"))
 {
-  LogDebug("HLTTrackFilter") << "instantiated with parameters\n"
-			     << "  muonTag  = " << muonTag_ << "\n"
-			     << "  trackTag = " << trackTag_ << "\n"
-// 			     << "  MinMass  = " << minMass_ << "\n"
-// 			     << "  MaxMass  = " << maxMass_ << "\n"
-			     << "  checkCharge  = " << checkCharge_;
   //register your products
   produces<reco::TrackCollection>();
   //
@@ -45,7 +37,7 @@ QuarkoniaTrackSelector::QuarkoniaTrackSelector(const edm::ParameterSet& iConfig)
   //
   bool massesValid = minMasses_.size()==maxMasses_.size();
   if ( massesValid ) {
-    for ( unsigned int i=0; i<minMasses_.size(); ++i ) {
+    for ( size_t i=0; i<minMasses_.size(); ++i ) {
       if ( minMasses_[i]<0 || maxMasses_[i]<0 || 
 	   minMasses_[i]>maxMasses_[i] )  massesValid = false;
     }
@@ -56,23 +48,23 @@ QuarkoniaTrackSelector::QuarkoniaTrackSelector(const edm::ParameterSet& iConfig)
     minMasses_.clear();
     maxMasses_.clear();
   }
+
+  std::ostringstream stream;
+  stream << "instantiated with parameters\n"
+	 << "  muonTag  = " << muonTag_ << "\n"
+	 << "  trackTag = " << trackTag_ << "\n";
+  stream << "  mass windows =";
+  for ( size_t i=0; i<minMasses_.size(); ++i )  
+    stream << " (" << minMasses_[i] << "," << maxMasses_[i] << ")";
+  stream << "\n";
+  stream << "  checkCharge  = " << checkCharge_ << "\n";
+  stream << "  MinTrackPt = " << minTrackPt_ << "\n";
+  stream << "  MinTrackP = " << minTrackP_ << "\n";
+  stream << "  MaxTrackEta = " << maxTrackEta_;
+  LogDebug("QuarkoniaTrackSelector") << stream.str();
 }
 
 
-QuarkoniaTrackSelector::~QuarkoniaTrackSelector()
-{
- 
-   // do anything here that needs to be done at desctruction time
-   // (e.g. close files, deallocate resources etc.)
-
-}
-
-
-//
-// member functions
-//
-
-// ------------ method called on each new Event  ------------
 void
 QuarkoniaTrackSelector::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
@@ -88,7 +80,7 @@ QuarkoniaTrackSelector::produce(edm::Event& iEvent, const edm::EventSetup& iSetu
   //
   // Tracks
   //
-  edm::Handle<reco::RecoChargedCandidateCollection> trackHandle;
+  edm::Handle<reco::TrackCollection> trackHandle;
   iEvent.getByLabel(trackTag_,trackHandle);
   //
   // Verification
@@ -102,46 +94,64 @@ QuarkoniaTrackSelector::produce(edm::Event& iEvent, const edm::EventSetup& iSetu
   //
   unsigned int nQ(0);
   unsigned int nComb(0);
-  std::vector<reco::TrackRef> selectedTracks;
-  selectedTracks.reserve(muonHandle->size());
+  std::vector<size_t> selectedTrackIndices;
+  selectedTrackIndices.reserve(muonHandle->size());
   reco::Particle::LorentzVector p4Muon;
   reco::Particle::LorentzVector p4JPsi;
-  for ( unsigned int im=0; im<muonHandle->size(); ++im ) {
+  // muons
+  for ( size_t im=0; im<muonHandle->size(); ++im ) {
     const reco::RecoChargedCandidate& muon = (*muonHandle)[im];
     int qMuon = muon.charge();
+    LogDebug("QuarkoniaTrackSelector") << "Checking muon with q / pt / p / eta = "
+				       << muon.charge() << " " << muon.pt() << " "
+				       << muon.p() << " " << muon.eta();
     p4Muon = muon.p4();
-    for ( unsigned int it=0; it<trackHandle->size(); ++it ) {
-      const reco::RecoChargedCandidate& track = (*trackHandle)[it];
+    // tracks
+    for ( size_t it=0; it<trackHandle->size(); ++it ) {
+      const reco::Track& track = (*trackHandle)[it];
+      LogDebug("QuarkoniaTrackSelector") << "Checking track with q / pt / p / eta = "
+					 << track.charge() << " " << track.pt() << " "
+					 << track.p() << " " << track.eta();
+      if ( track.pt()<minTrackPt_ || track.p()<minTrackP_ ||
+	   fabs(track.eta())>maxTrackEta_ )  continue;
       if ( checkCharge_ && track.charge()!=-qMuon )  continue;
       ++nQ;
-      double mass = (p4Muon+track.p4()).mass();
-      for ( unsigned int j=0; j<minMasses_.size(); ++j ) {
+      reco::Particle::LorentzVector p4Track(track.px(),track.py(),track.pz(),
+					    sqrt(track.p()*track.p()+0.0111636));
+      // mass windows
+      double mass = (p4Muon+p4Track).mass();
+      LogDebug("QuarkoniaTrackSelector") << "Combined mass = " << mass;
+      for ( size_t j=0; j<minMasses_.size(); ++j ) {
 	if ( mass>minMasses_[j] && mass<maxMasses_[j] ) {
 	  ++nComb;
-	  if ( find(selectedTracks.begin(),selectedTracks.end(),track.track())==
-	       selectedTracks.end() )  selectedTracks.push_back(track.track());
+	  if ( find(selectedTrackIndices.begin(),selectedTrackIndices.end(),it)==
+	       selectedTrackIndices.end() )  selectedTrackIndices.push_back(it);
 	  break;
 	}
       }
     }
   }
-
-
-  for ( unsigned int i=0; i<selectedTracks.size(); ++i )  product->push_back(*selectedTracks[i]);
-
+  //
+  // filling of output collection
+  //
+  for ( size_t i=0; i<selectedTrackIndices.size(); ++i )  
+    product->push_back((*trackHandle)[i]);
+  //
+  // debug output
+  //
   if ( edm::isDebugEnabled() ) {
     std::ostringstream stream;
     stream << "Total number of combinations = " << muonHandle->size()*trackHandle->size()
 	   << " , after charge " << nQ << " , after mass " << nComb << std::endl;
     stream << "Selected " << product->size() << " tracks with # / q / pt / eta\n";
-    for ( unsigned int i=0; i<product->size(); ++i ) {
+    for ( size_t i=0; i<product->size(); ++i ) {
       const reco::Track& track = (*product)[i];
       stream << "  " << i << " " << track.charge() << " "
 	     << track.pt() << " " << track.eta() << "\n";
     }
     LogDebug("QuarkoniaTrackSelector") << stream.str();
   }
-
+  //
   iEvent.put(product);
 }
 
