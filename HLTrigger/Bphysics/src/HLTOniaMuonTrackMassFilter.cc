@@ -180,21 +180,27 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
     // keep track
     selectedTrackRefs.push_back(trackRefs[i]);
   }
-
+  //
+  // combinations
+  //
+  unsigned int nDz(0);
   unsigned int nQ(0);
-  unsigned int nSel(0);
+  unsigned int nComb(0);
   reco::Particle::LorentzVector p4Muon;
   reco::Particle::LorentzVector p4JPsi;
   for ( unsigned int im=0; im<muonRefs.size(); ++im ) {
     int qMuon = muonRefs[im]->charge();
     p4Muon = muonRefs[im]->p4();
     for ( unsigned int it=0; it<trackRefs.size(); ++it ) {
+      if ( fabs(muonRefs[im]->track()->dz(beamspot)-
+		trackRefs[it]->track()->dz(beamspot))>maxDzMuonTrack_ )  continue;
+      ++nDz;
       if ( checkCharge_ && trackRefs[it]->charge()!=-qMuon )  continue;
       ++nQ;
       double mass = (p4Muon+trackRefs[it]->p4()).mass();
       for ( unsigned int j=0; j<minMasses_.size(); ++j ) {
 	if ( mass>minMasses_[j] && mass<maxMasses_[j] ) {
-	  ++nSel;
+	  ++nComb;
 	  filterproduct->addObject(trigger::TriggerMuon,muonRefs[im]);
 	  filterproduct->addObject(trigger::TriggerTrack,trackRefs[it]);
 	  break;
@@ -207,8 +213,9 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
   if ( edm::isDebugEnabled() ) {
     std::ostringstream stream;
     stream << "Total number of combinations = " << muonRefs.size()*trackRefs.size()
-	   << " , after charge " << nQ << " , after mass " << nSel << std::endl;
-    stream << "Found " << nSel << " jpsi candidates with # / mass / q / pt / eta" << std::endl;
+	   << " , after dz " << nDz
+	   << " , after charge " << nQ << " , after mass " << nComb << std::endl;
+    stream << "Found " << nComb << " jpsi candidates with # / mass / q / pt / eta" << std::endl;
     std::vector<reco::RecoChargedCandidateRef> muRefs;
     std::vector<reco::RecoChargedCandidateRef> tkRefs;
     filterproduct->getObjects(trigger::TriggerMuon,muRefs);
@@ -236,7 +243,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
 
   iEvent.put(filterproduct);
 
-  return nSel>0;
+  return nComb>0;
 }
 
 
