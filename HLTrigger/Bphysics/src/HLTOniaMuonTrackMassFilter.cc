@@ -39,7 +39,8 @@ HLTOniaMuonTrackMassFilter::HLTOniaMuonTrackMassFilter(const edm::ParameterSet& 
 			     << "  trackTag = " << trackTag_ << "\n"
 			     << "  saveTag = " << saveTag_ << "\n"
 			     << "  MinMass  = " << minMass_ << "\n"
-			     << "  MaxMass  = " << maxMass_;
+			     << "  MaxMass  = " << maxMass_ << "\n"
+			     << "  checkCharge  = " << checkCharge_;
   //register your products
   produces<trigger::TriggerFilterObjectWithRefs>();
 }
@@ -109,11 +110,10 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
   }
 
 
-  LogDebug("HLTOniaMuonTrackMassFilter") << "Total number of combinations = " << muonRefs.size()*trackRefs.size()
-			    << " , after charge " << nQ
-			    << " , after mass " << nSel;
   if ( edm::isDebugEnabled() ) {
     std::ostringstream stream;
+    stream << "Total number of combinations = " << muonRefs.size()*trackRefs.size()
+	   << " , after charge " << nQ << " , after mass " << nSel << std::endl;
     stream << "Found " << nSel << " jpsi candidates with # / mass / q / pt / eta" << std::endl;
     std::vector<reco::RecoChargedCandidateRef> muRefs;
     std::vector<reco::RecoChargedCandidateRef> tkRefs;
@@ -131,7 +131,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
 	       << p4JPsi.M() << " "
 	       << muRefs[i]->charge()+tkRefs[i]->charge() << " "
 	       << p4JPsi.P() << " "
-	       << p4JPsi.Eta();
+	       << p4JPsi.Eta() << "\n";
       }
       LogDebug("HLTOniaMuonTrackMassFilter") << stream.str();
     }
