@@ -4,6 +4,7 @@
 <use name=HLTrigger/HLTcore>
 <use name=DataFormats/HLTReco>
 <use name=DataFormats/TrackReco>
+<use name=DataFormats/RecoCandidate>
 <flags EDM_PLUGIN=1>
 <export>
    <lib name=HLTriggerHLTJPsiFilter>

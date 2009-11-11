@@ -1,4 +1,4 @@
-#include "HLTrigger/Bphysics/interface/HLTOniaMuonTrackMassFilter.h"
+#include "HLTrigger/Bphysics/interface/HLTOniaCandidateFilter.h"
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
@@ -15,6 +15,8 @@
 
 #include "DataFormats/RecoCandidate/interface/RecoChargedCandidate.h"
 #include "DataFormats/RecoCandidate/interface/RecoChargedCandidateFwd.h"
+#include "DataFormats/RecoCandidate/interface/DiRefChargedCandidate.h"
+#include "DataFormats/RecoCandidate/interface/DiRefChargedCandidateFwd.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
@@ -26,27 +28,25 @@
 //
 // constructors and destructor
 //
-HLTOniaMuonTrackMassFilter::HLTOniaMuonTrackMassFilter(const edm::ParameterSet& iConfig) :
-  muonTag_(iConfig.getParameter<edm::InputTag>("muonCandidates")),
-  trackTag_(iConfig.getParameter<edm::InputTag>("trackCandidates")),
+HLTOniaCandidateFilter::HLTOniaCandidateFilter(const edm::ParameterSet& iConfig) :
+  candTag_(iConfig.getParameter<edm::InputTag>("candTag")),
   saveTag_(iConfig.getParameter<bool>("saveTag")),
   minMass_(iConfig.getParameter<double>("MinMass")),
   maxMass_(iConfig.getParameter<double>("MaxMass")),
   checkCharge_(iConfig.getParameter<bool>("checkCharge"))
 {
-  LogDebug("HLTTrackFilter") << "instantiated with parameters\n"
-			     << "  muonTag  = " << muonTag_ << "\n"
-			     << "  trackTag = " << trackTag_ << "\n"
-			     << "  saveTag = " << saveTag_ << "\n"
-			     << "  MinMass  = " << minMass_ << "\n"
-			     << "  MaxMass  = " << maxMass_ << "\n"
-			     << "  checkCharge  = " << checkCharge_;
+  LogDebug("HLTOniaCandidateFilter") << "instantiated with parameters\n"
+				     << "  candTag  = " << candTag_ << "\n"
+				     << "  saveTag = " << saveTag_ << "\n"
+				     << "  MinMass  = " << minMass_ << "\n"
+				     << "  MaxMass  = " << maxMass_ << "\n"
+				     << "  checkCharge = " << checkCharge_;
   //register your products
   produces<trigger::TriggerFilterObjectWithRefs>();
 }
 
 
-HLTOniaMuonTrackMassFilter::~HLTOniaMuonTrackMassFilter()
+HLTOniaCandidateFilter::~HLTOniaCandidateFilter()
 {
  
    // do anything here that needs to be done at desctruction time
@@ -61,58 +61,40 @@ HLTOniaMuonTrackMassFilter::~HLTOniaMuonTrackMassFilter()
 
 // ------------ method called on each new Event  ------------
 bool
-HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
+HLTOniaCandidateFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
  // The filter object
   std::auto_ptr<trigger::TriggerFilterObjectWithRefs>
     filterproduct (new trigger::TriggerFilterObjectWithRefs(path(),module()));
   if ( saveTag_ ) {
-    filterproduct->addCollectionTag(muonTag_);
-    filterproduct->addCollectionTag(trackTag_);
+    filterproduct->addCollectionTag(candTag_);
   }
   //
-  // Muons
+  // Onia candidates
   //
-  edm::Handle<trigger::TriggerFilterObjectWithRefs> muonHandle;
-  iEvent.getByLabel(muonTag_,muonHandle);
-  //
-  // Tracks
-  //
-  edm::Handle<trigger::TriggerFilterObjectWithRefs> trackHandle;
-  iEvent.getByLabel(trackTag_,trackHandle);
-
-  std::vector<reco::RecoChargedCandidateRef> muonRefs;
-  muonHandle->getObjects(trigger::TriggerMuon,muonRefs);
-
-  std::vector<reco::RecoChargedCandidateRef> trackRefs;
-  trackHandle->getObjects(trigger::TriggerTrack,trackRefs);
+  edm::Handle<reco::DiRefChargedCandidateCollection> candHandle;
+  iEvent.getByLabel(candTag_,candHandle);
 
   unsigned int nQ(0);
   unsigned int nSel(0);
   reco::Particle::LorentzVector p4Muon;
   reco::Particle::LorentzVector p4JPsi;
-  for ( unsigned int im=0; im<muonRefs.size(); ++im ) {
-    int qMuon = muonRefs[im]->charge();
-    p4Muon = muonRefs[im]->p4();
-    for ( unsigned int it=0; it<trackRefs.size(); ++it ) {
-      if ( checkCharge_ && trackRefs[it]->charge()!=-qMuon )  continue;
+  for ( unsigned int i=0; i<candHandle->size(); ++i ) {
+    const reco::DiRefChargedCandidate& candidate = (*candHandle)[i];
+    if ( checkCharge_ && candidate.charge()!=0 )  continue;
       ++nQ;
-      double mass = (p4Muon+trackRefs[it]->p4()).mass();
+      double mass = candidate.p4().mass();
       if ( mass>minMass_ && mass<maxMass_ ) {
 	++nSel;
-// 	reco::CompositeCandidate jpsiCand(qJPsi,p4JPsi);
-// 	jpsiCand.addDaughter(*muonRefs[im]);
-// 	jpsiCand.addDaughter(*trackRefs[it]);
-	filterproduct->addObject(trigger::TriggerMuon,muonRefs[im]);
-	filterproduct->addObject(trigger::TriggerTrack,trackRefs[it]);
+	filterproduct->addObject(trigger::TriggerMuon,candidate.firstDaughterRef());
+	filterproduct->addObject(trigger::TriggerTrack,candidate.secondDaughterRef());
       }
-    }
   }
 
 
   if ( edm::isDebugEnabled() ) {
     std::ostringstream stream;
-    stream << "Total number of combinations = " << muonRefs.size()*trackRefs.size()
+    stream << "Total number of candidates = " << candHandle->size()
 	   << " , after charge " << nQ << " , after mass " << nSel << std::endl;
     stream << "Found " << nSel << " jpsi candidates with # / mass / q / pt / eta" << std::endl;
     std::vector<reco::RecoChargedCandidateRef> muRefs;
@@ -133,10 +115,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
 	       << p4JPsi.P() << " "
 	       << p4JPsi.Eta() << "\n";
       }
-      LogDebug("HLTOniaMuonTrackMassFilter") << stream.str();
-    }
-    else {
-      LogDebug("HLTOniaMuonTrackMassFilter") << "different sizes for muon and track containers!!!";
+      LogDebug("HLTOniaCandidateFilter") << stream.str();
     }
   }
 
@@ -147,4 +126,4 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
 
 
 //define this as a plug-in
-DEFINE_FWK_MODULE(HLTOniaMuonTrackMassFilter);
+DEFINE_FWK_MODULE(HLTOniaCandidateFilter);
