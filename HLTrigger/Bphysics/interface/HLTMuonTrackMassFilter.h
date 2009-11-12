@@ -8,8 +8,6 @@
 #include "DataFormats/RecoCandidate/interface/RecoChargedCandidateFwd.h"
 
 #include <vector>
-#include <iostream>
-#include <sstream>
 
 
 class HLTMuonTrackMassFilter : public HLTFilter {
@@ -22,8 +20,7 @@ private:
   bool pairMatched (std::vector<reco::RecoChargedCandidateRef>& prevMuonRefs,
 		    std::vector<reco::RecoChargedCandidateRef>& prevTrackRefs,
 		    const reco::RecoChargedCandidateRef& muonRef,
-		    const reco::RecoChargedCandidateRef& trackRef,
-		    std::ostringstream& stream) const;
+		    const reco::RecoChargedCandidateRef& trackRef) const;
       
 private:
   edm::InputTag beamspotTag_;   ///< beamspot used for quality cuts

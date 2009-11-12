@@ -132,69 +132,57 @@ HLTMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup
   //
   std::vector<reco::RecoChargedCandidateRef> selectedMuonRefs;
   selectedMuonRefs.reserve(muonHandle->size());
-  std::vector<size_t> prevMuonIndices;
-  std::ostringstream stream1;
+//   std::vector<size_t> prevMuonIndices;
+//   std::ostringstream stream1;
   for ( unsigned int i=0; i<muonHandle->size(); ++i ) {
     // Ref
     reco::RecoChargedCandidateRef muonRef(muonHandle,i);
-//     LogDebug("HLTMuonTrackMassFilter") << "Checking muon with q / pt / p / eta = "
-// 					   << muonRef->charge() << " " << muonRef->pt() << " "
-// 					   << muonRef->p() << " " << muonRef->eta();
-    stream1 << "Checking muon with q / pt / p / eta = "
-	    << muonRef->charge() << " " << muonRef->pt() << " "
-	    << muonRef->p() << " " << muonRef->eta() << "\n";
+//     stream1 << "Checking muon with q / pt / p / eta = "
+// 	    << muonRef->charge() << " " << muonRef->pt() << " "
+// 	    << muonRef->p() << " " << muonRef->eta() << "\n";
     // passed previous filter?
     if ( find(prevMuonRefs.begin(),prevMuonRefs.end(),muonRef)==
 	 prevMuonRefs.end() )  continue;
-    prevMuonIndices.push_back(find(prevMuonRefs.begin(),prevMuonRefs.end(),muonRef)-
-			      prevMuonRefs.begin());
-//     LogDebug("HLTMuonTrackMassFilter") << "located in previous candidates";
+//     prevMuonIndices.push_back(find(prevMuonRefs.begin(),prevMuonRefs.end(),muonRef)-
+// 			      prevMuonRefs.begin());
     // keep muon
-    stream1 << "... accepted as #" << selectedMuonRefs.size() << "\n";
+//     stream1 << "... accepted as #" << selectedMuonRefs.size() << "\n";
     selectedMuonRefs.push_back(muonRef);
   }
-  LogDebug("HLTMuonTrackMassFilter") << stream1.str();
+//   LogDebug("HLTMuonTrackMassFilter") << stream1.str();
   //
   // access to tracks and selection according to configuration
   //
   std::vector<reco::RecoChargedCandidateRef> selectedTrackRefs;
   selectedTrackRefs.reserve(trackHandle->size());
-  std::ostringstream stream2;
+//   std::ostringstream stream2;
   for ( unsigned int i=0; i<trackHandle->size(); ++i ) {
     // validity of REF
     reco::RecoChargedCandidateRef trackRef(trackHandle,i);
     const reco::RecoChargedCandidate& trackCand = *trackRef;
-//     LogDebug("HLTMuonTrackMassFilter") << "Checking track with q / pt / p / eta = "
-// 					   << trackCand.charge() << " " << trackCand.pt() << " "
-// 					   << trackCand.p() << " " << trackCand.eta();
-    stream2 << "Checking track with q / pt / p / eta = "
-	    << trackCand.charge() << " " << trackCand.pt() << " "
-	    << trackCand.p() << " " << trackCand.eta() << "\n";
+//     stream2 << "Checking track with q / pt / p / eta = "
+// 	    << trackCand.charge() << " " << trackCand.pt() << " "
+// 	    << trackCand.p() << " " << trackCand.eta() << "\n";
     // cuts on the momentum
     if ( trackCand.pt()<minTrackPt_ || trackCand.p()<minTrackP_ ||
 	 fabs(trackCand.eta())>maxTrackEta_ )  continue;
     if ( trackCand.track().isNull() )  continue;
     // cuts on track quality
     const reco::Track& track = *trackCand.track();
-//     LogDebug("HLTMuonTrackMassFilter") << "Checking track with dxy / dz / #hits / chi2 = "
-// 					   << track.dxy(beamspot) << " "
-// 					   << track.dz(beamspot) << " "
-// 					   << track.numberOfValidHits() << " "
-// 					   << track.normalizedChi2();
-    stream2 << "... with dxy / dz / #hits / chi2 = "
-	    << track.dxy(beamspot) << " "
-	    << track.dz(beamspot) << " "
-	    << track.numberOfValidHits() << " "
-	    << track.normalizedChi2();
+//     stream2 << "... with dxy / dz / #hits / chi2 = "
+// 	    << track.dxy(beamspot) << " "
+// 	    << track.dz(beamspot) << " "
+// 	    << track.numberOfValidHits() << " "
+// 	    << track.normalizedChi2();
     if ( fabs(track.dxy(beamspot))>maxTrackDxy_ ||
 	 fabs(track.dz(beamspot))>maxTrackDz_ ||
 	 track.numberOfValidHits()<minTrackHits_ ||
 	 track.normalizedChi2()>maxTrackNormChi2_ )  continue;
     // keep track
-    stream2 << "... accepted as #" << selectedTrackRefs.size() << "\n";
+//     stream2 << "... accepted as #" << selectedTrackRefs.size() << "\n";
     selectedTrackRefs.push_back(trackRef);
   }
-  LogDebug("HLTMuonTrackMassFilter") << stream2.str();
+//   LogDebug("HLTMuonTrackMassFilter") << stream2.str();
   //
   // combinations
   //
@@ -203,51 +191,40 @@ HLTMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup
   unsigned int nComb(0);
   reco::Particle::LorentzVector p4Muon;
   reco::Particle::LorentzVector p4JPsi;
-  std::ostringstream stream3;
+//   std::ostringstream stream3;
   for ( unsigned int im=0; im<selectedMuonRefs.size(); ++im ) {
     const reco::RecoChargedCandidate& muon = *selectedMuonRefs[im];
     int qMuon = muon.charge();
     p4Muon = muon.p4();
     for ( unsigned int it=0; it<selectedTrackRefs.size(); ++it ) {
       const reco::RecoChargedCandidate& track = *selectedTrackRefs[it];
-//       LogDebug("HLTMuonTrackMassFilter") << "combination with dz / q / mass = "
-// 					     << muon.track()->dz(beamspot)-track.track()->dz(beamspot) << " "
-// 					     << track.charge()+qMuon << " "
-// 					     << (p4Muon+track.p4()).mass();
-      stream3 << "Combination " << im << " / " << it << " with dz / q / mass = "
-	      << muon.track()->dz(beamspot)-track.track()->dz(beamspot) << " "
-	      << track.charge()+qMuon << " "
-	      << (p4Muon+track.p4()).mass() << "\n";
+//       stream3 << "Combination " << im << " / " << it << " with dz / q / mass = "
+// 	      << muon.track()->dz(beamspot)-track.track()->dz(beamspot) << " "
+// 	      << track.charge()+qMuon << " "
+// 	      << (p4Muon+track.p4()).mass() << "\n";
       if ( fabs(muon.track()->dz(beamspot)-track.track()->dz(beamspot))>
 	   maxDzMuonTrack_ )  continue;
       ++nDz;
       if ( checkCharge_ && track.charge()!=-qMuon )  continue;
       ++nQ;
+      if ( checkPrevTracks ) {
+	if ( !pairMatched(prevMuonRefs,prevTrackRefs,
+			  selectedMuonRefs[im],
+			  selectedTrackRefs[it]) ) continue;
+      }
       double mass = (p4Muon+track.p4()).mass();
       for ( unsigned int j=0; j<minMasses_.size(); ++j ) {
 	if ( mass>minMasses_[j] && mass<maxMasses_[j] ) {
 	  ++nComb;
 	  filterproduct->addObject(trigger::TriggerMuon,selectedMuonRefs[im]);
 	  filterproduct->addObject(trigger::TriggerTrack,selectedTrackRefs[it]);
-	  stream3 << "... accepted\n";
-      if ( checkPrevTracks ) {
-	const reco::RecoChargedCandidateRef& prevTrack =
-	  prevTrackRefs[prevMuonIndices[im]];
-// 	LogDebug("HLTMuonTrackMassFilter") << reco::deltaR(track.eta(),track.phi(),
-// 							       prevTrack->eta(),
-// 							       prevTrack->phi());
-	stream3 << " deltaR for index " << prevMuonIndices[im] << " " 
-		<< reco::deltaR(track.eta(),track.phi(),prevTrack->eta(),prevTrack->phi());
-	pairMatched(prevMuonRefs,prevTrackRefs,selectedMuonRefs[im],selectedTrackRefs[it],stream3);
-	stream3 << "\n";
-	stream3 << " seedRef isNull " << track.track()->seedRef().isNull() << "\n";
-      }
+// 	  stream3 << "... accepted\n";
 	  break;
 	}
       }
     }
   }
-  LogDebug("HLTMuonTrackMassFilter") << stream3.str();
+//   LogDebug("HLTMuonTrackMassFilter") << stream3.str();
 
 
   if ( edm::isDebugEnabled() ) {
@@ -290,8 +267,7 @@ bool
 HLTMuonTrackMassFilter::pairMatched (std::vector<reco::RecoChargedCandidateRef>& prevMuonRefs,
 					 std::vector<reco::RecoChargedCandidateRef>& prevTrackRefs,
 					 const reco::RecoChargedCandidateRef& muonRef,
-					 const reco::RecoChargedCandidateRef& trackRef,
-					 std::ostringstream& stream) const
+					 const reco::RecoChargedCandidateRef& trackRef) const
 {
   //
   // check only if references to tracks are available

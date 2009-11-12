@@ -113,7 +113,7 @@ QuarkoniaTrackSelector::produce(edm::Event& iEvent, const edm::EventSetup& iSetu
   //
   // combinations
   //
-  std::ostringstream stream;
+//   std::ostringstream stream;
   unsigned int nQ(0);
   unsigned int nComb(0);
   std::vector<size_t> selectedTrackIndices;
@@ -136,21 +136,21 @@ QuarkoniaTrackSelector::produce(edm::Event& iEvent, const edm::EventSetup& iSetu
 					    sqrt(track.p()*track.p()+0.0111636));
       // mass windows
       double mass = (p4Muon+p4Track).mass();
-      stream << "Combined mass = " << im << " " << it 
-	     << " " << mass 
-	     << " phi " << track.phi() << "\n";
+//       stream << "Combined mass = " << im << " " << it 
+// 	     << " " << mass 
+// 	     << " phi " << track.phi() << "\n";
       for ( size_t j=0; j<minMasses_.size(); ++j ) {
 	if ( mass>minMasses_[j] && mass<maxMasses_[j] ) {
 	  ++nComb;
 	  if ( find(selectedTrackIndices.begin(),selectedTrackIndices.end(),it)==
 	       selectedTrackIndices.end() )  selectedTrackIndices.push_back(it);
-	  stream << "... adding " << "\n"; 
+// 	  stream << "... adding " << "\n"; 
 	  break;
 	}
       }
     }
   }
-  LogDebug("QuarkoniaTrackSelector") << stream.str();
+//   LogDebug("QuarkoniaTrackSelector") << stream.str();
   //
   // filling of output collection
   //
