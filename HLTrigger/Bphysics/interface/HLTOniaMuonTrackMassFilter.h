@@ -5,8 +5,12 @@
  *  Muons and tracks are subject to quality and momentum cuts.
 */
 #include "HLTrigger/HLTcore/interface/HLTFilter.h"
+#include "DataFormats/RecoCandidate/interface/RecoChargedCandidateFwd.h"
 
 #include <vector>
+#include <iostream>
+#include <sstream>
+
 
 class HLTOniaMuonTrackMassFilter : public HLTFilter {
 public:
@@ -15,6 +19,11 @@ public:
 
 private:
   virtual bool filter(edm::Event&, const edm::EventSetup&);
+  bool pairMatched (std::vector<reco::RecoChargedCandidateRef>& prevMuonRefs,
+		    std::vector<reco::RecoChargedCandidateRef>& prevTrackRefs,
+		    const reco::RecoChargedCandidateRef& muonRef,
+		    const reco::RecoChargedCandidateRef& trackRef,
+		    std::ostringstream& stream) const;
       
 private:
   edm::InputTag beamspotTag_;   ///< beamspot used for quality cuts
