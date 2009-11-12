@@ -13,7 +13,7 @@
 //
 // Original Author:  Wolfgang ADAM
 //         Created:  Fri Oct 16 11:26:41 CEST 2009
-// $Id$
+// $Id: OniaHLTAnalyzer.cc,v 1.1.1.1 2009/10/26 11:55:50 adamwo Exp $
 //
 //
 
@@ -121,50 +121,41 @@ OniaHLTAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup
 {
    using namespace edm;
 
-//   std::cout << "1" << std::endl;
    Handle<reco::RecoChargedCandidateCollection> muCandHandle;
    iEvent.getByLabel(muCandTag_,muCandHandle);
    if ( muCandHandle.isValid() )  analyzeCandidates(*muCandHandle,muCandHistos_);
 
-//   std::cout << "2" << std::endl;
    Handle<reco::RecoChargedCandidateCollection> trackCandHandle;
    iEvent.getByLabel(tkCandTag_,trackCandHandle);
    if ( trackCandHandle.isValid() )  analyzeCandidates(*trackCandHandle,tkCandHistos_);
 
-//   std::cout << "3" << std::endl;
    Handle<trigger::TriggerFilterObjectWithRefs> muFilterHandle;
    iEvent.getByLabel(muFilterTag_,muFilterHandle);
    if ( muFilterHandle.isValid() ) {
-//   std::cout << "3a" << std::endl;
      std::vector<reco::RecoChargedCandidateRef> filteredMuons;
      muFilterHandle->getObjects(trigger::TriggerMuon,filteredMuons);
-//   std::cout << "3b" << std::endl;
      analyzeCandidates(filteredMuons,muFilterHistos_);
    }
 
-//   std::cout << "4" << std::endl;
-   Handle<trigger::TriggerFilterObjectWithRefs> tkFilterHandle;
+//    Handle<trigger::TriggerFilterObjectWithRefs> tkFilterHandle;
+   Handle<reco::RecoChargedCandidateCollection> tkFilterHandle;
    iEvent.getByLabel(tkFilterTag_,tkFilterHandle);
-   if ( tkFilterHandle.isValid() ) {
-//   std::cout << "4a" << std::endl;
-     std::vector<reco::RecoChargedCandidateRef> filteredTracks;
-     tkFilterHandle->getObjects(trigger::TriggerTrack,filteredTracks);
-//   std::cout << "4b" << std::endl;
-     analyzeCandidates(filteredTracks,tkFilterHistos_);
-   }
+   if ( trackCandHandle.isValid() )  analyzeCandidates(*tkFilterHandle,tkFilterHistos_);
+//    if ( tkFilterHandle.isValid() ) {
+//      std::vector<reco::RecoChargedCandidateRef> filteredTracks;
+//      tkFilterHandle->getObjects(trigger::TriggerTrack,filteredTracks);
+//      analyzeCandidates(filteredTracks,tkFilterHistos_);
+//    }
 
-//   std::cout << "5" << std::endl;
    Handle<trigger::TriggerFilterObjectWithRefs> jpsiHandle;
    iEvent.getByLabel(jpsiTag_,jpsiHandle);
 
    if ( jpsiHandle.isValid() ) {
-//   std::cout << "5a" << std::endl;
 
      std::vector<reco::RecoChargedCandidateRef> jpsiMuons;
      jpsiHandle->getObjects(trigger::TriggerMuon,jpsiMuons);
      std::vector<reco::RecoChargedCandidateRef> jpsiTracks;
      jpsiHandle->getObjects(trigger::TriggerTrack,jpsiTracks);
-//   std::cout << "5b" << std::endl;
 
      if ( jpsiMuons.size()==jpsiTracks.size() ) {
        jpsiHistos_.h_mult->Fill(jpsiMuons.size());
