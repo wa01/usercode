@@ -1,5 +1,5 @@
-#ifndef HLTOniaMuonTrackMassFilter_h_
-#define HLTOniaMuonTrackMassFilter_h_
+#ifndef HLTMuonTrackMassFilter_h_
+#define HLTMuonTrackMassFilter_h_
 /** HLT filter by muon+track mass (taken from two RecoChargedCandidate collections). 
  *  The muon candidates are forced to be contained in a previous filter collection.
  *  Muons and tracks are subject to quality and momentum cuts.
@@ -12,10 +12,10 @@
 #include <sstream>
 
 
-class HLTOniaMuonTrackMassFilter : public HLTFilter {
+class HLTMuonTrackMassFilter : public HLTFilter {
 public:
-  explicit HLTOniaMuonTrackMassFilter(const edm::ParameterSet&);
-  ~HLTOniaMuonTrackMassFilter() {}
+  explicit HLTMuonTrackMassFilter(const edm::ParameterSet&);
+  ~HLTMuonTrackMassFilter() {}
 
 private:
   virtual bool filter(edm::Event&, const edm::EventSetup&);

@@ -1,4 +1,4 @@
-#include "HLTrigger/Bphysics/interface/HLTOniaMuonTrackMassFilter.h"
+#include "HLTrigger/Bphysics/interface/HLTMuonTrackMassFilter.h"
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 
@@ -26,7 +26,7 @@
 #include <sstream>
 
 
-HLTOniaMuonTrackMassFilter::HLTOniaMuonTrackMassFilter(const edm::ParameterSet& iConfig) :
+HLTMuonTrackMassFilter::HLTMuonTrackMassFilter(const edm::ParameterSet& iConfig) :
   beamspotTag_(iConfig.getParameter<edm::InputTag>("beamspot")),
   muonTag_(iConfig.getParameter<edm::InputTag>("muonCandidates")),
   trackTag_(iConfig.getParameter<edm::InputTag>("trackCandidates")),
@@ -57,7 +57,7 @@ HLTOniaMuonTrackMassFilter::HLTOniaMuonTrackMassFilter(const edm::ParameterSet& 
     }
   }
   if ( !massesValid ) {
-    edm::LogError("HLTOniaMuonTrackMassFilter") << "Inconsistency in definition of mass windows, "
+    edm::LogError("HLTMuonTrackMassFilter") << "Inconsistency in definition of mass windows, "
 						<< "no event will pass the filter";
     minMasses_.clear();
     maxMasses_.clear();
@@ -83,12 +83,12 @@ HLTOniaMuonTrackMassFilter::HLTOniaMuonTrackMassFilter(const edm::ParameterSet& 
   stream << "  MinTrackHits = " << minTrackHits_ << "\n";
   stream << "  MaxTrackNormChi2 = " << maxTrackNormChi2_ << "\n";
   stream << "  MaxDzMuonTrack = " << maxDzMuonTrack_ << "\n";
-  LogDebug("HLTOniaMuonTrackMassFilter") << stream.str();
+  LogDebug("HLTMuonTrackMassFilter") << stream.str();
 
 }
 
 bool
-HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
+HLTMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
  // The filter object
   std::auto_ptr<trigger::TriggerFilterObjectWithRefs>
@@ -123,7 +123,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
   std::vector<reco::RecoChargedCandidateRef> prevTrackRefs;
   prevCandHandle->getObjects(trigger::TriggerTrack,prevTrackRefs);
   bool checkPrevTracks = prevTrackRefs.size()==prevMuonRefs.size();
-//   LogDebug("HLTOniaMuonTrackMassFilter") << "#previous track refs = " << prevTrackRefs.size();
+//   LogDebug("HLTMuonTrackMassFilter") << "#previous track refs = " << prevTrackRefs.size();
   //
   // access to muons and selection according to configuration
   //   if the previous candidates are taken from a muon+track
@@ -137,7 +137,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
   for ( unsigned int i=0; i<muonHandle->size(); ++i ) {
     // Ref
     reco::RecoChargedCandidateRef muonRef(muonHandle,i);
-//     LogDebug("HLTOniaMuonTrackMassFilter") << "Checking muon with q / pt / p / eta = "
+//     LogDebug("HLTMuonTrackMassFilter") << "Checking muon with q / pt / p / eta = "
 // 					   << muonRef->charge() << " " << muonRef->pt() << " "
 // 					   << muonRef->p() << " " << muonRef->eta();
     stream1 << "Checking muon with q / pt / p / eta = "
@@ -148,12 +148,12 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
 	 prevMuonRefs.end() )  continue;
     prevMuonIndices.push_back(find(prevMuonRefs.begin(),prevMuonRefs.end(),muonRef)-
 			      prevMuonRefs.begin());
-//     LogDebug("HLTOniaMuonTrackMassFilter") << "located in previous candidates";
+//     LogDebug("HLTMuonTrackMassFilter") << "located in previous candidates";
     // keep muon
     stream1 << "... accepted as #" << selectedMuonRefs.size() << "\n";
     selectedMuonRefs.push_back(muonRef);
   }
-  LogDebug("HLTOniaMuonTrackMassFilter") << stream1.str();
+  LogDebug("HLTMuonTrackMassFilter") << stream1.str();
   //
   // access to tracks and selection according to configuration
   //
@@ -164,7 +164,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
     // validity of REF
     reco::RecoChargedCandidateRef trackRef(trackHandle,i);
     const reco::RecoChargedCandidate& trackCand = *trackRef;
-//     LogDebug("HLTOniaMuonTrackMassFilter") << "Checking track with q / pt / p / eta = "
+//     LogDebug("HLTMuonTrackMassFilter") << "Checking track with q / pt / p / eta = "
 // 					   << trackCand.charge() << " " << trackCand.pt() << " "
 // 					   << trackCand.p() << " " << trackCand.eta();
     stream2 << "Checking track with q / pt / p / eta = "
@@ -176,7 +176,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
     if ( trackCand.track().isNull() )  continue;
     // cuts on track quality
     const reco::Track& track = *trackCand.track();
-//     LogDebug("HLTOniaMuonTrackMassFilter") << "Checking track with dxy / dz / #hits / chi2 = "
+//     LogDebug("HLTMuonTrackMassFilter") << "Checking track with dxy / dz / #hits / chi2 = "
 // 					   << track.dxy(beamspot) << " "
 // 					   << track.dz(beamspot) << " "
 // 					   << track.numberOfValidHits() << " "
@@ -194,7 +194,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
     stream2 << "... accepted as #" << selectedTrackRefs.size() << "\n";
     selectedTrackRefs.push_back(trackRef);
   }
-  LogDebug("HLTOniaMuonTrackMassFilter") << stream2.str();
+  LogDebug("HLTMuonTrackMassFilter") << stream2.str();
   //
   // combinations
   //
@@ -210,7 +210,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
     p4Muon = muon.p4();
     for ( unsigned int it=0; it<selectedTrackRefs.size(); ++it ) {
       const reco::RecoChargedCandidate& track = *selectedTrackRefs[it];
-//       LogDebug("HLTOniaMuonTrackMassFilter") << "combination with dz / q / mass = "
+//       LogDebug("HLTMuonTrackMassFilter") << "combination with dz / q / mass = "
 // 					     << muon.track()->dz(beamspot)-track.track()->dz(beamspot) << " "
 // 					     << track.charge()+qMuon << " "
 // 					     << (p4Muon+track.p4()).mass();
@@ -233,7 +233,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
       if ( checkPrevTracks ) {
 	const reco::RecoChargedCandidateRef& prevTrack =
 	  prevTrackRefs[prevMuonIndices[im]];
-// 	LogDebug("HLTOniaMuonTrackMassFilter") << reco::deltaR(track.eta(),track.phi(),
+// 	LogDebug("HLTMuonTrackMassFilter") << reco::deltaR(track.eta(),track.phi(),
 // 							       prevTrack->eta(),
 // 							       prevTrack->phi());
 	stream3 << " deltaR for index " << prevMuonIndices[im] << " " 
@@ -247,7 +247,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
       }
     }
   }
-  LogDebug("HLTOniaMuonTrackMassFilter") << stream3.str();
+  LogDebug("HLTMuonTrackMassFilter") << stream3.str();
 
 
   if ( edm::isDebugEnabled() ) {
@@ -274,10 +274,10 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
 	       << p4JPsi.P() << " "
 	       << p4JPsi.Eta() << "\n";
       }
-      LogDebug("HLTOniaMuonTrackMassFilter") << stream.str();
+      LogDebug("HLTMuonTrackMassFilter") << stream.str();
     }
     else {
-      LogDebug("HLTOniaMuonTrackMassFilter") << "different sizes for muon and track containers!!!";
+      LogDebug("HLTMuonTrackMassFilter") << "different sizes for muon and track containers!!!";
     }
   }
 
@@ -287,7 +287,7 @@ HLTOniaMuonTrackMassFilter::filter(edm::Event& iEvent, const edm::EventSetup& iS
 }
 
 bool
-HLTOniaMuonTrackMassFilter::pairMatched (std::vector<reco::RecoChargedCandidateRef>& prevMuonRefs,
+HLTMuonTrackMassFilter::pairMatched (std::vector<reco::RecoChargedCandidateRef>& prevMuonRefs,
 					 std::vector<reco::RecoChargedCandidateRef>& prevTrackRefs,
 					 const reco::RecoChargedCandidateRef& muonRef,
 					 const reco::RecoChargedCandidateRef& trackRef,
@@ -344,4 +344,4 @@ HLTOniaMuonTrackMassFilter::pairMatched (std::vector<reco::RecoChargedCandidateR
 
 
 //define this as a plug-in
-DEFINE_FWK_MODULE(HLTOniaMuonTrackMassFilter);
+DEFINE_FWK_MODULE(HLTMuonTrackMassFilter);
