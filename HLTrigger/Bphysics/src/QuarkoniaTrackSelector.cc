@@ -90,8 +90,30 @@ QuarkoniaTrackSelector::produce(edm::Event& iEvent, const edm::EventSetup& iSetu
     return;
   }
   //
+  // Debug output
+  //
+  if ( edm::isDebugEnabled() ) {
+    std::ostringstream stream;
+    stream << "\nInput muons: # / q / pt / p / eta\n";
+    for ( size_t im=0; im<muonHandle->size(); ++im ) {
+      const reco::RecoChargedCandidate& muon = (*muonHandle)[im];
+      stream << "   " << im << " "
+	     << muon.charge() << " " << muon.pt() << " "
+	     << muon.p() << " " << muon.eta() << "\n";
+    }
+    stream << "Input tracks: # / q / pt / p / eta\n";
+    for ( size_t it=0; it<trackHandle->size(); ++it ) {
+      const reco::Track& track = (*trackHandle)[it];
+      stream << "   " << it << " "
+	     << track.charge() << " " << track.pt() << " "
+	     << track.p() << " " << track.eta() << "\n";
+    }
+    LogDebug("QuarkoniaTrackSelector") << stream.str();
+  }
+  //
   // combinations
   //
+  std::ostringstream stream;
   unsigned int nQ(0);
   unsigned int nComb(0);
   std::vector<size_t> selectedTrackIndices;
@@ -102,16 +124,10 @@ QuarkoniaTrackSelector::produce(edm::Event& iEvent, const edm::EventSetup& iSetu
   for ( size_t im=0; im<muonHandle->size(); ++im ) {
     const reco::RecoChargedCandidate& muon = (*muonHandle)[im];
     int qMuon = muon.charge();
-    LogDebug("QuarkoniaTrackSelector") << "Checking muon with q / pt / p / eta = "
-				       << muon.charge() << " " << muon.pt() << " "
-				       << muon.p() << " " << muon.eta();
     p4Muon = muon.p4();
     // tracks
     for ( size_t it=0; it<trackHandle->size(); ++it ) {
       const reco::Track& track = (*trackHandle)[it];
-      LogDebug("QuarkoniaTrackSelector") << "Checking track with q / pt / p / eta = "
-					 << track.charge() << " " << track.pt() << " "
-					 << track.p() << " " << track.eta();
       if ( track.pt()<minTrackPt_ || track.p()<minTrackP_ ||
 	   fabs(track.eta())>maxTrackEta_ )  continue;
       if ( checkCharge_ && track.charge()!=-qMuon )  continue;
@@ -120,22 +136,26 @@ QuarkoniaTrackSelector::produce(edm::Event& iEvent, const edm::EventSetup& iSetu
 					    sqrt(track.p()*track.p()+0.0111636));
       // mass windows
       double mass = (p4Muon+p4Track).mass();
-      LogDebug("QuarkoniaTrackSelector") << "Combined mass = " << mass;
+      stream << "Combined mass = " << im << " " << it 
+	     << " " << mass 
+	     << " phi " << track.phi() << "\n";
       for ( size_t j=0; j<minMasses_.size(); ++j ) {
 	if ( mass>minMasses_[j] && mass<maxMasses_[j] ) {
 	  ++nComb;
 	  if ( find(selectedTrackIndices.begin(),selectedTrackIndices.end(),it)==
 	       selectedTrackIndices.end() )  selectedTrackIndices.push_back(it);
+	  stream << "... adding " << "\n"; 
 	  break;
 	}
       }
     }
   }
+  LogDebug("QuarkoniaTrackSelector") << stream.str();
   //
   // filling of output collection
   //
-  for ( size_t i=0; i<selectedTrackIndices.size(); ++i )  
-    product->push_back((*trackHandle)[i]);
+  for ( size_t i=0; i<selectedTrackIndices.size(); ++i ) 
+    product->push_back((*trackHandle)[selectedTrackIndices[i]]);
   //
   // debug output
   //
