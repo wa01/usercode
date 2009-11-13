@@ -79,7 +79,7 @@ def customise(process):
     src = cms.InputTag( "hltPixelTracks" ),
     particleType = cms.string( "mu-" )
   )
-  process.hltOniaPixelTrackSequence = cms.Sequence( process.HLTDoLocalPixelSequence
+  process.HLTOniaPixelTrackSequence = cms.Sequence( process.HLTDoLocalPixelSequence
                                                     + process.hltPixelTracks + process.hltPixelTrackCands )
   process.hltOniaPixelTrackSelector = cms.EDProducer("QuarkoniaTrackSelector",
     muonCandidates = cms.InputTag("hltL3MuonCandidates"),
@@ -150,7 +150,7 @@ def customise(process):
     src = cms.InputTag( "hltOniaCtfTracks" ),
     particleType = cms.string( "mu-" )
   )
-  process.hltOniaTrackSequence = cms.Sequence( process.HLTDoLocalStripSequence + process.hltOniaSeeds
+  process.HLTOniaTrackSequence = cms.Sequence( process.HLTDoLocalStripSequence + process.hltOniaSeeds
                                                + process.hltOniaCkfTrackCandidates
                                                + process.hltOniaCtfTracks + process.hltOniaCtfTrackCands )
   process.hltOniaCtfMassFilter = cms.EDFilter("HLTMuonTrackMassFilter",
@@ -176,10 +176,10 @@ def customise(process):
   process.HLT_Onia_8E29 = cms.Path( process.HLTBeginSequence + process.hltL1sOnia + process.hltPreOnia
                           + process.hltOniaMuL1Filter + process.HLTL2muonrecoSequence + process.hltOniaMuL2Filter
                           + process.HLTL3muonrecoSequence + process.hltOniaMuL3Filter
-                          + process.hltOniaPixelTrackSequence + process.hltPixelTrackCands
+                          + process.HLTOniaPixelTrackSequence + process.hltPixelTrackCands
                           + process.hltOniaPixelTrackSelector + process.hltOniaPixelTrackCands
                           + process.hltOniaPixelMassFilter
-                          + process.hltOniaTrackSequence + process.hltOniaCtfMassFilter
+                          + process.HLTOniaTrackSequence + process.hltOniaCtfMassFilter
                           + process.HLTEndSequence )
 
   process.schedule.insert( process.schedule.index(process.HLTriggerFinalPath), process.HLT_Onia_8E29 )
