@@ -96,10 +96,10 @@ def customise(process):
     particleType = cms.string( "mu-" )
   )
   process.hltOniaPixelMassFilter = cms.EDFilter("HLTMuonTrackMassFilter",
-    beamspot = cms.InputTag("hltOfflineBeamSpot"),
-    muonCandidates = cms.InputTag("hltL3MuonCandidates"),
-    trackCandidates = cms.InputTag("hltOniaPixelTrackCands"),
-    previousCandidates = cms.InputTag("hltOniaMuL3Filter"),
+    BeamSpotTag = cms.InputTag("hltOfflineBeamSpot"),
+    CandTag = cms.InputTag("hltL3MuonCandidates"),
+    TrackTag = cms.InputTag("hltOniaPixelTrackCands"),
+    PreviousCandTag = cms.InputTag("hltOniaMuL3Filter"),
     MinMasses = cms.vdouble(2.6),
     MaxMasses = cms.vdouble(3.6),
     checkCharge = cms.bool(False),
@@ -111,7 +111,7 @@ def customise(process):
     MinTrackHits = cms.int32(3),
     MaxTrackNormChi2 = cms.double(999999999.),
     MaxDzMuonTrack = cms.double(999.),
-    saveTag = cms.bool(True)
+    SaveTag = cms.untracked.bool(True)
   )
   process.hltOniaSeeds = cms.EDProducer("SeedGeneratorFromProtoTracksEDProducer",
     InputCollection = cms.InputTag("hltOniaPixelTrackSelector"),
@@ -154,10 +154,10 @@ def customise(process):
                                                + process.hltOniaCkfTrackCandidates
                                                + process.hltOniaCtfTracks + process.hltOniaCtfTrackCands )
   process.hltOniaCtfMassFilter = cms.EDFilter("HLTMuonTrackMassFilter",
-    beamspot = cms.InputTag("hltOfflineBeamSpot"),
-    muonCandidates = cms.InputTag("hltL3MuonCandidates"),
-    trackCandidates = cms.InputTag("hltOniaCtfTrackCands"),
-    previousCandidates = cms.InputTag("hltOniaPixelMassFilter"),
+    BeamSpotTag = cms.InputTag("hltOfflineBeamSpot"),
+    CandTag = cms.InputTag("hltL3MuonCandidates"),
+    TrackTag = cms.InputTag("hltOniaCtfTrackCands"),
+    PreviousCandTag = cms.InputTag("hltOniaPixelMassFilter"),
     MinMasses = cms.vdouble( 2.9 ),
     MaxMasses = cms.vdouble( 3.3 ),
     checkCharge = cms.bool(True),
@@ -169,7 +169,7 @@ def customise(process):
     MinTrackHits = cms.int32(5),
     MaxTrackNormChi2 = cms.double(999999999.),
     MaxDzMuonTrack = cms.double(0.5),
-    saveTag = cms.bool(True)
+    SaveTag = cms.untracked.bool(True)
   )
 
 

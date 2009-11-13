@@ -161,6 +161,7 @@ process.output = cms.OutputModule("PoolOutputModule",
 #process.schedule.extend([process.out_step])
 
 
+
 def customise(process):
 
   process.oniaTrajectoryBuilder = cms.ESProducer( "CkfTrajectoryBuilderESProducer",
@@ -240,7 +241,7 @@ def customise(process):
     src = cms.InputTag( "hltPixelTracks" ),
     particleType = cms.string( "mu-" )
   )
-  process.hltOniaPixelTrackSequence = cms.Sequence( process.HLTDoLocalPixelSequence
+  process.HLTOniaPixelTrackSequence = cms.Sequence( process.HLTDoLocalPixelSequence
                                                     + process.hltPixelTracks + process.hltPixelTrackCands )
   process.hltOniaPixelTrackSelector = cms.EDProducer("QuarkoniaTrackSelector",
     muonCandidates = cms.InputTag("hltL3MuonCandidates"),
@@ -257,10 +258,10 @@ def customise(process):
     particleType = cms.string( "mu-" )
   )
   process.hltOniaPixelMassFilter = cms.EDFilter("HLTMuonTrackMassFilter",
-    beamspot = cms.InputTag("hltOfflineBeamSpot"),
-    muonCandidates = cms.InputTag("hltL3MuonCandidates"),
-    trackCandidates = cms.InputTag("hltOniaPixelTrackCands"),
-    previousCandidates = cms.InputTag("hltOniaMuL3Filter"),
+    BeamSpotTag = cms.InputTag("hltOfflineBeamSpot"),
+    CandTag = cms.InputTag("hltL3MuonCandidates"),
+    TrackTag = cms.InputTag("hltOniaPixelTrackCands"),
+    PreviousCandTag = cms.InputTag("hltOniaMuL3Filter"),
     MinMasses = cms.vdouble(1.6),
     MaxMasses = cms.vdouble(4.6),
     checkCharge = cms.bool(False),
@@ -272,7 +273,7 @@ def customise(process):
     MinTrackHits = cms.int32(3),
     MaxTrackNormChi2 = cms.double(999999999.),
     MaxDzMuonTrack = cms.double(999.),
-    saveTag = cms.bool(True)
+    SaveTag = cms.untracked.bool(True)
   )
   process.hltOniaSeeds = cms.EDProducer("SeedGeneratorFromProtoTracksEDProducer",
     InputCollection = cms.InputTag("hltOniaPixelTrackSelector"),
@@ -311,14 +312,14 @@ def customise(process):
     src = cms.InputTag( "hltOniaCtfTracks" ),
     particleType = cms.string( "mu-" )
   )
-  process.hltOniaTrackSequence = cms.Sequence( process.HLTDoLocalStripSequence + process.hltOniaSeeds
+  process.HLTOniaTrackSequence = cms.Sequence( process.HLTDoLocalStripSequence + process.hltOniaSeeds
                                                + process.hltOniaCkfTrackCandidates
                                                + process.hltOniaCtfTracks + process.hltOniaCtfTrackCands )
   process.hltOniaCtfMassFilter = cms.EDFilter("HLTMuonTrackMassFilter",
-    beamspot = cms.InputTag("hltOfflineBeamSpot"),
-    muonCandidates = cms.InputTag("hltL3MuonCandidates"),
-    trackCandidates = cms.InputTag("hltOniaCtfTrackCands"),
-    previousCandidates = cms.InputTag("hltOniaPixelMassFilter"),
+    BeamSpotTag = cms.InputTag("hltOfflineBeamSpot"),
+    CandTag = cms.InputTag("hltL3MuonCandidates"),
+    TrackTag = cms.InputTag("hltOniaCtfTrackCands"),
+    PreviousCandTag = cms.InputTag("hltOniaPixelMassFilter"),
     MinMasses = cms.vdouble( 2.8 ),
     MaxMasses = cms.vdouble( 3.4 ),
     checkCharge = cms.bool(True),
@@ -330,33 +331,22 @@ def customise(process):
     MinTrackHits = cms.int32(5),
     MaxTrackNormChi2 = cms.double(999999999.),
     MaxDzMuonTrack = cms.double(0.5),
-    saveTag = cms.bool(True)
+    SaveTag = cms.untracked.bool(True)
   )
 
 
   process.HLT_Onia_8E29 = cms.Path( process.HLTBeginSequence + process.hltL1sOnia + process.hltPreOnia
                           + process.hltOniaMuL1Filter + process.HLTL2muonrecoSequence + process.hltOniaMuL2Filter
                           + process.HLTL3muonrecoSequence + process.hltOniaMuL3Filter
-                          + process.hltOniaPixelTrackSequence + process.hltPixelTrackCands
+                          + process.HLTOniaPixelTrackSequence + process.hltPixelTrackCands
                           + process.hltOniaPixelTrackSelector + process.hltOniaPixelTrackCands
                           + process.hltOniaPixelMassFilter
-                          + process.hltOniaTrackSequence + process.hltOniaCtfMassFilter
+                          + process.HLTOniaTrackSequence + process.hltOniaCtfMassFilter
                           + process.HLTEndSequence )
 
   process.schedule.insert( process.schedule.index(process.HLTriggerFinalPath), process.HLT_Onia_8E29 )
 
-#  process.load("HLTriggerOffline.HeavyFlavor.heavyFlavorValidationSequence_cff")
-#  process.load("HLTrigger/HLTanalyzers/hlTrigReport_cfi")
-#  process.heavyFlavorValidation_step = cms.Path(process.heavyFlavorValidationSequence+process.hlTrigReport)
-#  process.schedule.insert( process.schedule.index(process.endjob_step), process.heavyFlavorValidation_step )
-#  process.output.outputCommands = cms.untracked.vstring(
-#      'drop *',
-#      'keep *_MEtoEDMConverter_*_*'
-#  )
-#  process.output.fileName = cms.untracked.string('/tmp/heavyFlavorValidation.root')
-
   return process
-
 
 process = customise(process)
 
