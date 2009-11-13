@@ -289,7 +289,7 @@ HLTMuonTrackMassFilter::pairMatched (std::vector<reco::RecoChargedCandidateRef>&
   TrajectorySeed::const_iterator iseed;
   for ( size_t i=0; i<prevMuonRefs.size(); ++i ) {
     // identity of muon
-    if ( prevMuonRefs[i]==muonRef )  continue;
+    if ( prevMuonRefs[i]!=muonRef )  continue;
     // validity of Ref to previous track candidate
     reco::TrackRef prevTrackRef = prevTrackRefs[i]->track();
     if ( prevTrackRef.isNull() )  continue;
