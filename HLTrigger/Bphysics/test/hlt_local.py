@@ -10,13 +10,14 @@ process.source = cms.Source("PoolSource",
 #    'rfio:/castor/cern.ch/user/a/apana/L1Skims/3_1_2/1e31/MinBias_Summer09_1e31_1.root'
 #    'file:/tmp/adamwo/622EDA2D-7E8B-DE11-A882-00304877A648.root'
 #    '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v1/0000/DAD8907F-B1C8-DE11-ACA7-001D09F2546F.root'
- '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/B65667F8-9EC8-DE11-ABA3-0018F3D095EA.root',
- '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/A4805FB4-9BC8-DE11-9562-003048678F9C.root',
- '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/8AA3E877-96C8-DE11-BF14-0018F3D09688.root',
- '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/66934AD9-15C9-DE11-B455-001A92971B36.root',
- '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/5ACC083B-A6C8-DE11-8AF2-001731AF68C9.root',
- '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/44357DC6-99C8-DE11-985F-001A92810AA4.root',
- '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/405B5744-A2C8-DE11-A0E2-0018F3D096A2.root',
+
+# '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/B65667F8-9EC8-DE11-ABA3-0018F3D095EA.root',
+# '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/A4805FB4-9BC8-DE11-9562-003048678F9C.root',
+# '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/8AA3E877-96C8-DE11-BF14-0018F3D09688.root',
+# '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/66934AD9-15C9-DE11-B455-001A92971B36.root',
+# '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/5ACC083B-A6C8-DE11-8AF2-001731AF68C9.root',
+# '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/44357DC6-99C8-DE11-985F-001A92810AA4.root',
+# '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/405B5744-A2C8-DE11-A0E2-0018F3D096A2.root',
  '/store/relval/CMSSW_3_3_2/RelValJpsiMM/GEN-SIM-DIGI-RAW-HLTDEBUG/STARTUP31X_V8-v2/0000/28A228FA-A0C8-DE11-9531-001A92811738.root'
     ),
 #                            lumisToProcess = cms.untracked.VLuminosityBlockRange("1:100890-1:100890")
@@ -130,7 +131,7 @@ process.analyzerPath = cms.Path(
 #    process.triggerSummaryAnalyzerAOD #+
 #    process.muonPlusPixelTrack+
 #    process.contentAnalyzer+
-  process.l2analyzer+
+  process.l1analyzer + process.l2analyzer+
                                 process.l3analyzer+process.l35analyzer
 #                                +process.l1GtTrigReport
     )
@@ -195,8 +196,7 @@ def customise(process):
   process.hltL1sOnia = cms.EDFilter( "HLTLevel1GTSeed",
     L1TechTriggerSeeding = cms.bool( False ),
     L1UseAliasesForSeeding = cms.bool( True ),
-#    L1SeedsLogicalExpression = cms.string( "L1_SingleMuOpen OR L1_SingleMu0 OR L1_SingleMu3" ),
-    L1SeedsLogicalExpression = cms.string( "L1_SingleMu3" ),
+    L1SeedsLogicalExpression = cms.string( "L1_SingleMuOpen OR L1_SingleMu0 OR L1_SingleMu3" ),
     L1GtReadoutRecordTag = cms.InputTag( "hltGtDigis" ),
     L1GtObjectMapTag = cms.InputTag( "hltL1GtObjectMap" ),
     L1CollectionsTag = cms.InputTag( "hltL1extraParticles" ),
