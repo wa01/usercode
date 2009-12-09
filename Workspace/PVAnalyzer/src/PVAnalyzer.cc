@@ -77,6 +77,7 @@ private:
   unsigned short tkQualI_[3][NTKMAX];
   float tkQualF_[3][NTKMAX];
   float tkPar_[5][NTKMAX];
+  float tkErr_[5][NTKMAX];
   
 };
 
@@ -133,7 +134,7 @@ PVAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   bsPar_[0] = beamspot->x0();
   bsPar_[1] = beamspot->y0();
   bsPar_[2] = beamspot->z0();
-  
+  reco::Track::Point bsPos(beamspot->x0(),beamspot->y0(),beamspot->z0());
   
   npv_ = 0;
   dzpvpv_ = 999999.;
@@ -176,11 +177,16 @@ PVAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  tkQualF_[0][pvNTk_] = (**it).ndof();
 	  tkQualF_[1][pvNTk_] = (**it).normalizedChi2();
 	  tkQualF_[2][pvNTk_] = wgt;
-	  tkPar_[0][pvNTk_] = (**it).d0();
-	  tkPar_[1][pvNTk_] = (**it).dz();
+	  tkPar_[0][pvNTk_] = (**it).dxy(vertex.position());
+	  tkPar_[1][pvNTk_] = (**it).dz(vertex.position());
 	  tkPar_[2][pvNTk_] = (**it).pt();
 	  tkPar_[3][pvNTk_] = (**it).eta();
 	  tkPar_[4][pvNTk_] = (**it).phi();
+	  tkErr_[0][pvNTk_] = (**it).dxyError();
+	  tkErr_[1][pvNTk_] = (**it).dzError();
+	  tkErr_[2][pvNTk_] = (**it).ptError();
+	  tkErr_[3][pvNTk_] = (**it).etaError();
+	  tkErr_[4][pvNTk_] = (**it).phiError();
 	  ++pvNTk_;
 	}
       }
@@ -260,7 +266,11 @@ PVAnalyzer::beginJob()
   tree_->Branch("tkpt",&tkPar_[2][0],"pt[ntk]/F");
   tree_->Branch("tketa",&tkPar_[3][0],"eta[ntk]/F");
   tree_->Branch("tkphi",&tkPar_[4][0],"phi[ntk]/F");
-
+  tree_->Branch("tksigd0",&tkErr_[0][0],"sigd0[ntk]/F");
+  tree_->Branch("tksigdz",&tkErr_[1][0],"sigdz[ntk]/F");
+  tree_->Branch("tksigpt",&tkErr_[2][0],"sigpt[ntk]/F");
+  tree_->Branch("tksigeta",&tkErr_[3][0],"sigeta[ntk]/F");
+  tree_->Branch("tksigphi",&tkErr_[4][0],"sigphi[ntk]/F");
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
