@@ -3,6 +3,7 @@ import FWCore.ParameterSet.Config as cms
 process = cms.Process("Demo")
 
 process.load("FWCore.MessageService.MessageLogger_cfi")
+process.MessageLogger.cerr.FwkReport.reportEvery = cms.untracked.int32(1000)
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
@@ -12,6 +13,11 @@ process.source = cms.Source("PoolSource",
         'file:/tmp/adamwo/skimPV-Feb9.root'
     )
 )
+
+process.TFileService = cms.Service("TFileService", 
+                                   fileName = cms.string("histo.root"),
+                                   closeFileFast = cms.untracked.bool(True)
+                                   )
 
 process.demo = cms.EDAnalyzer('BeamSpotFitPV',
   minNrVerticesForFit = cms.uint32(100),

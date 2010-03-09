@@ -1,6 +1,8 @@
 <use name=Workspace/BeamSpotFitPV>
 <use name=DataFormats/VertexReco>
 <use name=DataFormats/BeamSpot>
+<use name=PhysicsTools/UtilAlgos>
+<use name=FWCore/ServiceRegistry>
 <use name=rootminuit2>
 <library file="*.cc" name=WorkspaceBeamSpotFitPVPlugins>
 <flags EDM_PLUGIN=1>
