@@ -1,4 +1,4 @@
-#include "Workspace/BeamSpotFitPV/interface/BeamSpotFitPV.h"
+#include "Workspace/BeamSpotFitPV/plugins/BeamSpotFitPV.h"
 #include "Workspace/BeamSpotFitPV/interface/FcnBeamSpotFitPV.h"
 #include "Minuit2/FCNBase.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
@@ -63,14 +63,13 @@ BeamSpotFitPV::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   // store vertex
   //
   if ( pvStore_.empty() ) {
-    firstEvents_.push_back(iEvent.id());
-    lastEvents_.push_back(iEvent.id());
+    firstEvent_ = lastEvent_ = iEvent.id();
 //     runs_.push_back(std::make_pair<iEvent.run(),iEvent.run()>);
 //     lumiBlocks_.push_back(std::make_pair<iEvent.luminosityBlock(),iEvent.luminosityBlock()>);
   }
   else {
-    if ( iEvent.id()<firstEvents_.back() )  firstEvents_.back() = iEvent.id();
-    if ( iEvent.id()>lastEvents_.back() )  lastEvents_.back() = iEvent.id();
+    if ( iEvent.id()<firstEvent_ )  firstEvent_ = iEvent.id();
+    if ( iEvent.id()>lastEvent_ )  lastEvent_ = iEvent.id();
   }
   BeamSpotFitPVData pvData;
 
@@ -102,28 +101,36 @@ BeamSpotFitPV::endJob() {
 void
 BeamSpotFitPV::beginRun (edm::Run const& run, edm::EventSetup const& setup)
 {
-  std::cout << "beginRun for run " << run.run() << std::endl;
+//   std::cout << "beginRun for run " << run.run() << std::endl;
 }
 
 void
 BeamSpotFitPV::endRun (edm::Run const& run, edm::EventSetup const& setup)
 {
-  std::cout << "endRun for run " << run.run() << std::endl;
+//   std::cout << "endRun for run " << run.run() << std::endl;
 }
 
 void
 BeamSpotFitPV::beginLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventSetup const& setup)
 {
-  std::cout << "beginLuminosityBlock for run / LS " << ls.run() 
-	    << " / " << ls.luminosityBlock() << std::endl;
+//   std::cout << "beginLuminosityBlock for run / LS " << ls.run() 
+// 	    << " / " << ls.luminosityBlock() << std::endl;
+  pvCountAtLS_ = pvStore_.size();
 }
 
 void
 BeamSpotFitPV::endLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventSetup const& setup)
 {
-  std::cout << "endLuminosityBlock for run / LS " << ls.run() 
-	    << " / " << ls.luminosityBlock() 
-	    << " pvStore size = " << pvStore_.size() << std::endl;
+//   std::cout << "endLuminosityBlock for run / LS " << ls.run() 
+// 	    << " / " << ls.luminosityBlock() 
+// 	    << " pvStore size = " << pvStore_.size() << std::endl;
+  if ( pvStore_.size()>pvCountAtLS_ ) {
+    LSBin newBin;
+    newBin.run = ls.run();
+    newBin.luminosityBlock = ls.luminosityBlock();
+    newBin.pvCount = pvStore_.size() - pvCountAtLS_;
+    luminosityBins_.insert(newBin);
+  }
   if ( pvStore_.size()>minNrVertices_ )  fitBeamspot();
 }
 
@@ -167,18 +174,28 @@ BeamSpotFitPV::fitBeamspot ()
 //   minuitx->ReleaseParameter(9);
 //   minuitx->Minimize();
 
+  FitResult result;
+  result.firstEvent = firstEvent_;
+  result.lastEvent = lastEvent_;
+  for ( unsigned int i=0; i<NFITPAR; ++i ) {
+    result.values[i] = minuitx->GetParameter(i);
+    result.errors[i] = minuitx->GetParError(i);
+  }
+  fitResults.push_back(result);
+
   std::cout << "Fitted beamspot for " << fcn->nrOfVerticesUsed()
 	    << " from run / LS " 
-	    << firstEvents_.back().run() << " / "
-	    << firstEvents_.back().luminosityBlock()
+	    << firstEvent_.run() << " / "
+	    << firstEvent_.luminosityBlock()
 	    << " to run / LS "
-	    << lastEvents_.back().run() << " / "
-	    << lastEvents_.back().luminosityBlock() << std::endl;
+	    << lastEvent_.run() << " / "
+	    << lastEvent_.luminosityBlock() << std::endl;
 
   pvStore_.clear();
 
   delete minuitx;
 //   delete fcn;
+
 }
 
 //define this as a plug-in

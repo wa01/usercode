@@ -22,6 +22,7 @@
 #include "Workspace/BeamSpotFitPV/interface/BeamSpotFitPVData.h"
 #include <algorithm>
 #include <vector>
+#include <set>
 
 class BeamSpotFitPV : public edm::EDAnalyzer {
 public:
@@ -58,10 +59,34 @@ private:
 
   std::vector<BeamSpotFitPVData> pvStore_;
 
-  std::vector<edm::EventID> firstEvents_;
-  std::vector<edm::EventID> lastEvents_;
-//   std::vector< std::pair<unsigned int, unsigned int> > runs_;
-//   std::vector< std::pair<unsigned int, unsigned int> > lumiBlocks_;
+  edm::EventID firstEvent_;
+  edm::EventID lastEvent_;
+
+  class LSBin {
+  public:
+    LSBin () : run(0), luminosityBlock(0), pvCount(0) {}
+    bool operator < (const LSBin& other) const {
+      return run<other.run ||
+	(run==other.run && luminosityBlock<other.luminosityBlock);
+    }
+    unsigned int run;
+    unsigned int luminosityBlock;
+    unsigned int pvCount;
+  };
+
+  unsigned int pvCountAtLS_;
+  std::set<LSBin> luminosityBins_;
+
+  static const unsigned int NFITPAR = 10;
+  class FitResult {
+  public:
+    FitResult () : values(NFITPAR,0), errors(NFITPAR,0) {}
+    std::vector<float> values;
+    std::vector<float> errors;
+    edm::EventID firstEvent;
+    edm::EventID lastEvent;
+  };
+  std::vector<FitResult> fitResults;
 };
 
 #endif
