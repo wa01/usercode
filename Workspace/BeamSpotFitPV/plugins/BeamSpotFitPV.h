@@ -21,6 +21,9 @@
 #include "FWCore/Framework/interface/LuminosityBlock.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 
+#include "FWCore/ServiceRegistry/interface/Service.h"
+#include "PhysicsTools/UtilAlgos/interface/TFileService.h"
+
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/InputTag.h"
 //
@@ -29,7 +32,6 @@
 #include "Workspace/BeamSpotFitPV/interface/BeamSpotFitPVData.h"
 #include <algorithm>
 #include <vector>
-// #include <set>
 
 class BeamSpotFitPV : public edm::EDAnalyzer {
 public:
@@ -48,6 +50,8 @@ private:
 
   // the actual fit
   void fitBeamspot ();
+  // saving results for one run
+  void saveResults (unsigned int run);
       // ----------member data ---------------------------
 
 private:
@@ -64,6 +68,8 @@ private:
   double maxVtxZ_;             //< max. longitudinal distance to beamspot
   double errorScale_;          //< error scaling to be applied to the vertex
   double sigmaCut_;            //< vertex selection at 2nd iteration of the fit (nsigma from BS)
+
+  edm::Service<TFileService>* tFileService_;
 
   std::vector<BeamSpotFitPVData> pvStore_; //< cache for PV data
 
@@ -90,7 +96,10 @@ private:
   };
 
   unsigned int pvCountAtLS_;   //< cache size at the start of the current luminosity block  
-  std::vector<LSBin> luminosityBins_; //< list of all luminosity blocks with at least one PV
+  unsigned int previousLuminosityBlock_; //< for check of contiguity
+  std::vector<LSBin> luminosityBins_;    //< list of all luminosity blocks with at least one PV
+
+  std::vector<unsigned int> processedRuns_;
 
   static const unsigned int NFITPAR = 10;
   //

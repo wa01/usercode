@@ -16,7 +16,9 @@ void drawBeamSpotGraph (TDirectory* directory, TH1* refHisto, const char* name)
   h->SetMinimum(ymin);
   h->SetMaximum(ymax);
   h->Draw();
+  graph->SetMarkerStyle(20);
   graph->Draw("P");
+  graph->Fit("pol0","same");
 }
 
 void drawBeamSpotGraphs (TDirectory* directory)
