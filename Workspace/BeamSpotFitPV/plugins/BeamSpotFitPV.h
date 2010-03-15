@@ -33,6 +33,12 @@
 #include <algorithm>
 #include <vector>
 
+namespace reco {
+  class Vertex;
+  class BeamSpot;
+}
+
+
 class BeamSpotFitPV : public edm::EDAnalyzer {
 public:
   explicit BeamSpotFitPV(const edm::ParameterSet&);
@@ -52,6 +58,13 @@ private:
   void fitBeamspot ();
   // saving results for one run
   void saveResults (unsigned int run);
+  // PV quality cuts
+  bool acceptVertex (const reco::Vertex& vertex,
+		     const reco::BeamSpot& beamspot) const;
+  // remove lowest-quality vertices from cache
+  void compressCache();
+  // clear cache and reset 
+  void resetCache();
       // ----------member data ---------------------------
 
 private:
@@ -69,12 +82,16 @@ private:
   double errorScale_;          //< error scaling to be applied to the vertex
   double sigmaCut_;            //< vertex selection at 2nd iteration of the fit (nsigma from BS)
 
+  double dynamicMinVtxNdf_;
+
   edm::Service<TFileService>* tFileService_;
 
   std::vector<BeamSpotFitPVData> pvStore_; //< cache for PV data
 
   edm::EventID firstEvent_;    //< event id for first PV in cache
   edm::EventID lastEvent_;     //< event id for last PV in cache
+
+  std::vector<float> pvNdfs_;
 
   //
   // helper class keeping the identification of luminosity blocks with at least one PV

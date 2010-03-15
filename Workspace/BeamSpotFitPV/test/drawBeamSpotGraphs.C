@@ -1,4 +1,5 @@
-void drawBeamSpotGraph (TDirectory* directory, TH1* refHisto, const char* name)
+void drawBeamSpotGraph (TDirectory* directory, TH1* refHisto, const char* name,
+			const char* fname)
 {
   TGraphErrors* graph = directory->Get(name);
   if ( graph==0 )  return;
@@ -6,7 +7,9 @@ void drawBeamSpotGraph (TDirectory* directory, TH1* refHisto, const char* name)
   char newName[64];
   newName[0] = 'c';
   strcpy(&newName[1],name);
-  TCanvas* c = new TCanvas(newName,newName);
+  std::string fullName(name);
+  if ( fname )  fullName += fname;
+  TCanvas* c = new TCanvas(fullName.c_str(),fullName.c_str());
   newName[0] = 'h';
   TH1* h = refHisto->Clone(newName);
   h->Reset();
@@ -18,21 +21,21 @@ void drawBeamSpotGraph (TDirectory* directory, TH1* refHisto, const char* name)
   h->Draw();
   graph->SetMarkerStyle(20);
   graph->Draw("P");
-  graph->Fit("pol0","same");
+  graph->Fit("pol1","same");
 }
 
-void drawBeamSpotGraphs (TDirectory* directory)
+void drawBeamSpotGraphs (TDirectory* directory, const char* fname=0)
 {
   TH1* refHisto = directory->Get("pvcounts");
   if ( refHisto==0 )  return;
 
-  drawBeamSpotGraph(directory,refHisto,"x");
-  drawBeamSpotGraph(directory,refHisto,"y");
-  drawBeamSpotGraph(directory,refHisto,"z");
-  drawBeamSpotGraph(directory,refHisto,"ex");
-  drawBeamSpotGraph(directory,refHisto,"ey");
-  drawBeamSpotGraph(directory,refHisto,"ez");
-  drawBeamSpotGraph(directory,refHisto,"corrxy");
-  drawBeamSpotGraph(directory,refHisto,"dxdz");
-  drawBeamSpotGraph(directory,refHisto,"dydz");
+  drawBeamSpotGraph(directory,refHisto,"x",fname);
+  drawBeamSpotGraph(directory,refHisto,"y",fname);
+  drawBeamSpotGraph(directory,refHisto,"z",fname);
+  drawBeamSpotGraph(directory,refHisto,"ex",fname);
+  drawBeamSpotGraph(directory,refHisto,"ey",fname);
+  drawBeamSpotGraph(directory,refHisto,"ez",fname);
+  drawBeamSpotGraph(directory,refHisto,"corrxy",fname);
+  drawBeamSpotGraph(directory,refHisto,"dxdz",fname);
+  drawBeamSpotGraph(directory,refHisto,"dydz",fname);
 }

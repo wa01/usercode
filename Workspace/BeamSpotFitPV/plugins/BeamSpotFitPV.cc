@@ -29,6 +29,7 @@ BeamSpotFitPV::BeamSpotFitPV(const edm::ParameterSet& iConfig) :
   tFileService_(0),
   previousLuminosityBlock_(0) {
   if ( minNrVertices_>maxNrVertices_ )  maxNrVertices_ = minNrVertices_;
+  dynamicMinVtxNdf_ = minVtxNdf_;
 }
 
 
@@ -55,16 +56,21 @@ BeamSpotFitPV::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   //
   if ( vertexHandle->size()<1 )  return;
   const reco::Vertex& pv = (*vertexHandle)[0];
-  if ( pv.isFake() || pv.tracksSize()==0 )  return;
-  if ( pv.ndof()<minVtxNdf_ || (pv.ndof()+3.)/pv.tracksSize()<2*minVtxWgt_ )  return;
-  if ( fabs(pv.z()-(*bsHandle).z0())>maxVtxZ_ ||
-       ((pv.x()-(*bsHandle).x0())*(pv.x()-(*bsHandle).x0())+
-	(pv.y()-(*bsHandle).y0())*(pv.y()-(*bsHandle).y0()))>maxVtxR_*maxVtxR_ )  return;
+//   if ( pv.isFake() || pv.tracksSize()==0 )  return;
+//   if ( pv.ndof()<minVtxNdf_ || (pv.ndof()+3.)/pv.tracksSize()<2*minVtxWgt_ )  return;
+//   if ( fabs(pv.z()-(*bsHandle).z0())>maxVtxZ_ ||
+//        ((pv.x()-(*bsHandle).x0())*(pv.x()-(*bsHandle).x0())+
+// 	(pv.y()-(*bsHandle).y0())*(pv.y()-(*bsHandle).y0()))>maxVtxR_*maxVtxR_ )  return;
+  if ( !acceptVertex(pv,*bsHandle) )  return;
   //
   // check, if vertex cache is full. if so, fit and reset
   //
-  if ( pvStore_.size()>=maxNrVertices_ )  
+  if ( pvStore_.size()>=maxNrVertices_ ) {
     std::cout << "Cache exceeded max. size - forcing fit and reset" << std::endl;
+    compressCache();
+    // recheck vertex with new ndf cut
+    if ( pv.ndof()<dynamicMinVtxNdf_ )  return;
+  }
   if ( pvStore_.size()>=maxNrVertices_ )  fitBeamspot();
   // keep track of first and last event
   if ( pvStore_.empty() ) {
@@ -87,6 +93,7 @@ BeamSpotFitPV::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   pvData.posCorr[0] = pv.covariance(0,1)/pv.xError()/pv.yError();
   pvData.posCorr[1] = pv.covariance(0,2)/pv.xError()/pv.zError();
   pvData.posCorr[2] = pv.covariance(1,2)/pv.yError()/pv.zError();
+  pvData.ndf = pv.ndof();
   pvStore_.push_back(pvData);
 
 }
@@ -121,7 +128,8 @@ BeamSpotFitPV::endRun (edm::Run const& run, edm::EventSetup const& setup)
   else {
     std::cout << "Insufficient nr. of vertices at endRun: " << pvStore_.size() << std::endl;
   }
-  pvStore_.clear();
+//   pvStore_.clear();
+  resetCache();
   //
   // write results
   //
@@ -171,8 +179,8 @@ BeamSpotFitPV::endLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventSet
   //
   if ( pvStore_.size()>minNrVertices_ )  fitBeamspot();
   else {
-    std::cout << "Insufficient nr. of vertices at endLuminosityBlock: " 
-	      << pvStore_.size() << std::endl;
+//     std::cout << "Insufficient nr. of vertices at endLuminosityBlock: " 
+// 	      << pvStore_.size() << std::endl;
   }
 }
 
@@ -248,7 +256,8 @@ BeamSpotFitPV::fitBeamspot ()
 				 << lastEvent_.run() << " / "
 				 << lastEvent_.luminosityBlock();
 
-  pvStore_.clear();
+//   pvStore_.clear();
+  resetCache();
 
   delete minuitx;
 //   delete fcn;
@@ -362,6 +371,61 @@ BeamSpotFitPV::saveResults (unsigned int run)
   previousLuminosityBlock_ = 0;
   luminosityBins_.clear();
   fitResults_.clear();
+}
+
+bool
+BeamSpotFitPV::acceptVertex (const reco::Vertex& pv,
+			     const reco::BeamSpot& bs) const
+{
+  if ( pv.isFake() || pv.tracksSize()==0 )  return false;
+  if ( pv.ndof()<dynamicMinVtxNdf_ || (pv.ndof()+3.)/pv.tracksSize()<2*minVtxWgt_ )  
+    return false;
+  if ( fabs(pv.z()-bs.z0())>maxVtxZ_ ||
+       ((pv.x()-bs.x0())*(pv.x()-bs.x0())+
+	(pv.y()-bs.y0())*(pv.y()-bs.y0()))>maxVtxR_*maxVtxR_ )  return false;
+  return true;
+}
+
+void
+BeamSpotFitPV::resetCache ()
+{
+  dynamicMinVtxNdf_ = minVtxNdf_;
+  pvStore_.clear();
+}
+
+void
+BeamSpotFitPV::compressCache ()
+{
+  //
+  // fill vertex ndfs
+  //
+  std::cout << "pvNdfs_ before " << pvNdfs_.size();
+  pvNdfs_.resize(pvStore_.size());
+  std::cout << " and after " << pvNdfs_.size() << " resize" << std::endl;
+  for ( unsigned int i=0; i<pvStore_.size(); ++i )
+    pvNdfs_[i] = pvStore_[i].ndf;
+  sort(pvNdfs_.begin(),pvNdfs_.end());
+  //
+  // set new cut to median
+  //
+  std::cout << "ndfs " << pvNdfs_.front() << " "
+	    << pvNdfs_[pvNdfs_.size()/2] << " "
+	    << pvNdfs_.back() << std::endl;
+  dynamicMinVtxNdf_ = pvNdfs_[pvNdfs_.size()/2];
+  std::cout << "Setting dynamicMinVtxNdf_ to " << dynamicMinVtxNdf_ << std::endl;
+  //
+  // remove all vertices failing the cut from the cache
+  //   (to be moved to a more efficient memory management!)
+  //
+  unsigned int iwrite(0);
+  for ( unsigned int i=0; i<pvStore_.size(); ++i ) {
+    if ( pvStore_[i].ndf<dynamicMinVtxNdf_ )  continue;
+    if ( i!=iwrite )  pvStore_[iwrite] = pvStore_[i];
+    ++iwrite;
+  }
+  std::cout << "Resizing pvStore_ from " << pvStore_.size()
+	    << " to " << iwrite << std::endl;
+  pvStore_.resize(iwrite);
 }
 
 //define this as a plug-in
