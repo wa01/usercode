@@ -188,6 +188,13 @@ BeamSpotFitPV::endLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventSet
 bool
 BeamSpotFitPV::fitBeamspot ()
 {
+  edm::LogInfo("BeamSpotFitPV")  << "Calling beamspot fit for " << pvCache_.size()
+				 << " from run / LS " 
+				 << firstEvent_.run() << " / "
+				 << firstEvent_.luminosityBlock()
+				 << " to run / LS "
+				 << lastEvent_.run() << " / "
+				 << lastEvent_.luminosityBlock();
   //
   // LL function and fitter
   //
@@ -216,12 +223,14 @@ BeamSpotFitPV::fitBeamspot ()
   minuitx.FixParameter(9);
   minuitx.SetMaxIterations(100);
 //   minuitx.SetPrintLevel(3);
+  minuitx.SetPrintLevel(0);
 
   int ierr(0);
   minuitx.CreateMinimizer();
   ierr = minuitx.Minimize();
   if ( ierr ) {
     edm::LogWarning("BeamSpotFitPV") << "minimization failed at 1st iteration";
+    resetCache();
     return false;
   }
   //
@@ -236,6 +245,7 @@ BeamSpotFitPV::fitBeamspot ()
   ierr = minuitx.Minimize();
   if ( ierr ) {
     edm::LogWarning("BeamSpotFitPV") << "minimization failed at 2nd iteration";
+    resetCache();
     return false;
   }
   //
@@ -246,7 +256,8 @@ BeamSpotFitPV::fitBeamspot ()
   minuitx.ReleaseParameter(7);
   ierr = minuitx.Minimize();
   if ( ierr ) {
-    edm::LogWarning("BeamSpotFitPV") << "minimization failed at 2rd iteration";
+    edm::LogWarning("BeamSpotFitPV") << "minimization failed at 3rd iteration";
+    resetCache();
     return false;
   }
   // refit with floating scale factor
@@ -256,7 +267,6 @@ BeamSpotFitPV::fitBeamspot ()
 //     edm::LogWarning("BeamSpotFitPV") << "minimization failed at 4th iteration";
 //     return false;
 //   }
-  std::cout << "Printing results" << std::endl;
   minuitx.PrintResults(0,0);
 
   FitResult result;
@@ -445,8 +455,6 @@ BeamSpotFitPV::compressCache ()
     if ( i!=iwrite )  pvCache_[iwrite] = pvCache_[i];
     ++iwrite;
   }
-  std::cout << "Resizing pvCache_ from " << pvCache_.size()
-	    << " to " << iwrite << std::endl;
   pvCache_.resize(iwrite);
   edm::LogInfo("BeamSpotFitPV") << "Setting dynamic quality cut_ to " << dynamicQualityCut_ 
 				<< " , new cache size = " << pvCache_.size();
