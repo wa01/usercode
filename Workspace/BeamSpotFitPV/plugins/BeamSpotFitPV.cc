@@ -29,8 +29,8 @@ BeamSpotFitPV::BeamSpotFitPV(const edm::ParameterSet& iConfig) :
   tFileService_(0),
   previousLuminosityBlock_(0) {
   if ( minNrVertices_>maxNrVertices_ )  maxNrVertices_ = minNrVertices_;
-  dynamicMinVtxNdf_ = minVtxNdf_;
-  dynamicMaxError2_ = 1.e30;
+//   dynamicMinVtxNdf_ = minVtxNdf_;
+  dynamicQualityCut_ = 1.e30;
 }
 
 
@@ -66,16 +66,16 @@ BeamSpotFitPV::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   //
   // check, if vertex cache is full. if so, fit and reset
   //
-  if ( pvStore_.size()>=maxNrVertices_ ) {
-    std::cout << "Cache exceeded max. size - forcing fit and reset" << std::endl;
+  if ( pvCache_.size()>=maxNrVertices_ ) {
+    edm::LogInfo("BeamSpotFitPV") << "Cache exceeded max. size - forcing fit and reset";
     compressCache();
     // recheck vertex with new ndf cut
 //     if ( pv.ndof()<dynamicMinVtxNdf_ )  return;
-    if ( errorSquare(pv)>dynamicMaxError2_ ) return;
+    if ( pvQuality(pv)>dynamicQualityCut_ ) return;
   }
-  if ( pvStore_.size()>=maxNrVertices_ )  fitBeamspot();
+  if ( pvCache_.size()>=maxNrVertices_ )  fitBeamspot();
   // keep track of first and last event
-  if ( pvStore_.empty() ) {
+  if ( pvCache_.empty() ) {
     firstEvent_ = lastEvent_ = iEvent.id();
   }
   else {
@@ -95,8 +95,8 @@ BeamSpotFitPV::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   pvData.posCorr[0] = pv.covariance(0,1)/pv.xError()/pv.yError();
   pvData.posCorr[1] = pv.covariance(0,2)/pv.xError()/pv.zError();
   pvData.posCorr[2] = pv.covariance(1,2)/pv.yError()/pv.zError();
-  pvData.ndf = pv.ndof();
-  pvStore_.push_back(pvData);
+//   pvData.ndf = pv.ndof();
+  pvCache_.push_back(pvData);
 
 }
 
@@ -126,11 +126,7 @@ BeamSpotFitPV::endRun (edm::Run const& run, edm::EventSetup const& setup)
   //
   // if there are any remaining vertices: fit
   //
-  if ( pvStore_.size()>minNrVertices_ )  fitBeamspot();
-  else {
-    std::cout << "Insufficient nr. of vertices at endRun: " << pvStore_.size() << std::endl;
-  }
-//   pvStore_.clear();
+  if ( pvCache_.size()>minNrVertices_ )  fitBeamspot();
   resetCache();
   //
   // write results
@@ -146,13 +142,13 @@ BeamSpotFitPV::beginLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventS
 //   //
 //   if ( ls.luminosityBlock() < previousLuminosityBlock_ ) {
 //     edm::LogWarning("BeamSpotFitPV")  << "luminosity blocks out of sequence";
-//     pvStore_.clear();
+//     pvCache_.clear();
 //   }
   previousLuminosityBlock_ = ls.luminosityBlock();
   //
   // store cache size at the start of the luminosity block
   //
-  pvCountAtLS_ = pvStore_.size();
+  pvCountAtLS_ = pvCache_.size();
 }
 
 void
@@ -161,11 +157,11 @@ BeamSpotFitPV::endLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventSet
   //
   // store id of the luminosity block if any vertex was selected
   //
-  if ( pvStore_.size()>pvCountAtLS_ ) {
+  if ( pvCache_.size()>pvCountAtLS_ ) {
     LSBin newBin;
     newBin.run = ls.run();
     newBin.luminosityBlock = ls.luminosityBlock();
-    newBin.pvCount = pvStore_.size() - pvCountAtLS_;
+    newBin.pvCount = pvCache_.size() - pvCountAtLS_;
     std::vector<LSBin>::iterator ibin = 
       find(luminosityBins_.begin(),luminosityBins_.end(),newBin);
     if ( ibin!=luminosityBins_.end() ) {
@@ -179,74 +175,96 @@ BeamSpotFitPV::endLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventSet
   //
   // fit results of the luminosity block, if minimum nr. of vertices was reached
   //
-  if ( pvStore_.size()>minNrVertices_ )  fitBeamspot();
+  if ( pvCache_.size()>minNrVertices_ )  fitBeamspot();
   else {
-//     std::cout << "Insufficient nr. of vertices at endLuminosityBlock: " 
-// 	      << pvStore_.size() << std::endl;
+    edm::LogInfo("BeamSpotFitPV") << "Insufficient nr. of vertices at endLuminosityBlock: " 
+				  << " ( run " << ls.run()
+				  << " ls " << ls.luminosityBlock() << " ): "
+				  << pvCache_.size();
   }
 }
 
 
-void
+bool
 BeamSpotFitPV::fitBeamspot ()
 {
   //
   // LL function and fitter
   //
-  FcnBeamSpotFitPV* fcn = new FcnBeamSpotFitPV(pvStore_);
-  TFitterMinuit* minuitx = new TFitterMinuit();
-  minuitx->SetMinuitFCN(fcn); 
+  FcnBeamSpotFitPV* fcn = new FcnBeamSpotFitPV(pvCache_);
+  TFitterMinuit minuitx;
+  minuitx.SetMinuitFCN(fcn); 
   //
   // fit parameters: positions, widths, x-y correlations, tilts in xz and yz
   //
-  minuitx->SetParameter(0,"x",0.,0.02,-10.,10.);
-  minuitx->SetParameter(1,"y",0.,0.02,-10.,10.);
-  minuitx->SetParameter(2,"z",0.,0.20,-30.,30.);
-  minuitx->SetParameter(3,"ex",0.015,0.01,0.,10.);
-  minuitx->SetParameter(4,"corrxy",0.,0.02,-1.,1.);
-  minuitx->SetParameter(5,"ey",0.015,0.01,0.,10.);
-  minuitx->SetParameter(6,"dxdz",0.,0.0002,-0.1,0.1);
-  minuitx->SetParameter(7,"dydz",0.,0.0002,-0.1,0.1);
-  minuitx->SetParameter(8,"ez",1.,0.1,0.,30.);
-  minuitx->SetParameter(9,"scale",0.9,0.1,0.5,2.);
+  minuitx.SetParameter(0,"x",0.,0.02,-10.,10.);
+  minuitx.SetParameter(1,"y",0.,0.02,-10.,10.);
+  minuitx.SetParameter(2,"z",0.,0.20,-30.,30.);
+  minuitx.SetParameter(3,"ex",0.015,0.01,0.,10.);
+  minuitx.SetParameter(4,"corrxy",0.,0.02,-1.,1.);
+  minuitx.SetParameter(5,"ey",0.015,0.01,0.,10.);
+  minuitx.SetParameter(6,"dxdz",0.,0.0002,-0.1,0.1);
+  minuitx.SetParameter(7,"dydz",0.,0.0002,-0.1,0.1);
+  minuitx.SetParameter(8,"ez",1.,0.1,0.,30.);
+  minuitx.SetParameter(9,"scale",0.9,0.1,0.5,2.);
   //
   // first iteration without correlations
   //
-  minuitx->FixParameter(4);
-  minuitx->FixParameter(6);
-  minuitx->FixParameter(7);
-  minuitx->FixParameter(9);
-  minuitx->SetMaxIterations(100);
-  minuitx->SetPrintLevel(3);
-  minuitx->CreateMinimizer();
-  minuitx->Minimize();
+  minuitx.FixParameter(4);
+  minuitx.FixParameter(6);
+  minuitx.FixParameter(7);
+  minuitx.FixParameter(9);
+  minuitx.SetMaxIterations(100);
+//   minuitx.SetPrintLevel(3);
+
+  int ierr(0);
+  minuitx.CreateMinimizer();
+  ierr = minuitx.Minimize();
+  if ( ierr ) {
+    edm::LogWarning("BeamSpotFitPV") << "minimization failed at 1st iteration";
+    return false;
+  }
   //
   // refit with harder selection on vertices
   //
-  fcn->setLimits(minuitx->GetParameter(0)-sigmaCut_*minuitx->GetParameter(3),
-		 minuitx->GetParameter(0)+sigmaCut_*minuitx->GetParameter(3),
-		 minuitx->GetParameter(1)-sigmaCut_*minuitx->GetParameter(5),
-		 minuitx->GetParameter(1)+sigmaCut_*minuitx->GetParameter(5),
-		 minuitx->GetParameter(2)-sigmaCut_*minuitx->GetParameter(8),
-		 minuitx->GetParameter(2)+sigmaCut_*minuitx->GetParameter(8));
-  minuitx->Minimize();
+  fcn->setLimits(minuitx.GetParameter(0)-sigmaCut_*minuitx.GetParameter(3),
+		 minuitx.GetParameter(0)+sigmaCut_*minuitx.GetParameter(3),
+		 minuitx.GetParameter(1)-sigmaCut_*minuitx.GetParameter(5),
+		 minuitx.GetParameter(1)+sigmaCut_*minuitx.GetParameter(5),
+		 minuitx.GetParameter(2)-sigmaCut_*minuitx.GetParameter(8),
+		 minuitx.GetParameter(2)+sigmaCut_*minuitx.GetParameter(8));
+  ierr = minuitx.Minimize();
+  if ( ierr ) {
+    edm::LogWarning("BeamSpotFitPV") << "minimization failed at 2nd iteration";
+    return false;
+  }
   //
   // refit with correlations
   //
-  minuitx->ReleaseParameter(4);
-  minuitx->ReleaseParameter(6);
-  minuitx->ReleaseParameter(7);
-  minuitx->Minimize();
+  minuitx.ReleaseParameter(4);
+  minuitx.ReleaseParameter(6);
+  minuitx.ReleaseParameter(7);
+  ierr = minuitx.Minimize();
+  if ( ierr ) {
+    edm::LogWarning("BeamSpotFitPV") << "minimization failed at 2rd iteration";
+    return false;
+  }
   // refit with floating scale factor
-//   minuitx->ReleaseParameter(9);
-//   minuitx->Minimize();
+//   minuitx.ReleaseParameter(9);
+//   ierr = minuitx.Minimize();
+//   if ( ierr ) {
+//     edm::LogWarning("BeamSpotFitPV") << "minimization failed at 4th iteration";
+//     return false;
+//   }
+  std::cout << "Printing results" << std::endl;
+  minuitx.PrintResults(0,0);
 
   FitResult result;
   result.firstEvent = firstEvent_;
   result.lastEvent = lastEvent_;
   for ( unsigned int i=0; i<NFITPAR; ++i ) {
-    result.values[i] = minuitx->GetParameter(i);
-    result.errors[i] = minuitx->GetParError(i);
+    result.values[i] = minuitx.GetParameter(i);
+    result.errors[i] = minuitx.GetParError(i);
   }
   fitResults_.push_back(result);
 
@@ -258,12 +276,10 @@ BeamSpotFitPV::fitBeamspot ()
 				 << lastEvent_.run() << " / "
 				 << lastEvent_.luminosityBlock();
 
-//   pvStore_.clear();
+//   pvCache_.clear();
   resetCache();
 
-  delete minuitx;
-//   delete fcn;
-
+  return true;
 }
 
 void
@@ -380,20 +396,20 @@ BeamSpotFitPV::acceptVertex (const reco::Vertex& pv,
 			     const reco::BeamSpot& bs) const
 {
   if ( pv.isFake() || pv.tracksSize()==0 )  return false;
-  if ( pv.ndof()<dynamicMinVtxNdf_ || (pv.ndof()+3.)/pv.tracksSize()<2*minVtxWgt_ )   return false;
+  if ( pv.ndof()<minVtxNdf_ || (pv.ndof()+3.)/pv.tracksSize()<2*minVtxWgt_ )   return false;
   if ( fabs(pv.z()-bs.z0())>maxVtxZ_ ||
        ((pv.x()-bs.x0())*(pv.x()-bs.x0())+
 	(pv.y()-bs.y0())*(pv.y()-bs.y0()))>maxVtxR_*maxVtxR_ )  return false;
-  if ( errorSquare(pv)>dynamicMaxError2_ )  return false;
+  if ( pvQuality(pv)>dynamicQualityCut_ )  return false;
   return true;
 }
 
 void
 BeamSpotFitPV::resetCache ()
 {
-  dynamicMinVtxNdf_ = minVtxNdf_;
-  dynamicMaxError2_ = 1.e30;
-  pvStore_.clear();
+//   dynamicMinVtxNdf_ = minVtxNdf_;
+  dynamicQualityCut_ = 1.e30;
+  pvCache_.clear();
 }
 
 void
@@ -402,51 +418,59 @@ BeamSpotFitPV::compressCache ()
   //
   // fill vertex ndfs
   //
-  std::cout << "pvNdfs_ before " << pvNdfs_.size();
-  pvNdfs_.resize(pvStore_.size());
-  std::cout << " and after " << pvNdfs_.size() << " resize" << std::endl;
-  for ( unsigned int i=0; i<pvStore_.size(); ++i )
-//     pvNdfs_[i] = pvStore_[i].ndf;
-    pvNdfs_[i] = errorSquare(pvStore_[i]);
-  sort(pvNdfs_.begin(),pvNdfs_.end());
+//   std::cout << "pvQualities_ before " << pvQualities_.size();
+  pvQualities_.resize(pvCache_.size());
+//   std::cout << " and after " << pvQualities_.size() << " resize" << std::endl;
+  for ( unsigned int i=0; i<pvCache_.size(); ++i )
+//     pvQualities_[i] = pvCache_[i].ndf;
+    pvQualities_[i] = pvQuality(pvCache_[i]);
+  sort(pvQualities_.begin(),pvQualities_.end());
   //
   // set new cut to median
   //
-  std::cout << "ndfs " << pvNdfs_.front() << " "
-	    << pvNdfs_[pvNdfs_.size()/2] << " "
-	    << pvNdfs_.back() << std::endl;
+//   std::cout << "ndfs " << pvQualities_.front() << " "
+// 	    << pvQualities_[pvQualities_.size()/2] << " "
+// 	    << pvQualities_.back() << std::endl;
 //   dynamicMinVtxNdf_ = pvNdfs_[pvNdfs_.size()/2];
 //   std::cout << "Setting dynamicMinVtxNdf_ to " << dynamicMinVtxNdf_ << std::endl;
-  dynamicMaxError2_ = pvNdfs_[pvNdfs_.size()/2];
-  std::cout << "Setting dynamicMaxError2_ to " << dynamicMaxError2_ << std::endl;
+  dynamicQualityCut_ = pvQualities_[pvQualities_.size()/2];
   //
   // remove all vertices failing the cut from the cache
   //   (to be moved to a more efficient memory management!)
   //
   unsigned int iwrite(0);
-  for ( unsigned int i=0; i<pvStore_.size(); ++i ) {
-//     if ( pvStore_[i].ndf<dynamicMinVtxNdf_ )  continue;
-    if ( errorSquare(pvStore_[i])>dynamicMaxError2_ )  continue;
-    if ( i!=iwrite )  pvStore_[iwrite] = pvStore_[i];
+  for ( unsigned int i=0; i<pvCache_.size(); ++i ) {
+//     if ( pvCache_[i].ndf<dynamicMinVtxNdf_ )  continue;
+    if ( pvQuality(pvCache_[i])>dynamicQualityCut_ )  continue;
+    if ( i!=iwrite )  pvCache_[iwrite] = pvCache_[i];
     ++iwrite;
   }
-  std::cout << "Resizing pvStore_ from " << pvStore_.size()
+  std::cout << "Resizing pvCache_ from " << pvCache_.size()
 	    << " to " << iwrite << std::endl;
-  pvStore_.resize(iwrite);
+  pvCache_.resize(iwrite);
+  edm::LogInfo("BeamSpotFitPV") << "Setting dynamic quality cut_ to " << dynamicQualityCut_ 
+				<< " , new cache size = " << pvCache_.size();
+
 }
 
 
 double
-BeamSpotFitPV::errorSquare (const reco::Vertex& pv) const
+BeamSpotFitPV::pvQuality (const reco::Vertex& pv) const
 {
+  //
+  // determinant of the transverse part of the PV covariance matrix
+  //
   return 
     pv.covariance(0,0)*pv.covariance(1,1)-
     pv.covariance(0,1)*pv.covariance(0,1);
 }
 
 double
-BeamSpotFitPV::errorSquare (const BeamSpotFitPVData& pv) const
+BeamSpotFitPV::pvQuality (const BeamSpotFitPVData& pv) const
 {
+  //
+  // determinant of the transverse part of the PV covariance matrix
+  //
   double ex = pv.posError[0];
   double ey = pv.posError[1];
   return ex*ex*ey*ey*(1-pv.posCorr[0]*pv.posCorr[0]);

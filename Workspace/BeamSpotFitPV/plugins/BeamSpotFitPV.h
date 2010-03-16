@@ -55,7 +55,7 @@ private:
   virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&);
 
   // the actual fit
-  void fitBeamspot ();
+  bool fitBeamspot ();
   // saving results for one run
   void saveResults (unsigned int run);
   // PV quality cuts
@@ -66,8 +66,10 @@ private:
   // clear cache and reset 
   void resetCache();
   // 
-  double errorSquare (const reco::Vertex& vertex) const;
-  double errorSquare (const BeamSpotFitPVData& vertex) const;
+  // quality criteria used for limiting cache size
+  //
+  double pvQuality (const reco::Vertex& vertex) const;
+  double pvQuality (const BeamSpotFitPVData& vertex) const;
       // ----------member data ---------------------------
 
 private:
@@ -85,17 +87,17 @@ private:
   double errorScale_;          //< error scaling to be applied to the vertex
   double sigmaCut_;            //< vertex selection at 2nd iteration of the fit (nsigma from BS)
 
-  double dynamicMinVtxNdf_;
-  double dynamicMaxError2_;
 
   edm::Service<TFileService>* tFileService_;
 
-  std::vector<BeamSpotFitPVData> pvStore_; //< cache for PV data
+  std::vector<BeamSpotFitPVData> pvCache_; //< cache for PV data
 
   edm::EventID firstEvent_;    //< event id for first PV in cache
   edm::EventID lastEvent_;     //< event id for last PV in cache
 
-  std::vector<float> pvNdfs_;
+//   double dynamicMinVtxNdf_;
+  double dynamicQualityCut_;
+  std::vector<float> pvQualities_;
 
   //
   // helper class keeping the identification of luminosity blocks with at least one PV
