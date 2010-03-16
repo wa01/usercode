@@ -30,6 +30,7 @@ BeamSpotFitPV::BeamSpotFitPV(const edm::ParameterSet& iConfig) :
   previousLuminosityBlock_(0) {
   if ( minNrVertices_>maxNrVertices_ )  maxNrVertices_ = minNrVertices_;
   dynamicMinVtxNdf_ = minVtxNdf_;
+  dynamicMaxError2_ = 1.e30;
 }
 
 
@@ -69,7 +70,8 @@ BeamSpotFitPV::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     std::cout << "Cache exceeded max. size - forcing fit and reset" << std::endl;
     compressCache();
     // recheck vertex with new ndf cut
-    if ( pv.ndof()<dynamicMinVtxNdf_ )  return;
+//     if ( pv.ndof()<dynamicMinVtxNdf_ )  return;
+    if ( errorSquare(pv)>dynamicMaxError2_ ) return;
   }
   if ( pvStore_.size()>=maxNrVertices_ )  fitBeamspot();
   // keep track of first and last event
@@ -378,11 +380,11 @@ BeamSpotFitPV::acceptVertex (const reco::Vertex& pv,
 			     const reco::BeamSpot& bs) const
 {
   if ( pv.isFake() || pv.tracksSize()==0 )  return false;
-  if ( pv.ndof()<dynamicMinVtxNdf_ || (pv.ndof()+3.)/pv.tracksSize()<2*minVtxWgt_ )  
-    return false;
+  if ( pv.ndof()<dynamicMinVtxNdf_ || (pv.ndof()+3.)/pv.tracksSize()<2*minVtxWgt_ )   return false;
   if ( fabs(pv.z()-bs.z0())>maxVtxZ_ ||
        ((pv.x()-bs.x0())*(pv.x()-bs.x0())+
 	(pv.y()-bs.y0())*(pv.y()-bs.y0()))>maxVtxR_*maxVtxR_ )  return false;
+  if ( errorSquare(pv)>dynamicMaxError2_ )  return false;
   return true;
 }
 
@@ -390,6 +392,7 @@ void
 BeamSpotFitPV::resetCache ()
 {
   dynamicMinVtxNdf_ = minVtxNdf_;
+  dynamicMaxError2_ = 1.e30;
   pvStore_.clear();
 }
 
@@ -403,7 +406,8 @@ BeamSpotFitPV::compressCache ()
   pvNdfs_.resize(pvStore_.size());
   std::cout << " and after " << pvNdfs_.size() << " resize" << std::endl;
   for ( unsigned int i=0; i<pvStore_.size(); ++i )
-    pvNdfs_[i] = pvStore_[i].ndf;
+//     pvNdfs_[i] = pvStore_[i].ndf;
+    pvNdfs_[i] = errorSquare(pvStore_[i]);
   sort(pvNdfs_.begin(),pvNdfs_.end());
   //
   // set new cut to median
@@ -411,21 +415,41 @@ BeamSpotFitPV::compressCache ()
   std::cout << "ndfs " << pvNdfs_.front() << " "
 	    << pvNdfs_[pvNdfs_.size()/2] << " "
 	    << pvNdfs_.back() << std::endl;
-  dynamicMinVtxNdf_ = pvNdfs_[pvNdfs_.size()/2];
-  std::cout << "Setting dynamicMinVtxNdf_ to " << dynamicMinVtxNdf_ << std::endl;
+//   dynamicMinVtxNdf_ = pvNdfs_[pvNdfs_.size()/2];
+//   std::cout << "Setting dynamicMinVtxNdf_ to " << dynamicMinVtxNdf_ << std::endl;
+  dynamicMaxError2_ = pvNdfs_[pvNdfs_.size()/2];
+  std::cout << "Setting dynamicMaxError2_ to " << dynamicMaxError2_ << std::endl;
   //
   // remove all vertices failing the cut from the cache
   //   (to be moved to a more efficient memory management!)
   //
   unsigned int iwrite(0);
   for ( unsigned int i=0; i<pvStore_.size(); ++i ) {
-    if ( pvStore_[i].ndf<dynamicMinVtxNdf_ )  continue;
+//     if ( pvStore_[i].ndf<dynamicMinVtxNdf_ )  continue;
+    if ( errorSquare(pvStore_[i])>dynamicMaxError2_ )  continue;
     if ( i!=iwrite )  pvStore_[iwrite] = pvStore_[i];
     ++iwrite;
   }
   std::cout << "Resizing pvStore_ from " << pvStore_.size()
 	    << " to " << iwrite << std::endl;
   pvStore_.resize(iwrite);
+}
+
+
+double
+BeamSpotFitPV::errorSquare (const reco::Vertex& pv) const
+{
+  return 
+    pv.covariance(0,0)*pv.covariance(1,1)-
+    pv.covariance(0,1)*pv.covariance(0,1);
+}
+
+double
+BeamSpotFitPV::errorSquare (const BeamSpotFitPVData& pv) const
+{
+  double ex = pv.posError[0];
+  double ey = pv.posError[1];
+  return ex*ex*ey*ey*(1-pv.posCorr[0]*pv.posCorr[0]);
 }
 
 //define this as a plug-in

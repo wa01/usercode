@@ -65,6 +65,9 @@ private:
   void compressCache();
   // clear cache and reset 
   void resetCache();
+  // 
+  double errorSquare (const reco::Vertex& vertex) const;
+  double errorSquare (const BeamSpotFitPVData& vertex) const;
       // ----------member data ---------------------------
 
 private:
@@ -83,6 +86,7 @@ private:
   double sigmaCut_;            //< vertex selection at 2nd iteration of the fit (nsigma from BS)
 
   double dynamicMinVtxNdf_;
+  double dynamicMaxError2_;
 
   edm::Service<TFileService>* tFileService_;
 
