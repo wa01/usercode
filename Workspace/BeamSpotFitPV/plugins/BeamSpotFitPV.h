@@ -32,12 +32,15 @@
 #include "Workspace/BeamSpotFitPV/interface/BeamSpotFitPVData.h"
 #include <algorithm>
 #include <vector>
+#include <map>
 
 namespace reco {
   class Vertex;
   class BeamSpot;
 }
 
+class TH1;
+class TH3;
 
 class BeamSpotFitPV : public edm::EDAnalyzer {
 public:
@@ -86,7 +89,7 @@ private:
   double maxVtxZ_;             //< max. longitudinal distance to beamspot
   double errorScale_;          //< error scaling to be applied to the vertex
   double sigmaCut_;            //< vertex selection at 2nd iteration of the fit (nsigma from BS)
-
+  bool produceHistograms_;     //< observed and estimated vertex distributions (time consuming!)
 
   edm::Service<TFileService>* tFileService_;
 
@@ -122,7 +125,6 @@ private:
   unsigned int previousLuminosityBlock_; //< for check of contiguity
   std::vector<LSBin> luminosityBins_;    //< list of all luminosity blocks with at least one PV
 
-  std::vector<unsigned int> processedRuns_;
 
   static const unsigned int NFITPAR = 10;
   //
@@ -140,6 +142,16 @@ private:
     edm::EventID lastEvent;
   };
   std::vector<FitResult> fitResults_; //< list of fit results
+
+  struct HistogramSet {
+    HistogramSet () : chi2(0), observed(0), estimated(0) {}
+    TH1* chi2;
+    TH3* observed;
+    TH3* estimated;
+  };
+  std::vector<unsigned int> processedRuns_;
+  std::vector<HistogramSet> pdfHistograms_;
+  std::vector<TFileDirectory> runDirectories_;
 };
 
 #endif

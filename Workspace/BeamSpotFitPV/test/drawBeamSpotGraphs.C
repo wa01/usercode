@@ -39,3 +39,10 @@ void drawBeamSpotGraphs (TDirectory* directory, const char* fname=0)
   drawBeamSpotGraph(directory,refHisto,"dxdz",fname);
   drawBeamSpotGraph(directory,refHisto,"dydz",fname);
 }
+
+void drawBeamSpotGraphs (TFile* file, const char* dirname,
+			 const char* fname=0)
+{
+  TDirectory* dir = (TDirectory*)file->FindObjectAny(dirname);
+  drawBeamSpotGraphs(dir,fname);
+}

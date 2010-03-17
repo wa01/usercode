@@ -19,6 +19,10 @@
 
 #include <vector> 
 
+class TAxis;
+class TH1;
+class TH3;
+
 class FcnBeamSpotFitPV : public ROOT::Minuit2::FCNBase { 
 public: 
   // constructor from vertex data
@@ -34,6 +38,11 @@ public:
   double operator() (const std::vector<double>&) const; 
   // vertex count used for the fit (after selection)
   unsigned int nrOfVerticesUsed () const;
+  // measured and expected PV distributions
+  void fillPdfs (TH3* hPos, TH3* hPdf, TH1* hChi2,
+		 const std::vector<float>& pars) const;
+private:
+  void getBins (TAxis* axis, std::vector<double>& centres) const;
 private: 
   const std::vector<BeamSpotFitPVData>& data_; //< vertex data
   double errorDef_;                            //< error definition for Minuit

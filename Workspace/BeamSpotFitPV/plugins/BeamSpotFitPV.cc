@@ -7,6 +7,7 @@
 #include "Minuit2/FCNBase.h"
 #include "TFile.h"
 #include "TH1F.h"
+#include "TH3F.h"
 #include "TGraphErrors.h"
 #include <iostream>
 #include <map>
@@ -26,6 +27,7 @@ BeamSpotFitPV::BeamSpotFitPV(const edm::ParameterSet& iConfig) :
   maxVtxZ_(iConfig.getParameter<double>("maxVertexZ")),
   errorScale_(iConfig.getParameter<double>("errorScale")),
   sigmaCut_(iConfig.getParameter<double>("nSigmaCut")),
+  produceHistograms_(iConfig.getParameter<bool>("histograms")),
   tFileService_(0),
   previousLuminosityBlock_(0) {
   if ( minNrVertices_>maxNrVertices_ )  maxNrVertices_ = minNrVertices_;
@@ -189,7 +191,7 @@ bool
 BeamSpotFitPV::fitBeamspot ()
 {
   edm::LogInfo("BeamSpotFitPV")  << "Calling beamspot fit for " << pvCache_.size()
-				 << " from run / LS " 
+				 << " vertices from run / LS " 
 				 << firstEvent_.run() << " / "
 				 << firstEvent_.luminosityBlock()
 				 << " to run / LS "
@@ -277,121 +279,155 @@ BeamSpotFitPV::fitBeamspot ()
     result.errors[i] = minuitx.GetParError(i);
   }
   fitResults_.push_back(result);
-
   edm::LogInfo("BeamSpotFitPV")  << "Fitted beamspot for " << fcn->nrOfVerticesUsed()
-				 << " from run / LS " 
+				 << " vertices from run / LS " 
 				 << firstEvent_.run() << " / "
 				 << firstEvent_.luminosityBlock()
 				 << " to run / LS "
 				 << lastEvent_.run() << " / "
 				 << lastEvent_.luminosityBlock();
-
+  //
+  // observed and estimated vertex distributions / run
+  //
+  if ( produceHistograms_ ) {
+    unsigned int run = firstEvent_.run();
+    std::vector<unsigned int>::iterator irun = 
+      find(processedRuns_.begin(),processedRuns_.end(),run);
+    if ( irun==processedRuns_.end() ) {
+      processedRuns_.push_back(run);
+      pdfHistograms_.push_back(HistogramSet());
+      char title[128];
+      sprintf(title,"Run%d",run);
+      runDirectories_.push_back((**tFileService_).mkdir(title));
+      irun = processedRuns_.end() - 1;
+    }
+    unsigned int index = irun - processedRuns_.begin();
+    HistogramSet& histograms = pdfHistograms_[index];
+    TFileDirectory& runDir = runDirectories_[index];
+    if ( histograms.chi2==0 ) {
+      histograms.chi2 = runDir.make<TH1F>("chi2","PV chi2 probability",200,0,1);
+      double xmin = minuitx.GetParameter(0) - 10*minuitx.GetParameter(3);
+      double xmax = minuitx.GetParameter(0) + 10*minuitx.GetParameter(3);
+      double ymin = minuitx.GetParameter(1) - 10*minuitx.GetParameter(5);
+      double ymax = minuitx.GetParameter(1) + 10*minuitx.GetParameter(5);
+      double zmin = minuitx.GetParameter(2) - 10*minuitx.GetParameter(8);
+      double zmax = minuitx.GetParameter(2) + 10*minuitx.GetParameter(8);
+      const int nbin(40);
+      histograms.observed = runDir.make<TH3F>("PVobs","Measured PV positions",
+					      nbin,xmin,xmax,nbin,ymin,ymax,nbin,zmin,zmax);
+      histograms.estimated = runDir.make<TH3F>("PVest","Estimated PV positions",
+					       nbin,xmin,xmax,nbin,ymin,ymax,nbin,zmin,zmax);
+    }
+    edm::LogInfo("BeamSpotFitPV") << "Filling pdf histograms";
+    fcn->fillPdfs(histograms.observed,histograms.estimated,histograms.chi2,
+		  result.values);
+  }
 //   pvCache_.clear();
   resetCache();
 
   return true;
 }
 
+
 void
 BeamSpotFitPV::saveResults (unsigned int run)
 {
-  if ( find(processedRuns_.begin(),processedRuns_.end(),run)==
-       processedRuns_.end() ) {
+  if ( luminosityBins_.empty() )  return;
+
+  std::vector<unsigned int>::iterator irun = 
+    find(processedRuns_.begin(),processedRuns_.end(),run);
+  if ( irun==processedRuns_.end() ) {
     processedRuns_.push_back(run);
-    if ( !luminosityBins_.empty() ) {
-      //
-      // create histograms and graphs
-      //
-      char title[128];
-      sprintf(title,"Run%d",run);
-      TFileDirectory runDir = (**tFileService_).mkdir(title);
-      //
-      // sort list of luminosity blocks (just for safety)
-      //
-      std::sort(luminosityBins_.begin(),luminosityBins_.end());
-      //
-      // histogram of number of primary vertices / luminosity block
-      // 
-      unsigned int nls = luminosityBins_.size();
-      TH1* h_count = 
-	runDir.make<TH1F>("pvcounts","Nr. of selected primary vertices",nls,0.,nls);
-      //
-      // labels and bin contents
-      //
-      unsigned int ibin(0);
-      TAxis* axis = h_count->GetXaxis();
-      for ( std::vector<LSBin>::const_iterator i=luminosityBins_.begin();
-	    i!=luminosityBins_.end(); ++i ) {
-	if ( i->run!=run ) {
-	  edm::LogWarning("BeamSpotFitPV")  << "Inconsistent run number in BeamSpotFitPV::saveResults";
-	}
-	sprintf(title,"%d",i->luminosityBlock);
-	++ibin;
-	h_count->SetBinContent(ibin,i->pvCount);
-	axis->SetBinLabel(ibin,title);
-      }
-      sprintf(title,"Luminosity block, run %d",run);
-      axis->SetTitle(title);
-      //
-      // definition of graphs of all fitted parameters
-      //
-      std::vector<TGraphErrors*> graphs;
-      for ( unsigned int i=0; i<NFITPAR; ++i )  
-	graphs.push_back(runDir.make<TGraphErrors>());
-      graphs[0]->SetName("x");
-      graphs[1]->SetName("y");
-      graphs[2]->SetName("z");
-      graphs[3]->SetName("ex");
-      graphs[4]->SetName("corrxy");
-      graphs[5]->SetName("ey");
-      graphs[6]->SetName("dxdz");
-      graphs[7]->SetName("dydz");
-      graphs[8]->SetName("ez");
-      graphs[9]->SetName("scale");
-      //
-      // filling of graphs (x-axis corresponds to the bins
-      // in the histogram above)
-      //
-      LSBin resbin;
-      unsigned int np(0);
-      for ( unsigned int i=0; i<fitResults_.size(); ++i ) {
-	const FitResult& fitResult = fitResults_[i];
-	//
-	// find bin range by looking up event ids in the list of luminosity blocks
-	// 
-	resbin.run = fitResult.firstEvent.run();
-	resbin.luminosityBlock = fitResult.firstEvent.luminosityBlock();
-	std::vector<LSBin>::const_iterator ifirst = 
-	  std::find(luminosityBins_.begin(),luminosityBins_.end(),resbin);
-	resbin.run = fitResult.lastEvent.run();
-	resbin.luminosityBlock = fitResult.lastEvent.luminosityBlock();
-	std::vector<LSBin>::const_iterator ilast = 
-	  std::find(luminosityBins_.begin(),luminosityBins_.end(),resbin);
-	if ( ifirst==luminosityBins_.end() || ilast==luminosityBins_.end() ) {
-	  edm::LogWarning("BeamSpotFitPV")  << "Did not find luminosity bin for result!!";
-	  continue;
-	}
-	unsigned int ibfirst = ifirst - luminosityBins_.begin() + 1;
-	unsigned int iblast = ilast - luminosityBins_.begin() + 1;
-	//
-	// store values
-	//
-	for ( unsigned int j=0; j<NFITPAR; ++j ) {
-	  graphs[j]->SetPoint(np,(ibfirst+iblast)/2.,fitResult.values[j]);
-	  graphs[j]->SetPointError(np,(iblast-ibfirst)/2.,fitResult.errors[j]);
-	}
-	++np;
-      }
-      //
-      // mandatory "Write" for TGraphErrors
-      //
-      for ( unsigned int i=0; i<NFITPAR; ++i )  graphs[i]->Write();
+    pdfHistograms_.push_back(HistogramSet());
+    char title[128];
+    sprintf(title,"Run%d",run);
+    runDirectories_.push_back((**tFileService_).mkdir(title));
+    irun = processedRuns_.end() - 1;
+  }
+  unsigned int index = irun - processedRuns_.begin();
+  TFileDirectory& runDir = runDirectories_[index];
+  //
+  // sort list of luminosity blocks (just for safety)
+  //
+  std::sort(luminosityBins_.begin(),luminosityBins_.end());
+  //
+  // histogram of number of primary vertices / luminosity block
+  // 
+  unsigned int nls = luminosityBins_.size();
+  TH1* h_count = 
+    runDir.make<TH1F>("pvcounts","Nr. of selected primary vertices",nls,0.,nls);
+  //
+  // labels and bin contents
+  //
+  char title[128];
+  unsigned int ibin(0);
+  TAxis* axis = h_count->GetXaxis();
+  for ( std::vector<LSBin>::const_iterator i=luminosityBins_.begin();
+	i!=luminosityBins_.end(); ++i ) {
+    if ( i->run!=run ) {
+      edm::LogWarning("BeamSpotFitPV")  << "Inconsistent run number in BeamSpotFitPV::saveResults";
     }
+    sprintf(title,"%d",i->luminosityBlock);
+    ++ibin;
+    h_count->SetBinContent(ibin,i->pvCount);
+    axis->SetBinLabel(ibin,title);
   }
-  else {
-    edm::LogWarning("BeamSpotFitPV")  << "Duplicate run " << run
-				      << " in BeamSpotFitPV::saveResults";
+  sprintf(title,"Luminosity block, run %d",run);
+  axis->SetTitle(title);
+  //
+  // definition of graphs of all fitted parameters
+  //
+  std::vector<TGraphErrors*> graphs;
+  for ( unsigned int i=0; i<NFITPAR; ++i )  
+    graphs.push_back(runDir.make<TGraphErrors>());
+  graphs[0]->SetName("x");
+  graphs[1]->SetName("y");
+  graphs[2]->SetName("z");
+  graphs[3]->SetName("ex");
+  graphs[4]->SetName("corrxy");
+  graphs[5]->SetName("ey");
+  graphs[6]->SetName("dxdz");
+  graphs[7]->SetName("dydz");
+  graphs[8]->SetName("ez");
+  graphs[9]->SetName("scale");
+  //
+  // filling of graphs (x-axis corresponds to the bins
+  // in the histogram above)
+  //
+  LSBin resbin;
+  unsigned int np(0);
+  for ( unsigned int i=0; i<fitResults_.size(); ++i ) {
+    const FitResult& fitResult = fitResults_[i];
+    //
+    // find bin range by looking up event ids in the list of luminosity blocks
+    // 
+    resbin.run = fitResult.firstEvent.run();
+    resbin.luminosityBlock = fitResult.firstEvent.luminosityBlock();
+    std::vector<LSBin>::const_iterator ifirst = 
+      std::find(luminosityBins_.begin(),luminosityBins_.end(),resbin);
+    resbin.run = fitResult.lastEvent.run();
+    resbin.luminosityBlock = fitResult.lastEvent.luminosityBlock();
+    std::vector<LSBin>::const_iterator ilast = 
+      std::find(luminosityBins_.begin(),luminosityBins_.end(),resbin);
+    if ( ifirst==luminosityBins_.end() || ilast==luminosityBins_.end() ) {
+      edm::LogWarning("BeamSpotFitPV")  << "Did not find luminosity bin for result!!";
+      continue;
+    }
+    unsigned int ibfirst = ifirst - luminosityBins_.begin() + 1;
+    unsigned int iblast = ilast - luminosityBins_.begin() + 1;
+    //
+    // store values
+    //
+    for ( unsigned int j=0; j<NFITPAR; ++j ) {
+      graphs[j]->SetPoint(np,(ibfirst+iblast)/2.,fitResult.values[j]);
+      graphs[j]->SetPointError(np,(iblast-ibfirst)/2.,fitResult.errors[j]);
+    }
+    ++np;
   }
+  //
+  // mandatory "Write" for TGraphErrors
+  //
+  for ( unsigned int i=0; i<NFITPAR; ++i )  graphs[i]->Write();
   //
   // clear arrays
   //
