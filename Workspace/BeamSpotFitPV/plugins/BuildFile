@@ -1,7 +1,7 @@
 <use name=Workspace/BeamSpotFitPV>
 <use name=DataFormats/VertexReco>
 <use name=DataFormats/BeamSpot>
-<use name=PhysicsTools/UtilAlgos>
+<use name=CommonTools/UtilAlgos>
 <use name=FWCore/ServiceRegistry>
 <use name=FWCore/MessageLogger>
 <use name=rootminuit2>
