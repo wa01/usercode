@@ -41,12 +41,60 @@ namespace reco {
 
 class TH1;
 class TH3;
+class TGraphErrors;
 
 class BeamSpotFitPV : public edm::EDAnalyzer {
 public:
   explicit BeamSpotFitPV(const edm::ParameterSet&);
   ~BeamSpotFitPV() {}
   
+private:
+  //
+  // helper class keeping the identification of luminosity blocks with at least one PV
+  //
+  class LSBin {
+  public:
+    LSBin () : run(0), luminosityBlock(0), pvCount(0) {}
+    bool operator < (const LSBin& other) const {
+      return run<other.run ||
+	(run==other.run && luminosityBlock<other.luminosityBlock);
+    }
+    bool operator == (const LSBin& other) const {
+      return 
+	run==other.run && luminosityBlock==other.luminosityBlock;
+    }
+    unsigned int run;
+    unsigned int luminosityBlock;
+    unsigned int pvCount;
+  };
+
+  static const unsigned int NFITPAR = 10;
+  //
+  // class storing values and uncertainties for one fit
+  //
+  class FitResult {
+  public:
+    FitResult () : values(NFITPAR,0), errors(NFITPAR,0) {}
+    // fitted values
+    std::vector<float> values;
+    // fitted uncertainties
+    std::vector<float> errors;
+    // first and last event corresponding to the fit
+    edm::EventID firstEvent;
+    edm::EventID lastEvent;
+  };
+  struct RunResult {
+    RunResult() : h_chi2(0), 
+		  h_observedPosition(0), 
+		  h_estimatedPosition(0) {}
+    unsigned int run;
+    std::vector<FitResult> fitResults;
+    std::vector<LSBin> luminosityBins;
+    TH1* h_chi2;
+    TH3* h_observedPosition;
+    TH3* h_estimatedPosition;
+    std::vector<TGraphErrors*> fitResultGraphs;
+  };
 
 private:
   virtual void beginJob() ;
@@ -68,6 +116,8 @@ private:
   void compressCache();
   // clear cache and reset 
   void resetCache();
+  // find run index (create, if not present)
+  unsigned int findRunIndex (unsigned int run);
   // 
   // quality criteria used for limiting cache size
   //
@@ -89,6 +139,7 @@ private:
   double maxVtxZ_;             //< max. longitudinal distance to beamspot
   double errorScale_;          //< error scaling to be applied to the vertex
   double sigmaCut_;            //< vertex selection at 2nd iteration of the fit (nsigma from BS)
+  bool assumeContiguousRuns_;  //< if false: keep all results until end of job
   bool produceHistograms_;     //< observed and estimated vertex distributions (time consuming!)
 
   edm::Service<TFileService>* tFileService_;
@@ -102,55 +153,31 @@ private:
   double dynamicQualityCut_;
   std::vector<float> pvQualities_;
 
-  //
-  // helper class keeping the identification of luminosity blocks with at least one PV
-  //
-  class LSBin {
-  public:
-    LSBin () : run(0), luminosityBlock(0), pvCount(0) {}
-    bool operator < (const LSBin& other) const {
-      return run<other.run ||
-	(run==other.run && luminosityBlock<other.luminosityBlock);
-    }
-    bool operator == (const LSBin& other) const {
-      return 
-	run==other.run && luminosityBlock==other.luminosityBlock;
-    }
-    unsigned int run;
-    unsigned int luminosityBlock;
-    unsigned int pvCount;
-  };
+  // process run data? (protection against multiple segments with assumeContiguousRuns=true)
+  bool processRun_;
+
 
   unsigned int pvCountAtLS_;   //< cache size at the start of the current luminosity block  
   unsigned int previousLuminosityBlock_; //< for check of contiguity
-  std::vector<LSBin> luminosityBins_;    //< list of all luminosity blocks with at least one PV
+//   std::vector<LSBin> luminosityBins_;    //< list of all luminosity blocks with at least one PV
 
 
-  static const unsigned int NFITPAR = 10;
-  //
-  // class storing values and uncertainties for one fit
-  //
-  class FitResult {
-  public:
-    FitResult () : values(NFITPAR,0), errors(NFITPAR,0) {}
-    // fitted values
-    std::vector<float> values;
-    // fitted uncertainties
-    std::vector<float> errors;
-    // first and last event corresponding to the fit
-    edm::EventID firstEvent;
-    edm::EventID lastEvent;
-  };
-  std::vector<FitResult> fitResults_; //< list of fit results
+//   std::vector<FitResult> fitResults_; //< list of fit results
 
-  struct HistogramSet {
-    HistogramSet () : chi2(0), observed(0), estimated(0) {}
-    TH1* chi2;
-    TH3* observed;
-    TH3* estimated;
-  };
+//   struct HistogramSet {
+//     HistogramSet () : chi2(0), observed(0), estimated(0) {
+//       for ( unsigned int i=0; i<NFITPAR; ++i )  graphs[i] = 0;
+//     }
+//     TH1* chi2;
+//     TH3* observed;
+//     TH3* estimated;
+//     std::vector<TGraphErrors*> graphs;
+//   };
+
+  std::vector<RunResult> runResults_;
+
   std::vector<unsigned int> processedRuns_;
-  std::vector<HistogramSet> pdfHistograms_;
+//   std::vector<HistogramSet> pdfHistograms_;
   std::vector<TFileDirectory> runDirectories_;
 };
 

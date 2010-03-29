@@ -27,9 +27,11 @@ BeamSpotFitPV::BeamSpotFitPV(const edm::ParameterSet& iConfig) :
   maxVtxZ_(iConfig.getParameter<double>("maxVertexZ")),
   errorScale_(iConfig.getParameter<double>("errorScale")),
   sigmaCut_(iConfig.getParameter<double>("nSigmaCut")),
+  assumeContiguousRuns_(iConfig.getParameter<bool>("assumeContiguousRuns")),
   produceHistograms_(iConfig.getParameter<bool>("histograms")),
-  tFileService_(0),
-  previousLuminosityBlock_(0) {
+  tFileService_(0) //,
+			    //previousLuminosityBlock_(0) 
+{
   if ( minNrVertices_>maxNrVertices_ )  maxNrVertices_ = minNrVertices_;
 //   dynamicMinVtxNdf_ = minVtxNdf_;
   dynamicQualityCut_ = 1.e30;
@@ -42,6 +44,10 @@ BeamSpotFitPV::BeamSpotFitPV(const edm::ParameterSet& iConfig) :
 void
 BeamSpotFitPV::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
+  //
+  // process run (protection against multiple segments of the same run)?
+  //
+  if ( !processRun_ )  return;
   //
   // offline beamspot
   //
@@ -59,11 +65,6 @@ BeamSpotFitPV::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   //
   if ( vertexHandle->size()<1 )  return;
   const reco::Vertex& pv = (*vertexHandle)[0];
-//   if ( pv.isFake() || pv.tracksSize()==0 )  return;
-//   if ( pv.ndof()<minVtxNdf_ || (pv.ndof()+3.)/pv.tracksSize()<2*minVtxWgt_ )  return;
-//   if ( fabs(pv.z()-(*bsHandle).z0())>maxVtxZ_ ||
-//        ((pv.x()-(*bsHandle).x0())*(pv.x()-(*bsHandle).x0())+
-// 	(pv.y()-(*bsHandle).y0())*(pv.y()-(*bsHandle).y0()))>maxVtxR_*maxVtxR_ )  return;
   if ( !acceptVertex(pv,*bsHandle) )  return;
   //
   // check, if vertex cache is full. if so, fit and reset
@@ -111,7 +112,16 @@ BeamSpotFitPV::beginJob()
 
 // ------------ method called once each job just after ending the event loop  ------------
 void 
-BeamSpotFitPV::endJob() {
+BeamSpotFitPV::endJob() 
+{
+  //
+  // save results (if not already done)
+  //
+  if ( !assumeContiguousRuns_ ) {
+    edm::LogInfo("BeamSpotFitPV") << "saving all results in endJob";
+    for ( unsigned int i=0; i<processedRuns_.size(); ++i ) 
+      saveResults(processedRuns_[i]);
+  }
 
   delete tFileService_;
 }
@@ -119,21 +129,30 @@ BeamSpotFitPV::endJob() {
 void
 BeamSpotFitPV::beginRun (edm::Run const& run, edm::EventSetup const& setup)
 {
-  previousLuminosityBlock_ = 0;
+//   previousLuminosityBlock_ = 0;
+  processRun_ = true;
+  if ( assumeContiguousRuns_ && 
+       find(processedRuns_.begin(),processedRuns_.end(),run.run())!=processedRuns_.end() ) {
+    edm::LogWarning("BeamSpotFitPV") << "New beginRun for already processed run " << run.run()
+				     << " with assumeContiguousRuns=true - will ignore additional data";
+    processRun_ = false;
+  }
 }
 
 void
 BeamSpotFitPV::endRun (edm::Run const& run, edm::EventSetup const& setup)
 {
   //
+  if ( !processRun_ )  return;
+  //
   // if there are any remaining vertices: fit
   //
   if ( pvCache_.size()>minNrVertices_ )  fitBeamspot();
   resetCache();
   //
-  // write results
+  // write results if contiguous runs are assumed
   //
-  saveResults(run.run());
+  if ( assumeContiguousRuns_ )  saveResults(run.run());
 }
 
 void
@@ -146,7 +165,10 @@ BeamSpotFitPV::beginLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventS
 //     edm::LogWarning("BeamSpotFitPV")  << "luminosity blocks out of sequence";
 //     pvCache_.clear();
 //   }
-  previousLuminosityBlock_ = ls.luminosityBlock();
+  //
+  if ( !processRun_ )  return;
+  //
+//   previousLuminosityBlock_ = ls.luminosityBlock();
   //
   // store cache size at the start of the luminosity block
   //
@@ -157,6 +179,8 @@ void
 BeamSpotFitPV::endLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventSetup const& setup)
 {
   //
+  if ( !processRun_ )  return;
+  //
   // store id of the luminosity block if any vertex was selected
   //
   if ( pvCache_.size()>pvCountAtLS_ ) {
@@ -164,20 +188,25 @@ BeamSpotFitPV::endLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventSet
     newBin.run = ls.run();
     newBin.luminosityBlock = ls.luminosityBlock();
     newBin.pvCount = pvCache_.size() - pvCountAtLS_;
+
+    unsigned int index = findRunIndex(ls.run());
+    RunResult& runResult = runResults_[index];
     std::vector<LSBin>::iterator ibin = 
-      find(luminosityBins_.begin(),luminosityBins_.end(),newBin);
-    if ( ibin!=luminosityBins_.end() ) {
+      find(runResult.luminosityBins.begin(),runResult.luminosityBins.end(),newBin);
+    if ( ibin!=runResult.luminosityBins.end() ) {
       edm::LogWarning("BeamSpotFitPV")  << "Found identical luminosity bin";
       ibin->pvCount += newBin.pvCount;
     }
     else {
-      luminosityBins_.push_back(newBin);
+      runResult.luminosityBins.push_back(newBin);
     }
   }
   //
   // fit results of the luminosity block, if minimum nr. of vertices was reached
   //
-  if ( pvCache_.size()>minNrVertices_ )  fitBeamspot();
+  if ( pvCache_.size()>minNrVertices_ ) {
+    fitBeamspot();
+  }
   else {
     edm::LogInfo("BeamSpotFitPV") << "Insufficient nr. of vertices at endLuminosityBlock: " 
 				  << " ( run " << ls.run()
@@ -278,7 +307,13 @@ BeamSpotFitPV::fitBeamspot ()
     result.values[i] = minuitx.GetParameter(i);
     result.errors[i] = minuitx.GetParError(i);
   }
-  fitResults_.push_back(result);
+
+  unsigned int run = firstEvent_.run();
+  unsigned int index = findRunIndex(run);
+  RunResult& runResult = runResults_[index];
+  if ( runResult.luminosityBins.empty() )
+    edm::LogError("BeamSpotFitPV") << "storing fit results into empty RunResult object";
+  runResult.fitResults.push_back(result);
   edm::LogInfo("BeamSpotFitPV")  << "Fitted beamspot for " << fcn->nrOfVerticesUsed()
 				 << " vertices from run / LS " 
 				 << firstEvent_.run() << " / "
@@ -289,23 +324,10 @@ BeamSpotFitPV::fitBeamspot ()
   //
   // observed and estimated vertex distributions / run
   //
+  TFileDirectory& runDir = runDirectories_[index];
   if ( produceHistograms_ ) {
-    unsigned int run = firstEvent_.run();
-    std::vector<unsigned int>::iterator irun = 
-      find(processedRuns_.begin(),processedRuns_.end(),run);
-    if ( irun==processedRuns_.end() ) {
-      processedRuns_.push_back(run);
-      pdfHistograms_.push_back(HistogramSet());
-      char title[128];
-      sprintf(title,"Run%d",run);
-      runDirectories_.push_back((**tFileService_).mkdir(title));
-      irun = processedRuns_.end() - 1;
-    }
-    unsigned int index = irun - processedRuns_.begin();
-    HistogramSet& histograms = pdfHistograms_[index];
-    TFileDirectory& runDir = runDirectories_[index];
-    if ( histograms.chi2==0 ) {
-      histograms.chi2 = runDir.make<TH1F>("chi2","PV chi2 probability",200,0,1);
+    if ( runResult.h_chi2==0 ) {
+      runResult.h_chi2 = runDir.make<TH1F>("chi2","PV chi2 probability",200,0,1);
       double xmin = minuitx.GetParameter(0) - 10*minuitx.GetParameter(3);
       double xmax = minuitx.GetParameter(0) + 10*minuitx.GetParameter(3);
       double ymin = minuitx.GetParameter(1) - 10*minuitx.GetParameter(5);
@@ -313,18 +335,18 @@ BeamSpotFitPV::fitBeamspot ()
       double zmin = minuitx.GetParameter(2) - 10*minuitx.GetParameter(8);
       double zmax = minuitx.GetParameter(2) + 10*minuitx.GetParameter(8);
       const int nbin(40);
-      histograms.observed = runDir.make<TH3F>("PVobs","Measured PV positions",
-					      nbin,xmin,xmax,nbin,ymin,ymax,nbin,zmin,zmax);
-      histograms.estimated = runDir.make<TH3F>("PVest","Estimated PV positions",
-					       nbin,xmin,xmax,nbin,ymin,ymax,nbin,zmin,zmax);
+      runResult.h_observedPosition = runDir.make<TH3F>("PVobs","Measured PV positions",
+						       nbin,xmin,xmax,nbin,ymin,ymax,nbin,zmin,zmax);
+      runResult.h_estimatedPosition = runDir.make<TH3F>("PVest","Estimated PV positions",
+							nbin,xmin,xmax,nbin,ymin,ymax,nbin,zmin,zmax);
     }
     edm::LogInfo("BeamSpotFitPV") << "Filling pdf histograms";
-    fcn->fillPdfs(histograms.observed,histograms.estimated,histograms.chi2,
-		  result.values);
+    fcn->fillPdfs(runResult.h_observedPosition,runResult.h_estimatedPosition,
+		  runResult.h_chi2,result.values);
   }
-//   pvCache_.clear();
+  //   pvCache_.clear();
   resetCache();
-
+  
   return true;
 }
 
@@ -332,28 +354,18 @@ BeamSpotFitPV::fitBeamspot ()
 void
 BeamSpotFitPV::saveResults (unsigned int run)
 {
-  if ( luminosityBins_.empty() )  return;
-
-  std::vector<unsigned int>::iterator irun = 
-    find(processedRuns_.begin(),processedRuns_.end(),run);
-  if ( irun==processedRuns_.end() ) {
-    processedRuns_.push_back(run);
-    pdfHistograms_.push_back(HistogramSet());
-    char title[128];
-    sprintf(title,"Run%d",run);
-    runDirectories_.push_back((**tFileService_).mkdir(title));
-    irun = processedRuns_.end() - 1;
-  }
-  unsigned int index = irun - processedRuns_.begin();
+  unsigned int index = findRunIndex(run);
+  RunResult& runResult = runResults_[index];
+  if ( runResult.luminosityBins.empty() )  return;
   TFileDirectory& runDir = runDirectories_[index];
   //
   // sort list of luminosity blocks (just for safety)
   //
-  std::sort(luminosityBins_.begin(),luminosityBins_.end());
+  std::sort(runResult.luminosityBins.begin(),runResult.luminosityBins.end());
   //
   // histogram of number of primary vertices / luminosity block
   // 
-  unsigned int nls = luminosityBins_.size();
+  unsigned int nls = runResult.luminosityBins.size();
   TH1* h_count = 
     runDir.make<TH1F>("pvcounts","Nr. of selected primary vertices",nls,0.,nls);
   //
@@ -362,11 +374,11 @@ BeamSpotFitPV::saveResults (unsigned int run)
   char title[128];
   unsigned int ibin(0);
   TAxis* axis = h_count->GetXaxis();
-  for ( std::vector<LSBin>::const_iterator i=luminosityBins_.begin();
-	i!=luminosityBins_.end(); ++i ) {
-    if ( i->run!=run ) {
-      edm::LogWarning("BeamSpotFitPV")  << "Inconsistent run number in BeamSpotFitPV::saveResults";
-    }
+  for ( std::vector<LSBin>::const_iterator i=runResult.luminosityBins.begin();
+	i!=runResult.luminosityBins.end(); ++i ) {
+//     if ( i->run!=run ) {
+//       edm::LogWarning("BeamSpotFitPV")  << "Inconsistent run number in BeamSpotFitPV::saveResults";
+//     } 
     sprintf(title,"%d",i->luminosityBlock);
     ++ibin;
     h_count->SetBinContent(ibin,i->pvCount);
@@ -377,64 +389,63 @@ BeamSpotFitPV::saveResults (unsigned int run)
   //
   // definition of graphs of all fitted parameters
   //
-  std::vector<TGraphErrors*> graphs;
   for ( unsigned int i=0; i<NFITPAR; ++i )  
-    graphs.push_back(runDir.make<TGraphErrors>());
-  graphs[0]->SetName("x");
-  graphs[1]->SetName("y");
-  graphs[2]->SetName("z");
-  graphs[3]->SetName("ex");
-  graphs[4]->SetName("corrxy");
-  graphs[5]->SetName("ey");
-  graphs[6]->SetName("dxdz");
-  graphs[7]->SetName("dydz");
-  graphs[8]->SetName("ez");
-  graphs[9]->SetName("scale");
+    runResult.fitResultGraphs.push_back(runDir.make<TGraphErrors>());
+  runResult.fitResultGraphs[0]->SetName("x");
+  runResult.fitResultGraphs[1]->SetName("y");
+  runResult.fitResultGraphs[2]->SetName("z");
+  runResult.fitResultGraphs[3]->SetName("ex");
+  runResult.fitResultGraphs[4]->SetName("corrxy");
+  runResult.fitResultGraphs[5]->SetName("ey");
+  runResult.fitResultGraphs[6]->SetName("dxdz");
+  runResult.fitResultGraphs[7]->SetName("dydz");
+  runResult.fitResultGraphs[8]->SetName("ez");
+  runResult.fitResultGraphs[9]->SetName("scale");
   //
   // filling of graphs (x-axis corresponds to the bins
   // in the histogram above)
   //
   LSBin resbin;
   unsigned int np(0);
-  for ( unsigned int i=0; i<fitResults_.size(); ++i ) {
-    const FitResult& fitResult = fitResults_[i];
+  for ( unsigned int i=0; i<runResult.fitResults.size(); ++i ) {
+    const FitResult& fitResult = runResult.fitResults[i];
     //
     // find bin range by looking up event ids in the list of luminosity blocks
     // 
     resbin.run = fitResult.firstEvent.run();
     resbin.luminosityBlock = fitResult.firstEvent.luminosityBlock();
     std::vector<LSBin>::const_iterator ifirst = 
-      std::find(luminosityBins_.begin(),luminosityBins_.end(),resbin);
+      std::find(runResult.luminosityBins.begin(),runResult.luminosityBins.end(),resbin);
     resbin.run = fitResult.lastEvent.run();
     resbin.luminosityBlock = fitResult.lastEvent.luminosityBlock();
     std::vector<LSBin>::const_iterator ilast = 
-      std::find(luminosityBins_.begin(),luminosityBins_.end(),resbin);
-    if ( ifirst==luminosityBins_.end() || ilast==luminosityBins_.end() ) {
+      std::find(runResult.luminosityBins.begin(),runResult.luminosityBins.end(),resbin);
+    if ( ifirst==runResult.luminosityBins.end() || ilast==runResult.luminosityBins.end() ) {
       edm::LogWarning("BeamSpotFitPV")  << "Did not find luminosity bin for result!!";
       continue;
     }
-    unsigned int ibfirst = ifirst - luminosityBins_.begin() + 1;
-    unsigned int iblast = ilast - luminosityBins_.begin() + 1;
+    unsigned int ibfirst = ifirst - runResult.luminosityBins.begin() + 1;
+    unsigned int iblast = ilast - runResult.luminosityBins.begin() + 1;
     //
     // store values
     //
     for ( unsigned int j=0; j<NFITPAR; ++j ) {
-      graphs[j]->SetPoint(np,(ibfirst+iblast)/2.,fitResult.values[j]);
-      graphs[j]->SetPointError(np,(iblast-ibfirst)/2.,fitResult.errors[j]);
+      runResult.fitResultGraphs[j]->SetPoint(np,(ibfirst+iblast)/2.,fitResult.values[j]);
+      runResult.fitResultGraphs[j]->SetPointError(np,(iblast-ibfirst)/2.,fitResult.errors[j]);
     }
     ++np;
   }
   //
   // mandatory "Write" for TGraphErrors
   //
-  for ( unsigned int i=0; i<NFITPAR; ++i )  graphs[i]->Write();
+  for ( unsigned int i=0; i<NFITPAR; ++i )  runResult.fitResultGraphs[i]->Write();
   //
   // clear arrays
   //
   pvCountAtLS_ = 0;
-  previousLuminosityBlock_ = 0;
-  luminosityBins_.clear();
-  fitResults_.clear();
+//   previousLuminosityBlock_ = 0;
+  runResult.luminosityBins.clear();
+  runResult.fitResults.clear();
 }
 
 bool
@@ -518,6 +529,22 @@ BeamSpotFitPV::pvQuality (const BeamSpotFitPVData& pv) const
   double ex = pv.posError[0];
   double ey = pv.posError[1];
   return ex*ex*ey*ey*(1-pv.posCorr[0]*pv.posCorr[0]);
+}
+
+unsigned int 
+BeamSpotFitPV::findRunIndex (unsigned int run) 
+{
+  std::vector<unsigned int>::iterator irun = 
+    find(processedRuns_.begin(),processedRuns_.end(),run);
+  if ( irun!=processedRuns_.end() ) {
+    return irun-processedRuns_.begin();
+  }
+  processedRuns_.push_back(run);
+  runResults_.push_back(RunResult());
+  char title[128];
+  sprintf(title,"Run%d",run);
+  runDirectories_.push_back((**tFileService_).mkdir(title));
+  return processedRuns_.size()-1;
 }
 
 //define this as a plug-in

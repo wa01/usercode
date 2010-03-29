@@ -13,6 +13,7 @@ beamSpotFitPV = cms.EDAnalyzer('BeamSpotFitPV',
                                maxVertexZ = cms.double(30),
                                errorScale = cms.double(0.9),
                                nSigmaCut = cms.double(5.),
+                               assumeContiguousRuns = cms.bool(True),
                                histograms = cms.bool(False)
                                )
 
