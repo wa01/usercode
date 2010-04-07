@@ -140,6 +140,7 @@ private:
   double errorScale_;          //< error scaling to be applied to the vertex
   double sigmaCut_;            //< vertex selection at 2nd iteration of the fit (nsigma from BS)
   bool assumeContiguousRuns_;  //< if false: keep all results until end of job
+  bool singleLuminosityBlocksOnly_; //< don't merge information from several LS
   bool produceHistograms_;     //< observed and estimated vertex distributions (time consuming!)
 
   edm::Service<TFileService>* tFileService_;

@@ -28,6 +28,7 @@ BeamSpotFitPV::BeamSpotFitPV(const edm::ParameterSet& iConfig) :
   errorScale_(iConfig.getParameter<double>("errorScale")),
   sigmaCut_(iConfig.getParameter<double>("nSigmaCut")),
   assumeContiguousRuns_(iConfig.getParameter<bool>("assumeContiguousRuns")),
+  singleLuminosityBlocksOnly_(iConfig.getParameter<bool>("singleLuminosityBlocksOnly")),
   produceHistograms_(iConfig.getParameter<bool>("histograms")),
   tFileService_(0) //,
 			    //previousLuminosityBlock_(0) 
@@ -212,6 +213,7 @@ BeamSpotFitPV::endLuminosityBlock (edm::LuminosityBlock const& ls, edm::EventSet
 				  << " ( run " << ls.run()
 				  << " ls " << ls.luminosityBlock() << " ): "
 				  << pvCache_.size();
+    if ( singleLuminosityBlocksOnly_ )  resetCache();
   }
 }
 
@@ -424,8 +426,8 @@ BeamSpotFitPV::saveResults (unsigned int run)
       edm::LogWarning("BeamSpotFitPV")  << "Did not find luminosity bin for result!!";
       continue;
     }
-    unsigned int ibfirst = ifirst - runResult.luminosityBins.begin() + 1;
-    unsigned int iblast = ilast - runResult.luminosityBins.begin() + 1;
+    float ibfirst = ifirst - runResult.luminosityBins.begin() + 0.5 - 0.5;
+    float iblast = ilast - runResult.luminosityBins.begin() + 0.5 + 0.5;
     //
     // store values
     //
