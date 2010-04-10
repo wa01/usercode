@@ -433,7 +433,7 @@ BeamSpotFitPV::saveResults (unsigned int run)
     //
     for ( unsigned int j=0; j<NFITPAR; ++j ) {
       runResult.fitResultGraphs[j]->SetPoint(np,(ibfirst+iblast)/2.,fitResult.values[j]);
-      runResult.fitResultGraphs[j]->SetPointError(np,(iblast-ibfirst)/2.,fitResult.errors[j]);
+      runResult.fitResultGraphs[j]->SetPointError(np,(iblast-ibfirst+1)/2.,fitResult.errors[j]);
     }
     ++np;
   }
