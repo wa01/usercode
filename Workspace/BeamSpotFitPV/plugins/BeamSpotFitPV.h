@@ -82,6 +82,8 @@ private:
     // first and last event corresponding to the fit
     edm::EventID firstEvent;
     edm::EventID lastEvent;
+    edm::TimeValue_t firstTime;
+    edm::TimeValue_t lastTime;
   };
   struct RunResult {
     RunResult() : h_chi2(0), 
@@ -149,6 +151,8 @@ private:
 
   edm::EventID firstEvent_;    //< event id for first PV in cache
   edm::EventID lastEvent_;     //< event id for last PV in cache
+  edm::TimeValue_t firstTime_; //< event time for first PV in cache
+  edm::TimeValue_t lastTime_;  //< event time for last PV in cache
 
 //   double dynamicMinVtxNdf_;
   double dynamicQualityCut_;

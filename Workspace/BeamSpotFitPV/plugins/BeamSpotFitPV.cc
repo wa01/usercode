@@ -6,11 +6,13 @@
 #include "TFitterMinuit.h"
 #include "Minuit2/FCNBase.h"
 #include "TFile.h"
+#include "TH1I.h"
 #include "TH1F.h"
 #include "TH3F.h"
 #include "TGraphErrors.h"
 #include <iostream>
 #include <map>
+#include <ctime>
 //
 // constructor - setting parameters
 //
@@ -81,10 +83,17 @@ BeamSpotFitPV::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   // keep track of first and last event
   if ( pvCache_.empty() ) {
     firstEvent_ = lastEvent_ = iEvent.id();
+    firstTime_ = lastTime_ = iEvent.time().value();
   }
   else {
-    if ( iEvent.id()<firstEvent_ )  firstEvent_ = iEvent.id();
-    if ( iEvent.id()>lastEvent_ )  lastEvent_ = iEvent.id();
+    if ( iEvent.id()<firstEvent_ ) {
+      firstEvent_ = iEvent.id();
+      firstTime_ = iEvent.time().value();
+    }
+    if ( iEvent.id()>lastEvent_ ) {
+      lastEvent_ = iEvent.id();
+      lastTime_ = iEvent.time().value();
+    }
   }
   //
   // store vertex data
@@ -228,6 +237,14 @@ BeamSpotFitPV::fitBeamspot ()
 				 << " to run / LS "
 				 << lastEvent_.run() << " / "
 				 << lastEvent_.luminosityBlock();
+//   const edm::TimeValue_t timestamp = firstTime_;
+//   std::time_t utime = timestamp>>32;
+//   struct tm* locTime = localtime(&utime);
+//   std::cout << "Times = " << asctime(locTime) << std::endl;
+//   struct tm* utcTime = gmtime(&utime);
+//   std::cout << "Times = " << asctime(utcTime) << std::endl;
+//   std::cout << sizeof(utime) << std::endl;
+
   //
   // LL function and fitter
   //
@@ -305,6 +322,8 @@ BeamSpotFitPV::fitBeamspot ()
   FitResult result;
   result.firstEvent = firstEvent_;
   result.lastEvent = lastEvent_;
+  result.firstTime = firstTime_;
+  result.lastTime = lastTime_;
   for ( unsigned int i=0; i<NFITPAR; ++i ) {
     result.values[i] = minuitx.GetParameter(i);
     result.errors[i] = minuitx.GetParError(i);
@@ -409,6 +428,12 @@ BeamSpotFitPV::saveResults (unsigned int run)
   //
   LSBin resbin;
   unsigned int np(0);
+  std::vector<unsigned int> firstEvents;
+  std::vector<unsigned int> lastEvents;
+  std::vector<unsigned int> firstLSs;
+  std::vector<unsigned int> lastLSs;
+  std::vector<time_t> firstTimes;
+  std::vector<time_t> lastTimes;
   for ( unsigned int i=0; i<runResult.fitResults.size(); ++i ) {
     const FitResult& fitResult = runResult.fitResults[i];
     //
@@ -436,6 +461,38 @@ BeamSpotFitPV::saveResults (unsigned int run)
       runResult.fitResultGraphs[j]->SetPointError(np,(iblast-ibfirst+1)/2.,fitResult.errors[j]);
     }
     ++np;
+    // event numbers and times
+    firstEvents.push_back(fitResult.firstEvent.event());
+    lastEvents.push_back(fitResult.lastEvent.event());
+    firstLSs.push_back(fitResult.firstEvent.luminosityBlock());
+    lastLSs.push_back(fitResult.lastEvent.luminosityBlock());
+    firstTimes.push_back(fitResult.firstTime>>32);
+    lastTimes.push_back(fitResult.lastTime>>32);
+  }
+  //
+  // store number and time of first / last event for each fit
+  //  fill a TH1I directly via the TArrayI (to avoid passing via double)
+  //
+  TH1I* h_firstEvent = 
+    runDir.make<TH1I>("firstEvent","First event for fit",np,0.,np);
+  TH1I* h_lastEvent = 
+    runDir.make<TH1I>("lastEvent","Last event for fit",np,0.,np);
+  TH1I* h_firstLS = 
+    runDir.make<TH1I>("firstLS","First LS for fit",np,0.,np);
+  TH1I* h_lastLS = 
+    runDir.make<TH1I>("lastLS","Last LS for fit",np,0.,np);
+  TH1I* h_firstTime = 
+    runDir.make<TH1I>("firstTime","First event time for fit",np,0.,np);
+  TH1I* h_lastTime = 
+    runDir.make<TH1I>("lastTime","Last event time for fit",np,0.,np);
+  std::cout << " Array size = " << h_firstTime->GetSize() << std::endl;
+  for ( unsigned int i=0; i<np; ++i ) {
+    h_firstEvent->AddAt(firstEvents[i],i+1);
+    h_lastEvent->AddAt(lastEvents[i],i+1);
+    h_firstLS->AddAt(firstLSs[i],i+1);
+    h_lastLS->AddAt(lastLSs[i],i+1);
+    h_firstTime->AddAt(firstTimes[i],i+1);
+    h_lastTime->AddAt(lastTimes[i],i+1);
   }
   //
   // mandatory "Write" for TGraphErrors

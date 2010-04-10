@@ -75,19 +75,9 @@ void drawBeamSpotGraph (TDirectory* directory, TH1* refHisto, const char* name,
     scale = 1000.;
   }
   scaleGraph(graph,scale);
-//   if ( strcmp(name,"x")==0 )  yaxis->SetTitle("PV x position [cm]");
-//   else if ( strcmp(name,"y")==0 )  yaxis->SetTitle("PV y position [cm]");
-//   else if ( strcmp(name,"z")==0 )  yaxis->SetTitle("PV z position [cm]");
-//   else if ( strcmp(name,"ex")==0 )  yaxis->SetTitle("PV x width [cm]");
-//   else if ( strcmp(name,"ey")==0 )  yaxis->SetTitle("PV y width [cm]");
-//   else if ( strcmp(name,"ez")==0 )  yaxis->SetTitle("PV z width [cm]");
-//   else if ( strcmp(name,"corrxy")==0 )  yaxis->SetTitle("PV x-y correlation");
-//   else if ( strcmp(name,"dxdz")==0 )  yaxis->SetTitle("PV slope dx/dz");
-//   else if ( strcmp(name,"dydz")==0 )  yaxis->SetTitle("PV slope dy/dz");
+
   double xmin,xmax,ymin,ymax;
   graph->ComputeRange(xmin,ymin,xmax,ymax);
-//   h->SetMinimum(ymin);
-//   h->SetMaximum(ymax);
   h->SetMinimum((ymax+ymin)/2.-2.*(ymax-ymin)/2.);
   h->SetMaximum((ymax+ymin)/2.+2.*(ymax-ymin)/2.);
   h->Draw();
@@ -98,6 +88,10 @@ void drawBeamSpotGraph (TDirectory* directory, TH1* refHisto, const char* name,
   graph->Fit("pol1","same");
   graph->GetFunction("pol1")->SetLineStyle(2);
   graph->GetFunction("pol1")->SetLineWidth(2);
+
+  TF1* fit = graph->GetFunction("pol1");
+  cout << "Pol1 fit chi2 = " << fit->GetChisquare() 
+       << " " << fit->GetNDF() << endl;
 
   string epsName = fullName + ".eps";
   c->SaveAs(epsName.c_str());
@@ -157,7 +151,7 @@ void drawBeamSpotGraphsAll (TFile* file, const char* fname=0)
 //   float runSummary[6];
   while ( (key=(TKey*)iter()) ) {
     std::cout << key->GetName() << std::endl;
-    drawBeamSpotGraphs(_file0,key->GetName(),fname,runSummary);
+    drawBeamSpotGraphs(_file0,key->GetName(),fname);
     TIter ic(gROOT->GetListOfCanvases());
     TCanvas* c;
     while ( (c=(TCanvas*)ic()) )  delete c;
