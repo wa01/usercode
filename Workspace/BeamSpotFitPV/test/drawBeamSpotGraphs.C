@@ -31,14 +31,17 @@ void drawBeamSpotGraph (TDirectory* directory, TH1* refHisto, const char* name,
   TH1* h = refHisto->Clone(newName);
   h->Reset();
   h->SetTitle(name);
-  int nb = h->GetNbinsX();
-  if ( nb>50 ) {
-    int iscale = nb/50+1;
-    TAxis* xaxis = h->GetXaxis();
-    for ( int i=1; i<=h->GetNbinsX(); ++i ) {
-      if ( (i-1)%iscale )  xaxis->SetBinLabel(i,"");
-    }
-  }
+  std::string xTitle("Luminosity block / ");
+  xTitle += directory->GetName();
+  h->GetXaxis()->SetTitle(xTitle->c_str());
+//   int nb = h->GetNbinsX();
+//   if ( nb>50 ) {
+//     int iscale = nb/50+1;
+//     TAxis* xaxis = h->GetXaxis();
+//     for ( int i=1; i<=h->GetNbinsX(); ++i ) {
+//       if ( (i-1)%iscale )  xaxis->SetBinLabel(i,"");
+//     }
+//   }
   TAxis* yaxis = h->GetYaxis();
   float scale(1);
   if ( strcmp(name,"x")==0 ) {
@@ -93,10 +96,10 @@ void drawBeamSpotGraph (TDirectory* directory, TH1* refHisto, const char* name,
   cout << "Pol1 fit chi2 = " << fit->GetChisquare() 
        << " " << fit->GetNDF() << endl;
 
-  string epsName = fullName + ".eps";
-  c->SaveAs(epsName.c_str());
-  string pngName = fullName + ".png";
-  c->SaveAs(pngName.c_str());
+//   string epsName = fullName + ".eps";
+//   c->SaveAs(epsName.c_str());
+//   string pngName = fullName + ".png";
+//   c->SaveAs(pngName.c_str());
 
   if ( runSummary ) {
     TF1* fit = graph->GetFunction("pol1");
@@ -107,6 +110,84 @@ void drawBeamSpotGraph (TDirectory* directory, TH1* refHisto, const char* name,
     runSummary[4] = fit->GetParameter(1);
     runSummary[5] = fit->GetParError(1);
   }
+}
+
+void drawTimeDifference (TDirectory* directory, TH1* refHisto, const char* fname=0)
+{
+  TGraphErrors* graphX = (TGraphErrors*)directory->Get("x");
+  if ( graphX==0 )  return;
+  TH1I* hFirst = (TH1I*)directory->Get("firstTime");
+  TH1I* hLast = (TH1I*)directory->Get("lastTime");
+  if ( hFirst==0 || hLast==0 )  return;
+
+  std::string fullName("cDeltaT");
+  if ( fname )  fullName += fname;
+  else  fullName += directory->GetName();
+  TCanvas* c = new TCanvas(fullName.c_str(),fullName.c_str());
+  TH1* h = refHisto->Clone("DeltaT");
+  h->Reset();
+  h->SetTitle("DeltaT");
+
+  TGraph* graph = new TGraph();
+  graph->SetName("gDeltaT");
+
+  double xg,yg;
+  for ( unsigned int i=1; i<=hFirst->GetNbinsX(); ++i ) {
+    std::time_t t1 = hFirst->GetAt(i);
+    std::time_t t2 = hLast->GetAt(i);
+    TTimeStamp ts1(hFirst->GetAt(i));
+    std::cout << "Fit started at " << ts1.AsString() << std::endl;
+    graphX->GetPoint(i-1,xg,yg);
+    graph->SetPoint(i-1,xg,difftime(t2,t1));
+  }
+
+  double xmin,xmax,ymin,ymax;
+  graph->ComputeRange(xmin,ymin,xmax,ymax);
+  h->SetMinimum(0.);
+  h->SetMaximum((ymax+ymin)/2.+2.*(ymax-ymin)/2.);
+  h->Draw();
+  graph->SetMarkerStyle(20);
+//   graph->SetMarkerColor(2);
+//   graph->SetLineColor(2);
+  graph->Draw("P");
+}
+
+void drawEventDifference (TDirectory* directory, TH1* refHisto, const char* fname=0)
+{
+  TGraphErrors* graphX = (TGraphErrors*)directory->Get("x");
+  if ( graphX==0 )  return;
+  TH1I* hFirst = (TH1I*)directory->Get("firstEvent");
+  TH1I* hLast = (TH1I*)directory->Get("lastEvent");
+  if ( hFirst==0 || hLast==0 )  return;
+
+  std::string fullName("cDeltaE");
+  if ( fname )  fullName += fname;
+  else  fullName += directory->GetName();
+  TCanvas* c = new TCanvas(fullName.c_str(),fullName.c_str());
+  TH1* h = refHisto->Clone("DeltaE");
+  h->Reset();
+  h->SetTitle("DeltaE");
+
+  TGraph* graph = new TGraph();
+  graph->SetName("gDeltaE");
+
+  double xg,yg;
+  for ( unsigned int i=1; i<=hFirst->GetNbinsX(); ++i ) {
+    int e1 = hFirst->GetAt(i);
+    int e2 = hLast->GetAt(i);
+    graphX->GetPoint(i-1,xg,yg);
+    graph->SetPoint(i-1,xg,e2-e1);
+  }
+
+  double xmin,xmax,ymin,ymax;
+  graph->ComputeRange(xmin,ymin,xmax,ymax);
+  h->SetMinimum(0.);
+  h->SetMaximum((ymax+ymin)/2.+2.*(ymax-ymin)/2.);
+  h->Draw();
+  graph->SetMarkerStyle(20);
+//   graph->SetMarkerColor(2);
+//   graph->SetLineColor(2);
+  graph->Draw("P");
 }
 
 void drawBeamSpotGraphs (TDirectory* directory, const char* fname=0, float* runSummary = 0)
@@ -123,6 +204,9 @@ void drawBeamSpotGraphs (TDirectory* directory, const char* fname=0, float* runS
   drawBeamSpotGraph(directory,refHisto,"corrxy",fname,runSummary);
   drawBeamSpotGraph(directory,refHisto,"dxdz",fname,runSummary);
   drawBeamSpotGraph(directory,refHisto,"dydz",fname,runSummary);
+
+//   drawTimeDifference(directory,refHisto,fname);
+//   drawEventDifference(directory,refHisto,fname);
 }
 
 void drawBeamSpotGraphs (TFile* file, const char* dirname,

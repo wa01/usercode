@@ -387,23 +387,27 @@ BeamSpotFitPV::saveResults (unsigned int run)
   // histogram of number of primary vertices / luminosity block
   // 
   unsigned int nls = runResult.luminosityBins.size();
+  std::vector<LSBin>& luminosityBins = runResult.luminosityBins;
+  unsigned int ls1 = luminosityBins.front().luminosityBlock;
+  unsigned int ls2 = luminosityBins.back().luminosityBlock;
   TH1* h_count = 
-    runDir.make<TH1F>("pvcounts","Nr. of selected primary vertices",nls,0.,nls);
+      runDir.make<TH1F>("pvcounts","Nr. of selected primary vertices",ls2-ls1+1,ls1-0.5,ls2+0.5);
   //
   // labels and bin contents
   //
   char title[128];
   unsigned int ibin(0);
   TAxis* axis = h_count->GetXaxis();
-  for ( std::vector<LSBin>::const_iterator i=runResult.luminosityBins.begin();
-	i!=runResult.luminosityBins.end(); ++i ) {
+  for ( std::vector<LSBin>::const_iterator i=luminosityBins.begin();
+	i!=luminosityBins.end(); ++i ) {
 //     if ( i->run!=run ) {
 //       edm::LogWarning("BeamSpotFitPV")  << "Inconsistent run number in BeamSpotFitPV::saveResults";
 //     } 
-    sprintf(title,"%d",i->luminosityBlock);
-    ++ibin;
-    h_count->SetBinContent(ibin,i->pvCount);
-    axis->SetBinLabel(ibin,title);
+//     sprintf(title,"%d",i->luminosityBlock);
+//     ++ibin;
+//     h_count->SetBinContent(ibin,i->pvCount);
+//     axis->SetBinLabel(ibin,title);
+    h_count->Fill(i->luminosityBlock,i->pvCount);
   }
   sprintf(title,"Luminosity block, run %d",run);
   axis->SetTitle(title);
@@ -436,29 +440,35 @@ BeamSpotFitPV::saveResults (unsigned int run)
   std::vector<time_t> lastTimes;
   for ( unsigned int i=0; i<runResult.fitResults.size(); ++i ) {
     const FitResult& fitResult = runResult.fitResults[i];
-    //
-    // find bin range by looking up event ids in the list of luminosity blocks
-    // 
-    resbin.run = fitResult.firstEvent.run();
-    resbin.luminosityBlock = fitResult.firstEvent.luminosityBlock();
-    std::vector<LSBin>::const_iterator ifirst = 
-      std::find(runResult.luminosityBins.begin(),runResult.luminosityBins.end(),resbin);
-    resbin.run = fitResult.lastEvent.run();
-    resbin.luminosityBlock = fitResult.lastEvent.luminosityBlock();
-    std::vector<LSBin>::const_iterator ilast = 
-      std::find(runResult.luminosityBins.begin(),runResult.luminosityBins.end(),resbin);
-    if ( ifirst==runResult.luminosityBins.end() || ilast==runResult.luminosityBins.end() ) {
-      edm::LogWarning("BeamSpotFitPV")  << "Did not find luminosity bin for result!!";
-      continue;
-    }
-    float ibfirst = ifirst - runResult.luminosityBins.begin() + 0.5 - 0.5;
-    float iblast = ilast - runResult.luminosityBins.begin() + 0.5 + 0.5;
+//     //
+//     // find bin range by looking up event ids in the list of luminosity blocks
+//     // 
+//     resbin.run = fitResult.firstEvent.run();
+//     resbin.luminosityBlock = fitResult.firstEvent.luminosityBlock();
+//     std::vector<LSBin>::const_iterator ifirst = 
+//       std::find(runResult.luminosityBins.begin(),runResult.luminosityBins.end(),resbin);
+//     resbin.run = fitResult.lastEvent.run();
+//     resbin.luminosityBlock = fitResult.lastEvent.luminosityBlock();
+//     std::vector<LSBin>::const_iterator ilast = 
+//       std::find(runResult.luminosityBins.begin(),runResult.luminosityBins.end(),resbin);
+//     if ( ifirst==runResult.luminosityBins.end() || ilast==runResult.luminosityBins.end() ) {
+//       edm::LogWarning("BeamSpotFitPV")  << "Did not find luminosity bin for result!!";
+//       continue;
+//     }
+//     float ibfirst = ifirst - runResult.luminosityBins.begin() + 0.5 - 0.5;
+//     float iblast = ilast - runResult.luminosityBins.begin() + 0.5 + 0.5;
     //
     // store values
     //
+//     for ( unsigned int j=0; j<NFITPAR; ++j ) {
+//       runResult.fitResultGraphs[j]->SetPoint(np,(ibfirst+iblast)/2.,fitResult.values[j]);
+//       runResult.fitResultGraphs[j]->SetPointError(np,(iblast-ibfirst+1)/2.,fitResult.errors[j]);
+//     }
+    unsigned int firstLS = fitResult.firstEvent.luminosityBlock();
+    unsigned int lastLS = fitResult.lastEvent.luminosityBlock();
     for ( unsigned int j=0; j<NFITPAR; ++j ) {
-      runResult.fitResultGraphs[j]->SetPoint(np,(ibfirst+iblast)/2.,fitResult.values[j]);
-      runResult.fitResultGraphs[j]->SetPointError(np,(iblast-ibfirst+1)/2.,fitResult.errors[j]);
+      runResult.fitResultGraphs[j]->SetPoint(np,(firstLS+lastLS)/2.,fitResult.values[j]);
+      runResult.fitResultGraphs[j]->SetPointError(np,(lastLS-firstLS+1)/2.,fitResult.errors[j]);
     }
     ++np;
     // event numbers and times

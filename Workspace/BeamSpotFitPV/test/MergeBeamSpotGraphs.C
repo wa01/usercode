@@ -4,30 +4,49 @@
 #include "TGraphErrors.h"
 #include "TH1.h"
 
+#include "TSystem.h"
+#include "TSystemDirectory.h"
+#include "TSystemFile.h"
+
 #include <iostream>
+#include <algorithm>
 #include <vector>
 #include <map>
 #include <string>
+#include <ctime>
 
 struct FitResult {
-  FitResult () : ls(0.), els(0.) {
+  FitResult () : x(0.), ex(0.) {
     for ( unsigned int i=0; i<9; ++i ) {
       values[i] = errors[i] = 0.;
     }
   }
-  bool operator< (const FitResult& other) const {
-    return ls<other.ls;
-  }
-  float ls;
-  float els;
+//   bool operator< (const FitResult& other) const {
+//     return (x+0.001)<other.x;
+//   }
+  float x;
+  float ex;
   float values[9];
   float errors[9];
+  unsigned int ev[2];
+  unsigned int ls[2];
+  std::time_t time[2];
 };
 typedef std::vector<FitResult> FitResults;
 
 struct RunResult {
   FitResults fitResults;
   std::map<unsigned int, unsigned int> pvCountMap;
+};
+
+class FitResultSorter {
+public:
+  FitResultSorter(const FitResults& results) : results_(results) {}
+  bool operator() (unsigned int i1, unsigned int i2) const {
+    return (results_[i1].x+0.001)<results_[i2].x;
+  }
+private:
+  const FitResults& results_;
 };
 
 const unsigned int VariableSize = 9;
@@ -110,6 +129,7 @@ class MergeBeamSpotGraphs {
 public:
   MergeBeamSpotGraphs (std::vector<std::string>& fileNames) :
     fileNames_(fileNames) {}
+  MergeBeamSpotGraphs (const char* directory);
   ~MergeBeamSpotGraphs () {
     for ( std::map<unsigned int, RunResult>::iterator ir=runResultMap_.begin();
 	  ir!=runResultMap_.end(); ++ir ) {
@@ -170,18 +190,19 @@ MergeBeamSpotGraphs::readResults(TDirectory* dir, unsigned int run,
 				 RunResult& result)
 {
   std::cout << "Getting pvcounts" << std::endl;
-  TH1* hcount = (TH1*)dir->Get("pvcounts");
-  if ( hcount==0 ) {
+  TH1* h_count = (TH1*)dir->Get("pvcounts");
+  if ( h_count==0 ) {
     std::cout << "No pvcounts histogram!!!" << endl;
     return;
   }
   unsigned int ls;
-  TAxis* axis = hcount->GetXaxis();
-  for ( unsigned int i=1; i<=hcount->GetNbinsX(); ++i ) {
-    sscanf(axis->GetBinLabel(i),"%d",&ls);
-//     if ( result.pvCountMap.find(ls)!=result.pvCountMap.end() )  
-//       std::cout << "Found duplicate LS " << ls << " for run " << run << std::endl;
-    result.pvCountMap[ls] += hcount->GetBinContent(i);
+  TAxis* axis = h_count->GetXaxis();
+  for ( unsigned int i=1; i<=h_count->GetNbinsX(); ++i ) {
+//     sscanf(axis->GetBinLabel(i),"%d",&ls);
+// //     if ( result.pvCountMap.find(ls)!=result.pvCountMap.end() )  
+// //       std::cout << "Found duplicate LS " << ls << " for run " << run << std::endl;
+    unsigned int ls = h_count->GetBinCenter(i);
+    result.pvCountMap[ls] += h_count->GetBinContent(i);
   }
 
   int np(-1);
@@ -202,6 +223,22 @@ MergeBeamSpotGraphs::readResults(TDirectory* dir, unsigned int run,
       }
     }
   }
+  TH1I* h_firstEvent = (TH1I*)dir->Get("firstEvent");
+  TH1I* h_lastEvent = (TH1I*)dir->Get("lastEvent");
+  TH1I* h_firstLS = (TH1I*)dir->Get("firstLS");
+  TH1I* h_lastLS = (TH1I*)dir->Get("lastLS");
+  TH1I* h_firstTime = (TH1I*)dir->Get("firstTime");
+  TH1I* h_lastTime = (TH1I*)dir->Get("lastTime");
+  if ( (h_firstEvent==0 || h_firstEvent->GetNbinsX()!=np) ||
+       (h_lastEvent==0 || h_lastEvent->GetNbinsX()!=np) ||
+       (h_firstLS==0 || h_firstLS->GetNbinsX()!=np) ||
+       (h_lastLS==0 || h_lastLS->GetNbinsX()!=np) ||
+       (h_firstTime==0 || h_firstTime->GetNbinsX()!=np) ||
+       (h_lastTime==0 || h_lastTime->GetNbinsX()!=np) ) {
+    std::cout << "Missing histogram or inconsistency between histogram bins and graph" << std::endl;
+    return;
+  }
+
 
   double x,ex,y,ey;
   for ( unsigned int ip=0; ip<np; ++ip ) {
@@ -210,12 +247,18 @@ MergeBeamSpotGraphs::readResults(TDirectory* dir, unsigned int run,
     for ( unsigned int iv=0; iv<VariableSize; ++iv ) {
       graphs[iv]->GetPoint(ip,x,y);
       if ( iv==0 ) {
-	fitResult.ls = x;
-	fitResult.els = graphs[iv]->GetErrorX(ip);
+	fitResult.x = x;
+	fitResult.ex = graphs[0]->GetErrorX(ip);
       }
       fitResult.values[iv] = y;
       fitResult.errors[iv] = graphs[iv]->GetErrorY(ip);
     }
+    fitResult.ev[0] = h_firstEvent->GetAt(ip+1);
+    fitResult.ev[1] = h_lastEvent->GetAt(ip+1);
+    fitResult.ls[0] = h_firstLS->GetAt(ip+1);
+    fitResult.ls[1] = h_lastLS->GetAt(ip+1);
+    fitResult.time[0] = h_firstTime->GetAt(ip+1);
+    fitResult.time[1] = h_lastTime->GetAt(ip+1);
     result.fitResults.push_back(fitResult);
   }
   
@@ -225,7 +268,7 @@ MergeBeamSpotGraphs::readResults(TDirectory* dir, unsigned int run,
 void
 MergeBeamSpotGraphs::writeResults (const char* filename)
 {
-  TFile* file = new TFile(filename,"NEW");
+  TFile* file = new TFile(filename,"RECREATE");
 
   char title[64];
   for ( std::map<unsigned int, RunResult>::iterator ir=runResultMap_.begin();
@@ -246,7 +289,7 @@ MergeBeamSpotGraphs::writeResults (const char* filename)
     TH1* h_count = new TH1F("pvcounts","Nr. of selected primary vertices",ls2-ls1+1,ls1-0.5,ls2+0.5);
     for ( std::map<unsigned int, unsigned int>::iterator i=runResult.pvCountMap.begin();
 	  i!=runResult.pvCountMap.end(); ++i )  h_count->Fill(i->first,i->second);
-    h_count->Write();
+//     h_count->Write();
 
     TGraphErrors* graphs[VariableSize];
     for ( unsigned int iv=0; iv<VariableSize; ++iv ) {
@@ -255,17 +298,70 @@ MergeBeamSpotGraphs::writeResults (const char* filename)
     }
 
     std::vector<FitResult>& fitResults = runResult.fitResults;
-    for ( unsigned int i=0; i<fitResults.size(); ++i ) {
+    unsigned int np = fitResults.size();
+    std::vector<unsigned int> fitIndices(np,0);
+    for ( unsigned int i=0; i<np; ++i )  fitIndices[i] = i;
+    std::sort(fitIndices.begin(),fitIndices.end(),FitResultSorter(fitResults));
+    
+    TH1I* h_firstEvent = new TH1I("firstEvent","First event for fit",np,0.,np);
+    TH1I* h_lastEvent = new TH1I("lastEvent","Last event for fit",np,0.,np);
+    TH1I* h_firstLS = new TH1I("firstLS","First LS for fit",np,0.,np);
+    TH1I* h_lastLS = new TH1I("lastLS","Last LS for fit",np,0.,np);
+    TH1I* h_firstTime = new TH1I("firstTime","First event time for fit",np,0.,np);
+    TH1I* h_lastTime = new TH1I("lastTime","Last event time for fit",np,0.,np);
+
+    for ( unsigned int i=0; i<np; ++i ) {
+      unsigned int ind = fitIndices[i];
+      const FitResult& fitres = fitResults[ind];
       for ( unsigned int iv=0; iv<VariableSize; ++iv ) {
-	graphs[iv]->SetPoint(i,fitResults[i].ls,fitResults[i].values[iv]);
-	graphs[iv]->SetPointError(i,fitResults[i].els,fitResults[i].errors[iv]);
+	graphs[iv]->SetPoint(i,fitres.x,fitResults[i].values[iv]);
+	graphs[iv]->SetPointError(i,fitres.ex,fitres.errors[iv]);
       }
+      h_firstEvent->AddAt(fitres.ev[0],i+1);
+      h_lastEvent->AddAt(fitres.ev[1],i+1);
+      h_firstLS->AddAt(fitres.ls[0],i+1);
+      h_lastLS->AddAt(fitres.ls[1],i+1);
+      h_firstTime->AddAt(fitres.time[0],i+1);
+      h_lastTime->AddAt(fitres.time[1],i+1);
     }
     for ( unsigned int iv=0; iv<VariableSize; ++iv )  graphs[iv]->Write();
+//     h_firstEvent->Write();
+//     h_lastEvent->Write();
+//     h_firstLS->Write();
+//     h_lastLS->Write();
+//     h_firstTime->Write();
+//     h_lastTime->Write();
 
-    dir->Write();
+//     dir->Write();
 
   }
   file->Write();
   
+}
+
+
+MergeBeamSpotGraphs::MergeBeamSpotGraphs (const char* dirName)
+{
+  std::string dirString(dirName);
+  dirString += "/";
+  TSystemDirectory dir(".",dirName);
+
+  TString currDir = gSystem->WorkingDirectory();
+  TList* files = dir.GetListOfFiles();
+  if ( files ) {
+    TString fname;
+    TIter it(files);
+    TSystemFile* file;
+    while ( (file=(TSystemFile*)it.Next()) ) {
+      fname = file->GetName();
+      if ( fname.EndsWith(".root") ) {
+	std::string fileString = dirString + fname.Data();
+	std::cout << "Adding file " << fileString << std::endl;
+	fileNames_.push_back(fileString);
+      }
+    }
+    delete files;
+    
+  }
+  gSystem->ChangeDirectory(currDir);
 }
