@@ -8,7 +8,9 @@
 #include "TSystemDirectory.h"
 #include "TSystemFile.h"
 
+#include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <algorithm>
 #include <vector>
 #include <map>
@@ -145,6 +147,7 @@ public:
   void readResults(TDirectory* dir,unsigned int run,
 		   RunResult& result);
   void writeResults (const char* file);
+  void printResults (const char* file);
 
 private:
   std::vector<std::string> fileNames_;
@@ -159,29 +162,22 @@ MergeBeamSpotGraphs::merge ()
     TFile file(fileNames_[i].c_str());
     if ( file.IsZombie() || !file.IsOpen() )  continue;
     readFile(file);
-    std::cout << "Back in merge" << std::endl;
   }
 }
 
 void
 MergeBeamSpotGraphs::readFile (TFile& file)
 {
-  std::cout << "Read file " << file.GetName() << std::endl;
   TDirectory* module = (TDirectory*)file.FindObjectAny("beamSpotFitPV");
   if ( module==0 )  return;
 
-  std::cout << "module = " << module << endl;
-  module->ls();
   TIter iter(module->GetListOfKeys());
-  std::cout << "Nr. of keys = " << module->GetListOfKeys()->GetSize() << std::endl;
   TKey* key;
   unsigned int irun;
   while ( (key=(TKey*)iter()) ) {
-    std::cout << "  Using dir " << key->GetName() << std::endl;
     sscanf(key->GetName(),"Run%d",&irun);
     RunResult& result = runResultMap_[irun];
     readResults((TDirectory*)module->Get(key->GetName()),irun,result);
-    std::cout << "Back in readFile" << std::endl;
   }
 } 
 
@@ -189,7 +185,6 @@ void
 MergeBeamSpotGraphs::readResults(TDirectory* dir, unsigned int run,
 				 RunResult& result)
 {
-  std::cout << "Getting pvcounts" << std::endl;
   TH1* h_count = (TH1*)dir->Get("pvcounts");
   if ( h_count==0 ) {
     std::cout << "No pvcounts histogram!!!" << endl;
@@ -242,7 +237,7 @@ MergeBeamSpotGraphs::readResults(TDirectory* dir, unsigned int run,
 
   double x,ex,y,ey;
   for ( unsigned int ip=0; ip<np; ++ip ) {
-    std::cout << "Getting results for point " << ip << std::endl;
+//     std::cout << "Getting results for point " << ip << std::endl;
     FitResult fitResult;
     for ( unsigned int iv=0; iv<VariableSize; ++iv ) {
       graphs[iv]->GetPoint(ip,x,y);
@@ -262,13 +257,14 @@ MergeBeamSpotGraphs::readResults(TDirectory* dir, unsigned int run,
     result.fitResults.push_back(fitResult);
   }
   
-  std::cout << "Done reading results" << std::endl;
 }
 
 void
 MergeBeamSpotGraphs::writeResults (const char* filename)
 {
   TFile* file = new TFile(filename,"RECREATE");
+
+  TDirectory* topDir = file->mkdir("beamSpotFitPV");
 
   char title[64];
   for ( std::map<unsigned int, RunResult>::iterator ir=runResultMap_.begin();
@@ -280,13 +276,14 @@ MergeBeamSpotGraphs::writeResults (const char* filename)
 	      << " fit points / " << runResult.pvCountMap.size() 
 	      << " pv counts " << std::endl;
     sprintf(title,"Run%d",irun);
-    TDirectory* dir = file->mkdir(title);
+    TDirectory* dir = topDir->mkdir(title);
     dir->cd();
 
     unsigned int npv = runResult.pvCountMap.size();
     unsigned int ls1 = runResult.pvCountMap.begin()->first;
     unsigned int ls2 = runResult.pvCountMap.rbegin()->first;
-    TH1* h_count = new TH1F("pvcounts","Nr. of selected primary vertices",ls2-ls1+1,ls1-0.5,ls2+0.5);
+    TH1* h_count = new TH1F("pvcounts","Nr. of selected primary vertices",
+			    ls2-ls1+1,ls1-0.5,ls2+0.5);
     for ( std::map<unsigned int, unsigned int>::iterator i=runResult.pvCountMap.begin();
 	  i!=runResult.pvCountMap.end(); ++i )  h_count->Fill(i->first,i->second);
 //     h_count->Write();
@@ -314,7 +311,7 @@ MergeBeamSpotGraphs::writeResults (const char* filename)
       unsigned int ind = fitIndices[i];
       const FitResult& fitres = fitResults[ind];
       for ( unsigned int iv=0; iv<VariableSize; ++iv ) {
-	graphs[iv]->SetPoint(i,fitres.x,fitResults[i].values[iv]);
+	graphs[iv]->SetPoint(i,fitres.x,fitres.values[iv]);
 	graphs[iv]->SetPointError(i,fitres.ex,fitres.errors[iv]);
       }
       h_firstEvent->AddAt(fitres.ev[0],i+1);
@@ -364,4 +361,84 @@ MergeBeamSpotGraphs::MergeBeamSpotGraphs (const char* dirName)
     
   }
   gSystem->ChangeDirectory(currDir);
+}
+
+
+void
+MergeBeamSpotGraphs::printResults (const char* filename)
+{
+  std::ofstream file(filename);
+
+
+  
+  char title[64];
+  for ( std::map<unsigned int, RunResult>::iterator ir=runResultMap_.begin();
+	ir!=runResultMap_.end(); ++ir ) {
+    unsigned int irun = ir->first;
+    RunResult& runResult = ir->second;
+    std::cout << "Results for run " << irun 
+	      << " : found " << runResult.fitResults.size() 
+	      << " fit points / " << runResult.pvCountMap.size() 
+	      << " pv counts " << std::endl;
+
+    std::vector<FitResult>& fitResults = runResult.fitResults;
+    unsigned int np = fitResults.size();
+    std::vector<unsigned int> fitIndices(np,0);
+    for ( unsigned int i=0; i<np; ++i )  fitIndices[i] = i;
+    std::sort(fitIndices.begin(),fitIndices.end(),FitResultSorter(fitResults));
+    
+    file << "  ip  ; fillnr ; time ;  x ; dx ; y ; dy  ; z ; dz ; xs ; dxs ; ys ; dys ; zs ; dzs";
+    file << " ; xsu ; dxsu ; ysu ; dysu ; zsu ; dzsu ; xrms ; yrms ; zrms";
+    file << " ; run ; firstLS ; lastLS" << std::endl;
+    for ( unsigned int i=0; i<np; ++i ) {
+      unsigned int ind = fitIndices[i];
+      const FitResult& fitres = fitResults[ind];
+      // IP and fill (not available)
+      file << 5 << " ; " 
+	   << 0 << " ; ";
+      // time (seconds since 1/1/10
+      file << fitres.time[0] - 1262300400 << " ; ";
+      // position and errors
+      file << fixed
+	   << setw(8) << setprecision(4) 
+	   << 10*fitres.values[0] << " ; "
+	   << 10*fitres.errors[0] << " ; "
+	   << 10*fitres.values[1] << " ; "
+	   << 10*fitres.errors[1] << " ; "
+	   << setw(8) << setprecision(2) 
+	   << 10*fitres.values[2] << " ; "
+	   << 10*fitres.errors[2] << " ; ";
+      // results from 1D fit (not available)
+      file << 0 << " ; " << 0 << " ; "
+	   << 0 << " ; " << 0 << " ; "
+	   << 0 << " ; " << 0 << " ; ";
+      // unfolded width
+      file << setw(8) << setprecision(4) 
+	   << 10*fitres.values[3] << " ; "
+	   << 10*fitres.errors[3] << " ; "
+	   << 10*fitres.values[4] << " ; "
+	   << 10*fitres.errors[4] << " ; "
+	   << setw(8) << setprecision(2) 
+	   << 10*fitres.values[5] << " ; "
+	   << 10*fitres.errors[5] << " ; ";
+      // rms (not available)
+      file << 0 << " ; " << 0 << " ; " << 0 << " ; ";
+      // internal info: run number, first and last luminosity block
+      file << irun << " ; "
+	   << fitres.ls[0] << " ; "
+	   << fitres.ls[0] << std::endl;
+//       for ( unsigned int iv=0; iv<VariableSize; ++iv ) {
+// 	graphs[iv]->SetPoint(i,fitres.x,fitResults[i].values[iv]);
+// 	graphs[iv]->SetPointError(i,fitres.ex,fitres.errors[iv]);
+//       }
+//       h_firstEvent->AddAt(fitres.ev[0],i+1);
+//       h_lastEvent->AddAt(fitres.ev[1],i+1);
+//       h_firstLS->AddAt(fitres.ls[0],i+1);
+//       h_lastLS->AddAt(fitres.ls[1],i+1);
+//       h_firstTime->AddAt(fitres.time[0],i+1);
+//       h_lastTime->AddAt(fitres.time[1],i+1);
+    }
+
+  }
+  
 }
