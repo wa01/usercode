@@ -13,7 +13,7 @@
 //
 // Original Author:  Wolfgang Adam,40 4-A28,+41227671661,
 //         Created:  Tue Nov 16 16:09:49 CET 2010
-// $Id$
+// $Id: MuonSimHitCountFilter.cc,v 1.1 2010/11/18 16:25:53 adamwo Exp $
 //
 //
 
@@ -44,6 +44,44 @@
 //
 // class declaration
 //
+
+struct SimHitClass {
+  SimHitClass () : trackId_(-1), subdetId_(0) {}
+  SimHitClass (int trackId, DetId detId) :
+    trackId_(trackId),subdetId_(0) {
+    if ( detId.det()==DetId::Muon ) {
+      if ( detId.subdetId()==MuonSubdetId::DT ) {
+	wireId_ = DTWireId(detId);
+      }
+      else if ( detId.subdetId()==MuonSubdetId::CSC ) {
+	cscId_ = CSCDetId(detId);
+      }
+    }
+  }
+  bool operator< (const SimHitClass& other) const {
+    if ( trackId_!=other.trackId_ )  return trackId_<other.trackId_;
+    if ( subdetId_!=other.subdetId_ )  return subdetId_<other.subdetId_;
+    if ( subdetId_==MuonSubdetId::DT ) {
+      if ( wireId_.superLayer()!=other.wireId_.superLayer() )
+	return wireId_.superLayer()<other.wireId_.superLayer();
+      if ( wireId_.layer()!=other.wireId_.layer() )
+	return wireId_.layer()<other.wireId_.layer();
+      return wireId_.station()<other.wireId_.station();
+    }
+    else if ( subdetId_==MuonSubdetId::CSC ) {
+      if ( cscId_.endcap()!=other.cscId_.endcap() )
+	return cscId_.endcap()<other.cscId_.endcap();
+      if ( cscId_.layer()!=other.cscId_.layer() )
+	return cscId_.layer()<other.cscId_.layer();
+      return cscId_.chamber()<other.cscId_.chamber();
+    }
+    return false;
+  }
+  int trackId_;
+  int subdetId_;
+  CSCDetId cscId_;
+  DTWireId wireId_;
+};
 
 class MuonSimHitCountFilter : public edm::EDFilter {
 public:
