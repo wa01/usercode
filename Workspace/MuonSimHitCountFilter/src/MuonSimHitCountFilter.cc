@@ -13,7 +13,7 @@
 //
 // Original Author:  Wolfgang Adam,40 4-A28,+41227671661,
 //         Created:  Tue Nov 16 16:09:49 CET 2010
-// $Id: MuonSimHitCountFilter.cc,v 1.3 2010/11/18 18:24:52 adamwo Exp $
+// $Id: MuonSimHitCountFilter.cc,v 1.4 2010/11/19 10:11:25 adamwo Exp $
 //
 //
 
@@ -41,6 +41,7 @@
 #include <set>
 #include <map>
 #include <iostream>
+#include <memory>
 //
 // class declaration
 //
@@ -90,9 +91,10 @@ private:
   virtual void beginJob() ;
   virtual bool filter(edm::Event&, const edm::EventSetup&);
   virtual void endJob() ;
-  bool acceptEvent(unsigned int trackId,
-		   std::map<unsigned int, bool>& selectedTrackIds,
-		   unsigned int& nrAcceptedTrackIds) const;
+  /// register track as accepted and return event accept status
+  bool acceptEvent(unsigned int trackId);
+  /// put decision into the event and return final filter result
+  bool returnValue (edm::Event& iEvent) const;
   
   // ----------member data ---------------------------
 private:
@@ -103,8 +105,11 @@ private:
   int minHitsTotal_;
   std::set<int> particleTypes_;
   std::set<int> processTypes_;
+  bool filter_;
 
   bool wrongInputs_;
+  unsigned int nrAcceptedTrackIds_;
+  std::map<unsigned int, bool> selectedTrackIds_;
 };
 
 //
@@ -124,6 +129,7 @@ MuonSimHitCountFilter::MuonSimHitCountFilter(const edm::ParameterSet& iConfig) :
   minHitsChamber_(iConfig.getParameter< std::vector<int> >("minHitsChamber")),
   minHitsSubDet_(iConfig.getParameter< std::vector<int> >("minHitsSubDet")),
   minHitsTotal_(iConfig.getParameter<int>("minHitsTotal")),
+  filter_(iConfig.getUntrackedParameter<bool>("filter",true)),
   wrongInputs_(false) {
    //now do what ever initialization is needed
   if ( (!minHitsChamber_.empty() && simHitTags_.size()!=minHitsChamber_.size()) ||
@@ -137,6 +143,9 @@ MuonSimHitCountFilter::MuonSimHitCountFilter(const edm::ParameterSet& iConfig) :
   for ( unsigned int i=0; i<types.size(); ++i )  particleTypes_.insert(types[i]);
   types = iConfig.getParameter< std::vector<int> >("processTypes");
   for ( unsigned int i=0; i<types.size(); ++i )  processTypes_.insert(types[i]);
+
+  // register product
+  produces<bool>();
 }
 
 
@@ -155,27 +164,35 @@ MuonSimHitCountFilter::~MuonSimHitCountFilter()
 
 //
 bool
-MuonSimHitCountFilter::acceptEvent(unsigned int trackId,
-				   std::map<unsigned int, bool>& selectedTrackIds,
-				   unsigned int& nrAcceptedTrackIds) const
+MuonSimHitCountFilter::acceptEvent(unsigned int trackId)
 {
-  std::map<unsigned int, bool>::iterator iter = selectedTrackIds.find(trackId);
-  if ( iter!=selectedTrackIds.end() && !iter->second ) {
+  std::map<unsigned int, bool>::iterator iter = selectedTrackIds_.find(trackId);
+  if ( iter!=selectedTrackIds_.end() && !iter->second ) {
     iter->second = true;
-    ++nrAcceptedTrackIds;
+    ++nrAcceptedTrackIds_;
   }
-  if ( nrAcceptedTrackIds==selectedTrackIds.size() ) {
-    std::cout << "event accepted" << std::endl;
+  if ( nrAcceptedTrackIds_==selectedTrackIds_.size() ) {
+//     std::cout << "event accepted" << std::endl;
     return true;
   }
   return false;
+}
+
+bool
+MuonSimHitCountFilter::returnValue (edm::Event& iEvent) const {
+  bool result = nrAcceptedTrackIds_==selectedTrackIds_.size();
+  std::auto_ptr<bool> decision(new bool(result));
+  iEvent.put(decision);
+  return (!filter_ || result);
 }
 
 // ------------ method called on each new Event  ------------
 bool
 MuonSimHitCountFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
-  if ( wrongInputs_ )  return false;
+  std::auto_ptr<bool> decision(new bool(false));
+
+  if ( wrongInputs_ )  return returnValue(iEvent);
 
    using namespace edm;
 
@@ -187,8 +204,8 @@ MuonSimHitCountFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
    typedef SimHitClass SimClassType;
    std::map<SimClassType, int> chamberHitCounts;
    // selected tracks and hit counts / track
-   std::map<unsigned int, bool> selectedTrackIds;
-   unsigned int nrAcceptedTrackIds;
+   nrAcceptedTrackIds_ = 0;
+   selectedTrackIds_.clear();
    std::map<unsigned int, int> trackHitCounts;
    std::map<unsigned int, int> allTrackHitCounts;
 
@@ -200,16 +217,15 @@ MuonSimHitCountFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
      if ( track.vertIndex()==0 && 
 	  (particleTypes_.empty() || 
 	   particleTypes_.find(track.type())!=particleTypes_.end()) ) {
-       selectedTrackIds[track.trackId()] = false;
+       selectedTrackIds_[track.trackId()] = false;
      }
    }
-   nrAcceptedTrackIds = 0;
 
    //
    // reset sum of hit counts
    //
-   for ( std::map<unsigned int, bool>::iterator i=selectedTrackIds.begin(); 
-	 i!=selectedTrackIds.end(); ++i ) {
+   for ( std::map<unsigned int, bool>::iterator i=selectedTrackIds_.begin(); 
+	 i!=selectedTrackIds_.end(); ++i ) {
      allTrackHitCounts[i->first] = 0;
    }
 
@@ -222,8 +238,8 @@ MuonSimHitCountFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
      // reset hit counts
      //
      chamberHitCounts.clear();
-     for ( std::map<unsigned int, bool>::iterator j=selectedTrackIds.begin(); 
-	   j!=selectedTrackIds.end(); ++j ) {
+     for ( std::map<unsigned int, bool>::iterator j=selectedTrackIds_.begin(); 
+	   j!=selectedTrackIds_.end(); ++j ) {
        trackHitCounts[j->first] = 0;
      }
 
@@ -232,7 +248,7 @@ MuonSimHitCountFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
      //
      Handle< std::vector<PSimHit> > simHitHandle;
      iEvent.getByLabel(simHitTags_[i],simHitHandle);
-     std::cout << "Muon hits for " << simHitTags_[i] << std::endl;
+//      std::cout << "Muon hits for " << simHitTags_[i] << std::endl;
      for ( unsigned j=0; j<simHitHandle->size(); ++j ) {
        const PSimHit& simHit = (*simHitHandle)[j];
        DetId detId(simHit.detUnitId());
@@ -249,17 +265,16 @@ MuonSimHitCountFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	 continue;
        // only for unaccepted track IDs in map
        unsigned int trackId = simHit.trackId();
-       std::map<unsigned int, bool>::iterator itk = selectedTrackIds.find(trackId);
-//        std::map<SimClassType, int>::iterator ihit = hitCounts.find(simHit.trackId());
-//        if ( ihit!=hitCounts.end() )  ++ihit->second;
-       if ( itk!=selectedTrackIds.end() && !itk->second ) {
+       std::map<unsigned int, bool>::iterator itk = selectedTrackIds_.find(trackId);
+       if ( itk!=selectedTrackIds_.end() && !itk->second ) {
 	 SimHitClass simHitClass(simHit.trackId(),simHit.detUnitId());
 	 ++chamberHitCounts[simHitClass];
 	 if ( !minHitsChamber_.empty() && 
 	      chamberHitCounts[simHitClass]>=minHitsChamber_[i] && 
-	      acceptEvent(trackId,selectedTrackIds,nrAcceptedTrackIds) ) {
-	   std::cout << "event accepted (chamber)" << std::endl;
+	      acceptEvent(trackId) ) {
+// 	   std::cout << "event accepted (chamber)" << std::endl;
 // 	   return true;
+	   return returnValue(iEvent);
 	 }
        }
      }
@@ -267,28 +282,29 @@ MuonSimHitCountFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
      // check hit counts for this sub-detector
      // (accept event, if at least one track has the min. nr. of hits / subdet)
      //
-     std::cout << "Muon hits";;
+//      std::cout << "Muon hits";;
      for ( std::map<SimClassType, int>::iterator itrk=chamberHitCounts.begin();
 	   itrk!=chamberHitCounts.end(); ++itrk ) {
        unsigned int trackId = (*itrk).first.trackId_;
        int nHits = (*itrk).second;
        trackHitCounts[trackId] += nHits;
        if ( !minHitsSubDet_.empty() && nHits>=minHitsSubDet_[i] && 
-	    acceptEvent(trackId,selectedTrackIds,nrAcceptedTrackIds) ) {
-	 std::cout << "event accepted (SubDet)" << std::endl;
+	    acceptEvent(trackId) ) {
+// 	 std::cout << "event accepted (SubDet)" << std::endl;
 // 	 return true;
+	 return returnValue(iEvent);
        }
-       std::cout << " (" << (*itrk).first.trackId_ << "/" << (*itrk).first.subdetId_
-		 << "/" << (*itrk).first.rawId_ << "," << nHits << ")";
+//        std::cout << " (" << (*itrk).first.trackId_ << "/" << (*itrk).first.subdetId_
+// 		 << "/" << (*itrk).first.rawId_ << "," << nHits << ")";
      }
-     std::cout << std::endl;
-     std::cout << "Muon hits / track";;
+//      std::cout << std::endl;
+//      std::cout << "Muon hits / track";;
      for ( std::map<unsigned int, int>::iterator itrk=trackHitCounts.begin();
 	   itrk!=trackHitCounts.end(); ++itrk ) {
        allTrackHitCounts[(*itrk).first] += (*itrk).second;
-       std::cout << " (" << (*itrk).first << "," << (*itrk).second << ")";
+//        std::cout << " (" << (*itrk).first << "," << (*itrk).second << ")";
      }
-     std::cout << std::endl;
+//      std::cout << std::endl;
 
    }
 
@@ -296,19 +312,20 @@ MuonSimHitCountFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
    // check global hit counts (accept event, if at least one track 
    // has a total nr. of hits >= minimum)
    //
-   std::cout << "All muon hits / track";
+//    std::cout << "All muon hits / track";
    for ( std::map<unsigned int, int>::iterator itrk=allTrackHitCounts.begin();
 	 itrk!=allTrackHitCounts.end(); ++itrk ) {
      if ( minHitsTotal_>=0 && (*itrk).second>=minHitsTotal_ &&
-	  acceptEvent((*itrk).first,selectedTrackIds,nrAcceptedTrackIds) ) {
-       std::cout << "event accepted (total)" << std::endl;
+	  acceptEvent((*itrk).first) ) {
+//        std::cout << "event accepted (total)" << std::endl;
 //        return true;
+       return returnValue(iEvent);
      }
-     std::cout << " (" << (*itrk).first << "," << (*itrk).second << ")";
+//      std::cout << " (" << (*itrk).first << "," << (*itrk).second << ")";
    }
-   std::cout << std::endl;
+//    std::cout << std::endl;
 
-   return nrAcceptedTrackIds==selectedTrackIds.size();
+   return returnValue(iEvent);
 }
 
 // ------------ method called once each job just before starting event loop  ------------
