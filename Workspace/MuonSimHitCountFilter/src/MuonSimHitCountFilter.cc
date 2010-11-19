@@ -13,7 +13,7 @@
 //
 // Original Author:  Wolfgang Adam,40 4-A28,+41227671661,
 //         Created:  Tue Nov 16 16:09:49 CET 2010
-// $Id: MuonSimHitCountFilter.cc,v 1.4 2010/11/19 10:11:25 adamwo Exp $
+// $Id: MuonSimHitCountFilter.cc,v 1.5 2010/11/19 11:01:57 adamwo Exp $
 //
 //
 
@@ -105,7 +105,6 @@ private:
   int minHitsTotal_;
   std::set<int> particleTypes_;
   std::set<int> processTypes_;
-  bool filter_;
 
   bool wrongInputs_;
   unsigned int nrAcceptedTrackIds_;
@@ -129,7 +128,6 @@ MuonSimHitCountFilter::MuonSimHitCountFilter(const edm::ParameterSet& iConfig) :
   minHitsChamber_(iConfig.getParameter< std::vector<int> >("minHitsChamber")),
   minHitsSubDet_(iConfig.getParameter< std::vector<int> >("minHitsSubDet")),
   minHitsTotal_(iConfig.getParameter<int>("minHitsTotal")),
-  filter_(iConfig.getUntrackedParameter<bool>("filter",true)),
   wrongInputs_(false) {
    //now do what ever initialization is needed
   if ( (!minHitsChamber_.empty() && simHitTags_.size()!=minHitsChamber_.size()) ||
@@ -183,7 +181,7 @@ MuonSimHitCountFilter::returnValue (edm::Event& iEvent) const {
   bool result = nrAcceptedTrackIds_==selectedTrackIds_.size();
   std::auto_ptr<bool> decision(new bool(result));
   iEvent.put(decision);
-  return (!filter_ || result);
+  return result;
 }
 
 // ------------ method called on each new Event  ------------

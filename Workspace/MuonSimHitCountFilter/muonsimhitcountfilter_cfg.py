@@ -27,13 +27,12 @@ process.demo = cms.EDFilter('MuonSimHitCountFilter',
                             minHitsSubDet = cms.vint32(2,2),
                             minHitsTotal = cms.int32(-1),
                             particleTypes = cms.vint32(-13,13),
-                            processTypes = cms.vint32(),
-                            filter = cms.untracked.bool(True)
+                            processTypes = cms.vint32()
                             )
 
 
  
-process.p = cms.Path(process.demo)
+process.p = cms.Path(cms.ignore(process.demo))
 
 process.out = cms.OutputModule("PoolOutputModule",
     fileName = cms.untracked.string('test.root')
