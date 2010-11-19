@@ -3,7 +3,7 @@ import FWCore.ParameterSet.Config as cms
 process = cms.Process("Demo")
 
 process.load("FWCore.MessageService.MessageLogger_cfi")
-# process.MessageLogger.cerr.FwkReport.reportEvery = 1000
+process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
@@ -23,8 +23,9 @@ process.demo = cms.EDFilter('MuonSimHitCountFilter',
                             simTracks = cms.InputTag("g4SimHits"),
                             simHits = cms.VInputTag(cms.InputTag("g4SimHits","MuonCSCHits"),
                                                     cms.InputTag("g4SimHits","MuonDTHits")),
-                            minHits = cms.vint32(2,2),
-                            minSumHits = cms.int32(2),
+                            minHitsChamber = cms.vint32(2,2),
+                            minHitsSubDet = cms.vint32(2,2),
+                            minHitsTotal = cms.int32(2),
                             particleTypes = cms.vint32(-13,13),
                             processTypes = cms.vint32()
                             )
