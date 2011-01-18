@@ -41,18 +41,19 @@ void RA4abcd(bool doBayesian=false, bool doFeldmanCousins=false, bool doMCMC=fal
   double* lm_mc = lm0_mc;
 
   // event counts
+  double observed[4];
   for ( unsigned int i=0; i<4; ++i ) 
-    observed[i] = int(bkg_mc[i]+lm_mc[i]+0.5);
+    observed[i] = int(bkg_mc[i]+0.5);
 
   // relative uncertainty on correlation / scaling factors
-  // double sigma_kappa = 0.20;
-  // double sigma_sad_rel = 0.030;
-  // double sigma_sbd_rel = 0.030;
-  // double sigma_scd_rel = 0.030;
-  double sigma_kappa = 0.05;       
-  double sigma_sad_rel = 0.0030;
-  double sigma_sbd_rel = 0.0030;
-  double sigma_scd_rel = 0.0030;
+  double sigma_kappa = 0.20;
+  double sigma_sad_rel = 0.030;
+  double sigma_sbd_rel = 0.030;
+  double sigma_scd_rel = 0.030;
+  // double sigma_kappa = 0.05;       
+  // double sigma_sad_rel = 0.0030;
+  // double sigma_sbd_rel = 0.0030;
+  // double sigma_scd_rel = 0.0030;
 
   // derived quantities
   double bba_mc = bkg_mc[1]/bkg_mc[0];
@@ -64,10 +65,10 @@ void RA4abcd(bool doBayesian=false, bool doFeldmanCousins=false, bool doMCMC=fal
 
   // Roo variables
   // .. inputs
-  RooRealVar na("na","na",observed[0],0,1000);
-  RooRealVar nb("nb","nb",observed[0],0,1000);
-  RooRealVar nc("nc","nc",observed[0],0,1000);
-  RooRealVar nd("nd","nd",observed[0],0,1000);
+  RooRealVar na_var("na","na",observed[0],0,1000);
+  RooRealVar nb_var("nb","nb",observed[1],0,1000);
+  RooRealVar nc_var("nc","nc",observed[2],0,1000);
+  RooRealVar nd_var("nd","nd",observed[3],0,1000);
   // .. pseudo-measurements
   RooRealVar sad_nom_var("sadnom","sadnom",sad_mc,sad_mc/10,sad_mc*10);
   RooRealVar sbd_nom_var("sbdnom","sbdnom",sbd_mc,sbd_mc/10,sbd_mc*10);
@@ -97,6 +98,10 @@ void RA4abcd(bool doBayesian=false, bool doFeldmanCousins=false, bool doMCMC=fal
   // make model
   RooWorkspace* wspace = new RooWorkspace("wspace");
 
+  wspace->import(na_var);
+  wspace->import(nb_var);
+  wspace->import(nc_var);
+  wspace->import(nd_var);
   wspace->import(s_var);
   wspace->import(sad_var);
   wspace->import(sbd_var);
@@ -115,7 +120,7 @@ void RA4abcd(bool doBayesian=false, bool doFeldmanCousins=false, bool doMCMC=fal
   wspace->import(scd_sig_var);
 
   wspace->factory("Poisson::a(na, sum::tota(prod::sa(s,sad),bkga))");
-  wspace->factory("Poisson::b(nb sum::totb(prod::sb(s,sbd),prod::bkgb(bkga,bba)))");
+  wspace->factory("Poisson::b(nb, sum::totb(prod::sb(s,sbd),prod::bkgb(bkga,bba)))");
   wspace->factory("Poisson::c(nc, sum::totc(prod::sc(s,scd),prod::bkgc(bkga,bca)))");
   wspace->factory("Poisson::d(nd, sum::splusb(s,prod::bkgd(bkga,bba,bca,kappa)))");
   wspace->factory("Gaussian::mcKappa(kappanom, kappa, sigmaKappa)");
@@ -157,6 +162,7 @@ void RA4abcd(bool doBayesian=false, bool doFeldmanCousins=false, bool doMCMC=fal
   // // wspace->import(*data);
   // wspace->var("s")->setVal(lm_mc[3]);
   RooDataSet* data = new RooDataSet("data","data",*wspace->set("obs"));
+  data->add(*wspace->set("obs"));
   data->Print("v");
 
   /////////////////////////////////////////////////////
