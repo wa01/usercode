@@ -47,7 +47,7 @@ struct MyLimit {
 // calculation of the limit: assumes that wspace is set up and observations
 //   contained in data
 //
-MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method){
+MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method, bool draw=false) {
   
   // let's time this challenging example
   TStopwatch t;
@@ -85,16 +85,18 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method)
   // use ProfileLikelihood
   if ( method == ProfileLikelihoodMethod ) {
     ProfileLikelihoodCalculator plc(*data, *modelConfig);
-    plc.SetConfidenceLevel(0.95);
+    plc.SetConfidenceLevel(0.90);
     RooFit::MsgLevel msglevel = RooMsgService::instance().globalKillBelow();
     RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
     LikelihoodInterval* plInt = plc.GetInterval();
     RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
     plInt->LowerLimit( *wspace->var("s") ); // get ugly print out of the way. Fix.
     // RooMsgService::instance().setGlobalKillBelow(RooFit::DEBUG);
-    TCanvas* c = new TCanvas("ProfileLikelihood");
-    LikelihoodIntervalPlot* lrplot = new LikelihoodIntervalPlot(plInt);
-    lrplot->Draw();
+    if ( draw ) {
+      TCanvas* c = new TCanvas("ProfileLikelihood");
+      LikelihoodIntervalPlot* lrplot = new LikelihoodIntervalPlot(plInt);
+      lrplot->Draw();
+    }
     RooMsgService::instance().setGlobalKillBelow(msglevel);
     cout << "Profile Likelihood interval on s = [" << 
       plInt->LowerLimit( *wspace->var("s") ) << ", " <<
@@ -109,7 +111,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method)
   // use FeldmaCousins (takes ~20 min)  
   if ( method == FeldmanCousinsMethod ) {
     FeldmanCousins fc(*data, *modelConfig);
-    fc.SetConfidenceLevel(0.95);
+    fc.SetConfidenceLevel(0.90);
     //number counting: dataset always has 1 entry with N events observed
     fc.FluctuateNumDataEntries(false); 
     fc.UseAdaptiveSampling(true);
@@ -130,17 +132,19 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method)
   // use BayesianCalculator (only 1-d parameter of interest, slow for this problem)  
   if ( method == BayesianMethod ) {
     BayesianCalculator bc(*data, *modelConfig);
-    bc.SetConfidenceLevel(0.95);
+    bc.SetConfidenceLevel(0.90);
     bc.SetLeftSideTailFraction(0.5);
     SimpleInterval* bInt = NULL;
     if( wspace->set("poi")->getSize() == 1)   {
       bInt = bc.GetInterval();
-      TCanvas* c = new TCanvas("Bayesian");
-      // the plot takes a long time and print lots of error
-      // using a scan it is better
-      bc.SetScanOfPosterior(20);
-      RooPlot* bplot = bc.GetPosteriorPlot();
-      bplot->Draw();
+      if ( draw ) {
+	TCanvas* c = new TCanvas("Bayesian");
+	// the plot takes a long time and print lots of error
+	// using a scan it is better
+	bc.SetScanOfPosterior(50);
+	RooPlot* bplot = bc.GetPosteriorPlot();
+	bplot->Draw();
+      }
       cout << "Bayesian interval on s = [" << 
 	bInt->LowerLimit( ) << ", " <<
 	bInt->UpperLimit( ) << "]" << endl;
@@ -169,10 +173,10 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method)
     ProposalFunction* pf = ph.GetProposalFunction();
     
     MCMCCalculator mc(*data, *modelConfig);
-    mc.SetConfidenceLevel(0.95);
+    mc.SetConfidenceLevel(0.90);
     mc.SetProposalFunction(*pf);
-    mc.SetNumBurnInSteps(500); // first N steps to be ignored as burn-in
-    mc.SetNumIters(50000);
+    mc.SetNumBurnInSteps(100); // first N steps to be ignored as burn-in
+    mc.SetNumIters(100000);
     mc.SetLeftSideTailFraction(0.5); // make a central interval
     MCMCInterval* mcInt = NULL;
     mcInt = mc.GetInterval();
@@ -222,9 +226,9 @@ RooWorkspace* createWorkspace (const char* name = "wspace")
   wspace->factory("sbd[0,0,10]");
   wspace->factory("scd[0,0,10]");
   // bkg in A; relative bkg in B&C; kappa
-  wspace->factory("bkga[1,0,1000]");
-  wspace->factory("bba[0,0,10]");
-  wspace->factory("bca[0,0,10]");
+  wspace->factory("bbd[0,0,10]");
+  wspace->factory("bcd[0,0,10]");
+  wspace->factory("bkgd[1,0,1000]");
   wspace->factory("kappa[1,0,2]");
   // pseudo-measurements for kappa and signal contamination
   wspace->factory("kappanom[0,0,10]");
@@ -238,10 +242,10 @@ RooWorkspace* createWorkspace (const char* name = "wspace")
   wspace->factory("sigmaScd[0.1]");
   
   // Poisson distributions in the 4 regions
-  wspace->factory("Poisson::a(na, sum::tota(prod::sa(s,sad),bkga))");
-  wspace->factory("Poisson::b(nb, sum::totb(prod::sb(s,sbd),prod::bkgb(bkga,bba)))");
-  wspace->factory("Poisson::c(nc, sum::totc(prod::sc(s,scd),prod::bkgc(bkga,bca)))");
-  wspace->factory("Poisson::d(nd, sum::splusb(s,prod::bkgd(bkga,bba,bca,kappa)))");
+  wspace->factory("Poisson::a(na, sum::tota(prod::sa(s,sad),prod::bkga(bkgd,bbd,bcd,kappa)))");
+  wspace->factory("Poisson::b(nb, sum::totb(prod::sb(s,sbd),prod::bkgb(bkgd,bbd)))");
+  wspace->factory("Poisson::c(nc, sum::totc(prod::sc(s,scd),prod::bkgc(bkgd,bcd)))");
+  wspace->factory("Poisson::d(nd, sum::splusb(s,bkgd))");
   // Pdfs for pseudo-measurements
   wspace->factory("Gaussian::mcKappa(kappanom, kappa, sigmaKappa)");
   wspace->factory("Gaussian::mcSad(sadnom, sad, sigmaSad)");
@@ -251,12 +255,12 @@ RooWorkspace* createWorkspace (const char* name = "wspace")
   wspace->factory("PROD::model(d,c,b,a,mcKappa,mcSad,mcSbd,mcScd)");
   // priors
   wspace->factory("Uniform::prior_poi({s})");
-  wspace->factory("Uniform::prior_nuis({bkga,bba,bca,kappa,sad,sbd,scd})");
+  wspace->factory("Uniform::prior_nuis({bkgd,bbd,bcd,kappa,sad,sbd,scd})");
   wspace->factory("PROD::prior(prior_poi,prior_nuis)"); 
   // sets (observables, POI, nuisance parameters)
   wspace->defineSet("obs","nd,nc,nb,na,kappanom,sadnom,sbdnom,scdnom");
   wspace->defineSet("poi","s");
-  wspace->defineSet("nuis","bkga,bba,bca,kappa,sad,sbd,scd");
+  wspace->defineSet("nuis","bkgd,bbd,bcd,kappa,sad,sbd,scd");
 
   return wspace;
 }
@@ -266,7 +270,7 @@ RooWorkspace* createWorkspace (const char* name = "wspace")
 void setBackgrounds (RooWorkspace* wspace) 
 {
   // Inputs : expected values
-  // double bkg_mc[4] = { 53.26 , 19.48 , 56.13 , 20.22 };
+  // double bkg_mc[4] = { 120. , 12.1 , 18.3 , 1.83 }; // tight settings / HT2
   double bkg_mc[4] = { 43.76 , 38.88 , 23.77 , 22.13 };
   double observed[4];
   for ( unsigned int i=0; i<4; ++i ) 
@@ -276,8 +280,8 @@ void setBackgrounds (RooWorkspace* wspace)
   double sigma_kappa = 0.25;
 
   // derived quantities
-  double bba_mc = bkg_mc[1]/bkg_mc[0];
-  double bca_mc = bkg_mc[2]/bkg_mc[0];
+  double bbd_mc = bkg_mc[1]/bkg_mc[3];
+  double bcd_mc = bkg_mc[2]/bkg_mc[3];
   double kappa_mc = (bkg_mc[3]*bkg_mc[0])/(bkg_mc[1]*bkg_mc[2]);
 
   // Roo variables
@@ -292,9 +296,9 @@ void setBackgrounds (RooWorkspace* wspace)
   setValRange(wspace,"sigmaKappa",sigma_kappa);
 
   // .. background variables
-  setValRange(wspace,"bkga",bkg_mc[0],0,10*bkg_mc[3]);
-  setValRange(wspace,"bba",bba_mc,bba_mc/10,bba_mc*10);
-  setValRange(wspace,"bca",bca_mc,bca_mc/10,bca_mc*10);
+  setValRange(wspace,"bkgd",bkg_mc[3],0,10*bkg_mc[3]);
+  setValRange(wspace,"bbd",bbd_mc,bbd_mc/10,bbd_mc*10);
+  setValRange(wspace,"bcd",bcd_mc,bcd_mc/10,bcd_mc*10);
 
   // .. correlation and signal contamination variables
   setValRange(wspace,"kappa",kappa_mc,kappa_mc/10,kappa_mc*10);
@@ -305,9 +309,9 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
   // Inputs : expected values
 
   // relative uncertainties on relative signal contamination
-  double sigma_sad_rel = 0.00100;
-  double sigma_sbd_rel = 0.00100;
-  double sigma_scd_rel = 0.00100;
+  double sigma_sad_rel = 0.100;
+  double sigma_sbd_rel = 0.100;
+  double sigma_scd_rel = 0.100;
   // double sigma_sad_rel = 0.0030;
   // double sigma_sbd_rel = 0.0030;
   // double sigma_scd_rel = 0.0030;
@@ -344,7 +348,8 @@ void RA4Single (StatMethod method) {
 
   RooWorkspace* wspace = createWorkspace();
 
-  double lm0_mc[4] = { 3.58 , 8.21 , 16.37 , 25.21 };
+  // double lm0_mc[4] = { 16.9 , 13.5 , 16.8 , 7.2 }; // tight settings / HT2
+  double lm0_mc[4] = { 3.24 , 15.57 , 7.82 , 31.96 };
   double lm1_mc[4] = { 0.05 , 0.34 , 1.12 , 3.43 };
 
   setBackgrounds(wspace);
@@ -368,7 +373,7 @@ void RA4Single (StatMethod method) {
   data->add(*wspace->set("obs"));
   data->Print("v");
   
-  MyLimit limit = computeLimit(wspace,data,method);
+  MyLimit limit = computeLimit(wspace,data,method,true);
   std::cout << "Limit [ " << limit.lowerLimit << " , "
 	    << limit.upperLimit << " ] ; isIn = " << limit.isInInterval << std::endl;
 }
