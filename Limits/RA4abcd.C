@@ -85,7 +85,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
   // use ProfileLikelihood
   if ( method == ProfileLikelihoodMethod ) {
     ProfileLikelihoodCalculator plc(*data, *modelConfig);
-    plc.SetConfidenceLevel(0.90);
+    plc.SetConfidenceLevel(0.95);
     RooFit::MsgLevel msglevel = RooMsgService::instance().globalKillBelow();
     RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
     LikelihoodInterval* plInt = plc.GetInterval();
@@ -111,7 +111,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
   // use FeldmaCousins (takes ~20 min)  
   if ( method == FeldmanCousinsMethod ) {
     FeldmanCousins fc(*data, *modelConfig);
-    fc.SetConfidenceLevel(0.90);
+    fc.SetConfidenceLevel(0.95);
     //number counting: dataset always has 1 entry with N events observed
     fc.FluctuateNumDataEntries(false); 
     fc.UseAdaptiveSampling(true);
@@ -132,7 +132,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
   // use BayesianCalculator (only 1-d parameter of interest, slow for this problem)  
   if ( method == BayesianMethod ) {
     BayesianCalculator bc(*data, *modelConfig);
-    bc.SetConfidenceLevel(0.90);
+    bc.SetConfidenceLevel(0.95);
     bc.SetLeftSideTailFraction(0.5);
     SimpleInterval* bInt = NULL;
     if( wspace->set("poi")->getSize() == 1)   {
@@ -154,8 +154,8 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
       delete bInt;
       return result;
     } else {
-    cout << "Bayesian Calc. only supports on parameter of interest" << endl;
-    return MyLimit();
+      cout << "Bayesian Calc. only supports on parameter of interest" << endl;
+      return MyLimit();
     }
   }
 
@@ -163,7 +163,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
   // use MCMCCalculator  (takes about 1 min)
   // Want an efficient proposal function, so derive it from covariance
   // matrix of fit
-  if ( method = MCMCMethod ) {
+  if ( method == MCMCMethod ) {
     RooFitResult* fit = wspace->pdf("model")->fitTo(*data,Save());
     ProposalHelper ph;
     ph.SetVariables((RooArgSet&)fit->floatParsFinal());
@@ -173,7 +173,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
     ProposalFunction* pf = ph.GetProposalFunction();
     
     MCMCCalculator mc(*data, *modelConfig);
-    mc.SetConfidenceLevel(0.90);
+    mc.SetConfidenceLevel(0.95);
     mc.SetProposalFunction(*pf);
     mc.SetNumBurnInSteps(100); // first N steps to be ignored as burn-in
     mc.SetNumIters(100000);
@@ -196,6 +196,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
   t.Print();
 
   delete modelConfig;
+  return MyLimit();
 
 }
 //
