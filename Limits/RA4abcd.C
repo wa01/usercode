@@ -269,11 +269,14 @@ RooWorkspace* createWorkspace (const char* name = "wspace")
 //
 // set background-related variables of the workspace
 //
-void setBackgrounds (RooWorkspace* wspace) 
+void setBackgrounds (RooWorkspace* wspace, double* bkgs=0) 
 {
   // Inputs : expected values
   // double bkg_mc[4] = { 120. , 12.1 , 18.3 , 1.83 }; // tight settings / HT2
   double bkg_mc[4] = { 43.76 , 38.88 , 23.77 , 22.13 };
+  if ( bkgs ) {
+    for ( unsigned int i=0; i<4; ++i )  bkg_mc[i] = bkgs[i];
+  }
   double observed[4];
   for ( unsigned int i=0; i<4; ++i ) 
     observed[i] = int(bkg_mc[i]+0.5);
@@ -446,7 +449,7 @@ void RA4Mult (const char* file, StatMethod method=ProfileLikelihoodMethod) {
 
       RooDataSet* data = new RooDataSet("data","data",*wspace->set("obs"));
       data->add(*wspace->set("obs"));
-  // data->Print("v");
+      // data->Print("v");
   
       MyLimit limit = computeLimit(wspace,data,method);
       std::cout << "Checked ( " << hExclusion->GetXaxis()->GetBinCenter(ix) << " , "
@@ -483,6 +486,151 @@ void RA4Mult (const char* file, StatMethod method=ProfileLikelihoodMethod) {
   hUpperLimit->SetMinimum(); hUpperLimit->SetMaximum();
   hYields[3]->SetDirectory(out);
   hYields[3]->SetMinimum(); hYields[3]->SetMaximum();
+  out->Write();
+  delete out;
+}
+
+//
+// scan over regions
+//
+double regionContent (TH2* histo, 
+		      int iHTbegin, int iMETbegin, 
+		      int iHTend=-1, int iMETend=-1)
+{
+  double sum(0.);
+  int htEnd = iHTend>0 ? iHTend : histo->GetNbinsX()+1;
+  int metEnd = iMETend>0 ? iMETend : histo->GetNbinsX()+1;
+  for ( int ix=iHTbegin; ix<htEnd; ++ix ) {
+    for ( int iy=iMETbegin; iy<metEnd; ++iy ) {
+      sum += histo->GetBinContent(ix,iy);
+    }
+  }
+  return sum;
+}
+
+void RA4Regions (const char* fileBkg, const char* fileSig, 
+		 int iHTMin, int iMETMin,
+		 int dHT=2, int dMET=2,
+		 StatMethod method=ProfileLikelihoodMethod) {
+
+  TFile* fBkgRegions = new TFile(fileBkg);
+  TH2* hBkg = (TH2*)fBkgRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+  TFile* fSigRegions = new TFile(fileSig);
+  TH2* hSig = (TH2*)fSigRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+
+
+  gROOT->cd();
+  TH2* hExclusion = (TH2*)hBkg->Clone("Exclusion");
+  hExclusion->Reset();
+  hExclusion->SetTitle("Exclusion");
+  TH2* hLowerLimit = (TH2*)hBkg->Clone("LowerLimit");
+  hLowerLimit->Reset();
+  hLowerLimit->SetTitle("LowerLimit");
+  TH2* hUpperLimit = (TH2*)hBkg->Clone("UpperLimit");
+  hUpperLimit->Reset();
+  hUpperLimit->SetTitle("UpperLimit");
+  TH2* hRelUpperLimit = (TH2*)hBkg->Clone("RelUpperLimit");
+  hRelUpperLimit->Reset();
+  hRelUpperLimit->SetTitle("UpperLimit / Yield");
+
+  RooWorkspace* wspace = createWorkspace();
+
+  double yields[4];
+  double bkgs[4];
+
+  int nbx = hBkg->GetNbinsX();
+  int nby = hBkg->GetNbinsY();
+  for ( unsigned int ix=iHTMin+dHT; ix<=nbx; ix+=dHT ) {
+    for ( unsigned int iy=iMETMin+dMET; iy<=nby; iy+=dMET ) {
+
+      std::cout << "Limits " 
+		<< hBkg->GetXaxis()->GetBinLowEdge(iHTMin) << " "
+		<< hBkg->GetXaxis()->GetBinLowEdge(ix) << " "
+		<< hBkg->GetYaxis()->GetBinLowEdge(iMETMin) << " "
+		<< hBkg->GetYaxis()->GetBinLowEdge(iy) << std::endl;
+
+      bkgs[0] = regionContent(hBkg,iHTMin,iMETMin,ix,iy);
+      bkgs[1] = regionContent(hBkg,ix,iMETMin,-1,iy);
+      bkgs[2] = regionContent(hBkg,iHTMin,iy,ix,-1);
+      bkgs[3] = regionContent(hBkg,ix,iy,-1,-1);
+
+      yields[0] = regionContent(hSig,iHTMin,iMETMin,ix,iy);
+      yields[1] = regionContent(hSig,ix,iMETMin,-1,iy);
+      yields[2] = regionContent(hSig,iHTMin,iy,ix,-1);
+      yields[3] = regionContent(hSig,ix,iy,-1,-1);
+
+      std::cout << "bkgs / yields =";
+      for ( unsigned int i=0; i<4; ++i ) 
+	std::cout << " ( " << bkgs[i] << " / " << yields[i] << " ) ";
+      double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
+      std::cout << " kappa = " << kappa << std::endl;
+
+      double bkgmin(1.e30);
+      for ( unsigned int i=0; i<4; ++i )  bkgmin = min(bkgmin,bkgs[i]);
+      if ( bkgmin<0.001 ) {
+	hExclusion->SetBinContent(ix,iy,-1.);
+	hLowerLimit->SetBinContent(ix,iy,-1.);
+	hUpperLimit->SetBinContent(ix,iy,-1.);
+	hRelUpperLimit->SetBinContent(ix,iy,-1.);
+	continue;
+      }
+      if ( yields[3]<0.001 ) {
+	hExclusion->SetBinContent(ix,iy,-2.);
+	hLowerLimit->SetBinContent(ix,iy,-2.);
+	hUpperLimit->SetBinContent(ix,iy,-2.);
+	hRelUpperLimit->SetBinContent(ix,iy,-2.);
+	continue;
+      }
+      if ( fabs(kappa-1.)>0.1 ) {
+	hExclusion->SetBinContent(ix,iy,-3.);
+	hLowerLimit->SetBinContent(ix,iy,-3.);
+	hUpperLimit->SetBinContent(ix,iy,-3.);
+	hRelUpperLimit->SetBinContent(ix,iy,-3.);
+	continue;	
+      }
+
+      setBackgrounds(wspace,bkgs);
+      setSignal(wspace,yields);
+
+      // wspace->Print("v");
+      // RooArgSet allVars = wspace->allVars();
+      // allVars.printLatex(std::cout,1);
+
+      RooDataSet* data = new RooDataSet("data","data",*wspace->set("obs"));
+      data->add(*wspace->set("obs"));
+      data->Print("v");
+  
+      MyLimit limit = computeLimit(wspace,data,method);
+      std::cout << "Checked ( " << hExclusion->GetXaxis()->GetBinCenter(ix) << " , "
+		<< hExclusion->GetYaxis()->GetBinCenter(iy) << " ) with signal yield " << yields[3] << std::endl;
+      std::cout << "  Limit [ " << limit.lowerLimit << " , "
+		<< limit.upperLimit << " ] ; isIn = " << limit.isInInterval << std::endl;
+      std::cout << "  yields =" 
+		<< " " << yields[0]
+		<< " " << yields[1]
+		<< " " << yields[2]
+		<< " " << yields[3] << std::endl;
+      double excl = limit.isInInterval;
+      if ( limit.upperLimit<limit.lowerLimit )  excl = -1;
+      hExclusion->SetBinContent(ix,iy,excl);
+      hLowerLimit->SetBinContent(ix,iy,limit.lowerLimit);
+      hUpperLimit->SetBinContent(ix,iy,limit.upperLimit);
+      hRelUpperLimit->SetBinContent(ix,iy,limit.upperLimit/yields[3]);
+
+      delete data;
+
+    }
+  }
+
+  TFile* out = new TFile("RA4regions.root","RECREATE");
+  hExclusion->SetDirectory(out);
+  hExclusion->SetMinimum(); hExclusion->SetMaximum();
+  hLowerLimit->SetDirectory(out);
+  hLowerLimit->SetMinimum(); hLowerLimit->SetMaximum();
+  hUpperLimit->SetDirectory(out);
+  hUpperLimit->SetMinimum(); hUpperLimit->SetMaximum();
+  hRelUpperLimit->SetDirectory(out);
+  hRelUpperLimit->SetMinimum(); hRelUpperLimit->SetMaximum();
   out->Write();
   delete out;
 }
