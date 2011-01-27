@@ -71,12 +71,12 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
   /////////////////////////////////////////////////////
   // Now the statistical tests
   // model config
-  ModelConfig* modelConfig = new ModelConfig("RA4abcd");
-  modelConfig->SetWorkspace(*wspace);
-  modelConfig->SetPdf(*wspace->pdf("model"));
-  modelConfig->SetPriorPdf(*wspace->pdf("prior"));
-  modelConfig->SetParametersOfInterest(*wspace->set("poi"));
-  modelConfig->SetNuisanceParameters(*wspace->set("nuis"));
+  ModelConfig modelConfig("RA4abcd");
+  modelConfig.SetWorkspace(*wspace);
+  modelConfig.SetPdf(*wspace->pdf("model"));
+  modelConfig.SetPriorPdf(*wspace->pdf("prior"));
+  modelConfig.SetParametersOfInterest(*wspace->set("poi"));
+  modelConfig.SetNuisanceParameters(*wspace->set("nuis"));
 
   //////////////////////////////////////////////////
   // If you want to see the covariance matrix uncomment
@@ -84,7 +84,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
 
   // use ProfileLikelihood
   if ( method == ProfileLikelihoodMethod ) {
-    ProfileLikelihoodCalculator plc(*data, *modelConfig);
+    ProfileLikelihoodCalculator plc(*data, modelConfig);
     plc.SetConfidenceLevel(0.95);
     RooFit::MsgLevel msglevel = RooMsgService::instance().globalKillBelow();
     RooMsgService::instance().setGlobalKillBelow(RooFit::FATAL);
@@ -105,12 +105,13 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
 		   plInt->LowerLimit(*wspace->var("s")),plInt->UpperLimit(*wspace->var("s")));
     // std::cout << "isIn " << result << std::endl;
     delete plInt;
+//     delete modelConfig;
     return result;
   }
 
   // use FeldmaCousins (takes ~20 min)  
   if ( method == FeldmanCousinsMethod ) {
-    FeldmanCousins fc(*data, *modelConfig);
+    FeldmanCousins fc(*data, modelConfig);
     fc.SetConfidenceLevel(0.95);
     //number counting: dataset always has 1 entry with N events observed
     fc.FluctuateNumDataEntries(false); 
@@ -131,7 +132,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
 
   // use BayesianCalculator (only 1-d parameter of interest, slow for this problem)  
   if ( method == BayesianMethod ) {
-    BayesianCalculator bc(*data, *modelConfig);
+    BayesianCalculator bc(*data, modelConfig);
     bc.SetConfidenceLevel(0.95);
     bc.SetLeftSideTailFraction(0.5);
     SimpleInterval* bInt = NULL;
@@ -172,7 +173,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
     ph.SetCacheSize(100);
     ProposalFunction* pf = ph.GetProposalFunction();
     
-    MCMCCalculator mc(*data, *modelConfig);
+    MCMCCalculator mc(*data, modelConfig);
     mc.SetConfidenceLevel(0.95);
     mc.SetProposalFunction(*pf);
     mc.SetNumBurnInSteps(100); // first N steps to be ignored as burn-in
@@ -195,7 +196,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
 
   t.Print();
 
-  delete modelConfig;
+//   delete modelConfig;
   return MyLimit();
 
 }
