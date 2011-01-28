@@ -510,7 +510,7 @@ double regionContent (TH2* histo,
   return sum;
 }
 
-void RA4Regions (const char* fileBkg, const char* fileSig, 
+void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
 		 int iHTCut, int iMETCut,
 		 int dHT=2, int dMET=2,
 		 StatMethod method=ProfileLikelihoodMethod) {
@@ -526,9 +526,22 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
     return;
   }
   
-  TFile* fBkgRegions = new TFile(fileBkg);
+  std::string spre(prefix);
+  std::string spost(postfix);
+  TFile* fBkgRegions = new TFile((spre+"mc"+spost).c_str());
+  TFile* fTtRegions = new TFile((spre+"ttbar"+spost).c_str());
+  TFile* fWjRegions = new TFile((spre+"wjets"+spost).c_str());
+  TFile* fSigRegions = new TFile((spre+sigName+spost).c_str());
+  if ( fBkgRegions==0 || fBkgRegions->IsZombie() ||
+       fTtRegions==0 || fTtRegions->IsZombie() ||
+       fWjRegions==0 || fWjRegions->IsZombie() ||
+       fSigRegions==0 || fSigRegions->IsZombie() ) {
+    std::cout << "Couldn't open one of the files" << std::endl;
+    return;
+  }
   TH2* hBkg = (TH2*)fBkgRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
-  TFile* fSigRegions = new TFile(fileSig);
+  TH2* hTt = (TH2*)fTtRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+  TH2* hWjets = (TH2*)fWjRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
   TH2* hSig = (TH2*)fSigRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
 
 
@@ -548,20 +561,25 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
   TH2* hKappa = (TH2*)hBkg->Clone("Kappa");
   hKappa->Reset();
   hKappa->SetTitle("Kappa");
+  TH2* hSigKappa = (TH2*)hBkg->Clone("SigKappa");
+  hSigKappa->Reset();
+  hSigKappa->SetTitle("SigKappa");
 
   RooWorkspace* wspace = createWorkspace();
 
   double yields[4];
   double bkgs[4];
+  double tt[4];
+  double wjets[4];
 
   int nbx = hBkg->GetNbinsX();
   int nby = hBkg->GetNbinsY();
-  int iHTbeg = dHT>0 ? iHTCut+dHT : 1;
-  int iHTend = dHT>0 ? nbx+1 : iHTCut;
-  int iMETbeg = dMET>0 ? iMETCut+dMET : 1;
-  int iMETend = dMET>0 ? nby+1 : iMETCut;
-  for ( unsigned int ix=iHTbeg; ix<iHTend; ix+=dHT ) {
-    for ( unsigned int iy=iMETbeg; iy<iMETend; iy+=dMET ) {
+//   int iHTbeg = dHT>0 ? iHTCut+dHT : 1;
+  int iHTend = dHT>0 ? nbx+1 : 0;
+//   int iMETbeg = dMET>0 ? iMETCut+dMET : 1;
+  int iMETend = dMET>0 ? nby+1 : 0;
+  for ( unsigned int ix=iHTCut+dHT; ix!=iHTend; ix+=dHT ) {
+    for ( unsigned int iy=iMETCut+dHT; iy!=iMETend; iy+=dMET ) {
 
       int iHTlow = dHT>0 ? iHTCut : ix;
       int iHTint = dHT>0 ? ix : iHTCut;
@@ -578,6 +596,16 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
       bkgs[2] = regionContent(hBkg,iHTlow,iMETint,iHTint,-1);
       bkgs[3] = regionContent(hBkg,iHTint,iMETint,-1,-1);
 
+      tt[0] = regionContent(hTt,iHTlow,iMETlow,iHTint,iMETint);
+      tt[1] = regionContent(hTt,iHTint,iMETlow,-1,iMETint);
+      tt[2] = regionContent(hTt,iHTlow,iMETint,iHTint,-1);
+      tt[3] = regionContent(hTt,iHTint,iMETint,-1,-1);
+
+      wjets[0] = regionContent(hWjets,iHTlow,iMETlow,iHTint,iMETint);
+      wjets[1] = regionContent(hWjets,iHTint,iMETlow,-1,iMETint);
+      wjets[2] = regionContent(hWjets,iHTlow,iMETint,iHTint,-1);
+      wjets[3] = regionContent(hWjets,iHTint,iMETint,-1,-1);
+
       yields[0] = regionContent(hSig,iHTlow,iMETlow,iHTint,iMETint);
       yields[1] = regionContent(hSig,iHTint,iMETlow,-1,iMETint);
       yields[2] = regionContent(hSig,iHTlow,iMETint,iHTint,-1);
@@ -589,8 +617,14 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
       std::cout << std::endl;
 
       double bkgmin(1.e30);
-      for ( unsigned int i=0; i<4; ++i )  bkgmin = min(bkgmin,bkgs[i]);
-      if ( bkgmin<0.001 ) {
+      double ttmin(1.e30);
+      double wjetsmin(1.e30);
+      for ( unsigned int i=0; i<4; ++i ) {
+	bkgmin = min(bkgmin,bkgs[i]);
+	ttmin = min(ttmin,tt[i]);
+	wjetsmin = min(wjetsmin,wjets[i]);
+      }
+      if ( bkgmin<0.001 || ttmin<0.001 || wjetsmin<0.001 ) {
 	hExclusion->SetBinContent(ix,iy,-1.);
 	hLowerLimit->SetBinContent(ix,iy,-1.);
 	hUpperLimit->SetBinContent(ix,iy,-1.);
@@ -600,11 +634,22 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
       double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
       std::cout << " kappa = " << kappa << std::endl;
       hKappa->SetBinContent(ix,iy,kappa);
-//       //
-//       // set uncertainty on kappa:
-//       //   deviation from 1 (+) diff. tt/W
-//       //
-//       setValRange(wspace,"sigmaKappa",sigma_kappa);
+
+      double kappatt = (tt[0]*tt[3])/(tt[1]*tt[2]);
+      double kappawjets = (wjets[0]*wjets[3])/(wjets[1]*wjets[2]);
+      std::cout << " kappa (tot/tt/w) = " 
+		<< kappa << " " << kappatt << " " << kappawjets << std::endl;
+      //
+      // set uncertainty on kappa:
+      //   deviation from 1 (+) diff. tt/W
+      //
+      double sigma_kappa_abs = kappa - 1.;
+      double sigma_kappa_delta = kappatt - kappawjets;
+      double sigma_kappa = sqrt(sigma_kappa_abs*sigma_kappa_abs+sigma_kappa_delta*sigma_kappa_delta);
+      setValRange(wspace,"sigmaKappa",sigma_kappa);
+      std::cout << "Setting uncertainty on kappa to " 
+		<< sigma_kappa_abs << " " << sigma_kappa_delta << " " << sigma_kappa << std::endl;
+      hSigKappa->SetBinContent(ix,iy,sigma_kappa);
 
       if ( yields[3]<0.001 ) {
 	hExclusion->SetBinContent(ix,iy,-2.);
@@ -613,7 +658,7 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
 	hRelUpperLimit->SetBinContent(ix,iy,-2.);
 	continue;
       }
-      if ( fabs(kappa-1.)>0.04 ) {
+      if ( fabs(kappa-1.)>0.2 ) {
 	hExclusion->SetBinContent(ix,iy,-3.);
 	hLowerLimit->SetBinContent(ix,iy,-3.);
 	hUpperLimit->SetBinContent(ix,iy,-3.);
@@ -665,6 +710,8 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
   hRelUpperLimit->SetMinimum(); hRelUpperLimit->SetMaximum();
   hKappa->SetDirectory(out);
   hKappa->SetMinimum(); hKappa->SetMaximum();
+  hSigKappa->SetDirectory(out);
+  hSigKappa->SetMinimum(); hSigKappa->SetMaximum();
   out->Write();
   delete out;
 }
