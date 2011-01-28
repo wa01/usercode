@@ -498,8 +498,10 @@ double regionContent (TH2* histo,
 		      int iHTend=-1, int iMETend=-1)
 {
   double sum(0.);
-  int htEnd = iHTend>0 ? iHTend : histo->GetNbinsX()+1;
-  int metEnd = iMETend>0 ? iMETend : histo->GetNbinsX()+1;
+  // sum from begin to end (excluding)
+  //  if end<0: sum to edge of histogram, including overflow bin
+  int htEnd = iHTend>0 ? iHTend : histo->GetNbinsX()+2;
+  int metEnd = iMETend>0 ? iMETend : histo->GetNbinsX()+2;
   for ( int ix=iHTbegin; ix<htEnd; ++ix ) {
     for ( int iy=iMETbegin; iy<metEnd; ++iy ) {
       sum += histo->GetBinContent(ix,iy);
@@ -509,10 +511,21 @@ double regionContent (TH2* histo,
 }
 
 void RA4Regions (const char* fileBkg, const char* fileSig, 
-		 int iHTMin, int iMETMin,
+		 int iHTCut, int iMETCut,
 		 int dHT=2, int dMET=2,
 		 StatMethod method=ProfileLikelihoodMethod) {
 
+  if ( dHT>0 && dMET>0 ) {
+    std::cout << "*** Scanning intermediate limits" << std::endl;
+  }
+  else if ( dHT<0 && dMET<0 ) {
+    std::cout << "*** Scanning lower limits" << std::endl;
+  }
+  else {
+    std::cout << "*** Inconsistency between dHT and dMET" << std::endl;
+    return;
+  }
+  
   TFile* fBkgRegions = new TFile(fileBkg);
   TH2* hBkg = (TH2*)fBkgRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
   TFile* fSigRegions = new TFile(fileSig);
@@ -532,6 +545,9 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
   TH2* hRelUpperLimit = (TH2*)hBkg->Clone("RelUpperLimit");
   hRelUpperLimit->Reset();
   hRelUpperLimit->SetTitle("UpperLimit / Yield");
+  TH2* hKappa = (TH2*)hBkg->Clone("Kappa");
+  hKappa->Reset();
+  hKappa->SetTitle("Kappa");
 
   RooWorkspace* wspace = createWorkspace();
 
@@ -540,30 +556,37 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
 
   int nbx = hBkg->GetNbinsX();
   int nby = hBkg->GetNbinsY();
-  for ( unsigned int ix=iHTMin+dHT; ix<=nbx; ix+=dHT ) {
-    for ( unsigned int iy=iMETMin+dMET; iy<=nby; iy+=dMET ) {
+  int iHTbeg = dHT>0 ? iHTCut+dHT : 1;
+  int iHTend = dHT>0 ? nbx+1 : iHTCut;
+  int iMETbeg = dMET>0 ? iMETCut+dMET : 1;
+  int iMETend = dMET>0 ? nby+1 : iMETCut;
+  for ( unsigned int ix=iHTbeg; ix<iHTend; ix+=dHT ) {
+    for ( unsigned int iy=iMETbeg; iy<iMETend; iy+=dMET ) {
 
+      int iHTlow = dHT>0 ? iHTCut : ix;
+      int iHTint = dHT>0 ? ix : iHTCut;
+      int iMETlow = dMET>0 ? iMETCut : iy;
+      int iMETint = dMET>0 ? iy : iMETCut;
       std::cout << "Limits " 
-		<< hBkg->GetXaxis()->GetBinLowEdge(iHTMin) << " "
-		<< hBkg->GetXaxis()->GetBinLowEdge(ix) << " "
-		<< hBkg->GetYaxis()->GetBinLowEdge(iMETMin) << " "
-		<< hBkg->GetYaxis()->GetBinLowEdge(iy) << std::endl;
+		<< hBkg->GetXaxis()->GetBinLowEdge(iHTlow) << " "
+		<< hBkg->GetXaxis()->GetBinLowEdge(iHTint) << " "
+		<< hBkg->GetYaxis()->GetBinLowEdge(iMETlow) << " "
+		<< hBkg->GetYaxis()->GetBinLowEdge(iMETint) << std::endl;
 
-      bkgs[0] = regionContent(hBkg,iHTMin,iMETMin,ix,iy);
-      bkgs[1] = regionContent(hBkg,ix,iMETMin,-1,iy);
-      bkgs[2] = regionContent(hBkg,iHTMin,iy,ix,-1);
-      bkgs[3] = regionContent(hBkg,ix,iy,-1,-1);
+      bkgs[0] = regionContent(hBkg,iHTlow,iMETlow,iHTint,iMETint);
+      bkgs[1] = regionContent(hBkg,iHTint,iMETlow,-1,iMETint);
+      bkgs[2] = regionContent(hBkg,iHTlow,iMETint,iHTint,-1);
+      bkgs[3] = regionContent(hBkg,iHTint,iMETint,-1,-1);
 
-      yields[0] = regionContent(hSig,iHTMin,iMETMin,ix,iy);
-      yields[1] = regionContent(hSig,ix,iMETMin,-1,iy);
-      yields[2] = regionContent(hSig,iHTMin,iy,ix,-1);
-      yields[3] = regionContent(hSig,ix,iy,-1,-1);
+      yields[0] = regionContent(hSig,iHTlow,iMETlow,iHTint,iMETint);
+      yields[1] = regionContent(hSig,iHTint,iMETlow,-1,iMETint);
+      yields[2] = regionContent(hSig,iHTlow,iMETint,iHTint,-1);
+      yields[3] = regionContent(hSig,iHTint,iMETint,-1,-1);
 
       std::cout << "bkgs / yields =";
       for ( unsigned int i=0; i<4; ++i ) 
 	std::cout << " ( " << bkgs[i] << " / " << yields[i] << " ) ";
-      double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
-      std::cout << " kappa = " << kappa << std::endl;
+      std::cout << std::endl;
 
       double bkgmin(1.e30);
       for ( unsigned int i=0; i<4; ++i )  bkgmin = min(bkgmin,bkgs[i]);
@@ -574,6 +597,15 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
 	hRelUpperLimit->SetBinContent(ix,iy,-1.);
 	continue;
       }
+      double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
+      std::cout << " kappa = " << kappa << std::endl;
+      hKappa->SetBinContent(ix,iy,kappa);
+//       //
+//       // set uncertainty on kappa:
+//       //   deviation from 1 (+) diff. tt/W
+//       //
+//       setValRange(wspace,"sigmaKappa",sigma_kappa);
+
       if ( yields[3]<0.001 ) {
 	hExclusion->SetBinContent(ix,iy,-2.);
 	hLowerLimit->SetBinContent(ix,iy,-2.);
@@ -581,7 +613,7 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
 	hRelUpperLimit->SetBinContent(ix,iy,-2.);
 	continue;
       }
-      if ( fabs(kappa-1.)>0.1 ) {
+      if ( fabs(kappa-1.)>0.04 ) {
 	hExclusion->SetBinContent(ix,iy,-3.);
 	hLowerLimit->SetBinContent(ix,iy,-3.);
 	hUpperLimit->SetBinContent(ix,iy,-3.);
@@ -631,6 +663,8 @@ void RA4Regions (const char* fileBkg, const char* fileSig,
   hUpperLimit->SetMinimum(); hUpperLimit->SetMaximum();
   hRelUpperLimit->SetDirectory(out);
   hRelUpperLimit->SetMinimum(); hRelUpperLimit->SetMaximum();
+  hKappa->SetDirectory(out);
+  hKappa->SetMinimum(); hKappa->SetMaximum();
   out->Write();
   delete out;
 }
