@@ -409,6 +409,14 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
 	      setBackgrounds(wspace,bkgs);
 	      setSignal(wspace,yields);
 	      setValRange(wspace,"sigmaKappa",sigma_kappa);
+
+// 	      //
+// 	      // pessimistic estimate: change rounding in A,D and B, C
+// 	      //
+// 	      setValRange(wspace,"na",int(bkgs[0])+1,0,1000);
+// 	      setValRange(wspace,"nb",int(bkgs[1]),0,1000);
+// 	      setValRange(wspace,"nc",int(bkgs[2]),0,1000);
+// 	      setValRange(wspace,"nd",int(bkgs[3])+1,0,1000);
 	      
 // 	      wspace->Print("v");
 // 	      RooArgSet allVars = wspace->allVars();

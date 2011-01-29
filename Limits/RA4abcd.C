@@ -267,9 +267,16 @@ void setBackgrounds (RooWorkspace* wspace, double* bkgs)
   if ( bkgs ) {
     for ( unsigned int i=0; i<4; ++i )  bkg_mc[i] = bkgs[i];
   }
+  //
+  // use pessimistic scenario for rounding of expected numbers
+  //  
   double observed[4];
-  for ( unsigned int i=0; i<4; ++i ) 
-    observed[i] = int(bkg_mc[i]+0.5);
+//   for ( unsigned int i=0; i<4; ++i ) 
+//     observed[i] = int(bkg_mc[i]+0.5);
+  observed[0] = int(bkg_mc[0])+1;
+  observed[1] = int(bkg_mc[1]);
+  observed[2] = int(bkg_mc[2]);
+  observed[3] = int(bkg_mc[3])+1;
 
   // scaling factors
   double sigma_kappa = 0.25;
