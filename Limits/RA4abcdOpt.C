@@ -1,3 +1,5 @@
+#include "RA4abcd.h"
+
 #include "TStopwatch.h"
 #include "TCanvas.h"
 #include "TROOT.h"
@@ -30,38 +32,6 @@
 
 using namespace RooFit;
 using namespace RooStats;
-// stat method used
-enum StatMethod { ProfileLikelihoodMethod, FeldmanCousinsMethod, BayesianMethod, MCMCMethod };
-
-// simple class to hold the calculated limit
-struct MyLimit {
-  MyLimit (): isInInterval(false), lowerLimit(999999), upperLimit(-999999) {}
-  MyLimit (bool inInterval, double lower, double upper) : 
-    isInInterval(inInterval), lowerLimit(lower), upperLimit(upper) {}
-  bool isInInterval;
-  double lowerLimit;
-  double upperLimit;
-};
-
-//
-// calculation of the limit: assumes that wspace is set up and observations
-//   contained in data
-//
-extern MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method, bool draw=false);
-//
-// set value and range for a variable in the workspace
-//
-extern void setValRange (RooWorkspace* workspace, const char* name, double val, double vmin=999999, double vmax=-999999);
-//
-// create a workspace with the variables (with dummy values) and the pdfs
-//
-extern RooWorkspace* createWorkspace (const char* name = "wspace");
-//
-// set background-related variables of the workspace
-//
-extern void setBackgrounds (RooWorkspace* wspace, double* bkgs=0);
-
-extern void setSignal (RooWorkspace* wspace, double* lm_mc);
 //
 // scan over regions
 //
