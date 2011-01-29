@@ -5,6 +5,7 @@
 #include "TROOT.h"
 #include "TFile.h"
 #include "TH2F.h"
+#include "TTree.h"
 #include "RooPlot.h"
 #include "RooAbsPdf.h"
 #include "RooWorkspace.h"
@@ -25,6 +26,8 @@
 #include "RooStats/PointSetInterval.h"
 #include "RooStats/SimpleLikelihoodRatioTestStat.h"
 #include <vector>
+
+#include "RooAbsDataStore.h"
 
 /** Some functions for limit calculation with ABCD.
  *  RA4Single: one test with LM0
@@ -261,36 +264,27 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
 }
 
 struct OptResult {
-//   OptResult (TH2* hist, 
-// 	     int ht1, int ht2, int ht3,
-// 	     int met1, int met2, int met3,
-// 	     double k, double sk,
-// 	     double b, double y,
-// 	     double ul, double rul) :
-//     kappa(k), sigKappa(sk), bkg(b), yield(y),
-//     upperLimit(ul), relUpperLimit(rul) {
-//     htBins[0] = ht1;
-//     htBins[1] = ht2;
-//     htBins[2] = ht3;
-//     metBins[0] = met1;
-//     metBins[1] = met2;
-//     metBins[2] = met3;
-//   }
   bool operator< (const OptResult& other) const {
-    return relUpperLimit<other.relUpperLimit;
+    return upperLimit/yields[3]<other.upperLimit/other.yields[3];
   }
   int htBins[3];
   int metBins[3];
-  double kappa;
-  double sigKappa;
-  double bkg;
-  double yield;
-  double upperLimit;
-  double relUpperLimit;
+//   float htCuts[3];
+//   float metCuts[3];
+  int nobs[4];
+  float kappa;
+  float kappaTT;
+  float kappaWjets;
+  float sigKappa;
+  float bkgs[4];
+  float yields[4];
+  float upperLimit;
+//   float relUpperLimit;
 };
 
 void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName,
 		    int dHT=2, int dMET=2,
+		    float HTmin=0., float METmin=0.,
 		    StatMethod method=ProfileLikelihoodMethod) {
   
   std::string spre(prefix);
@@ -312,32 +306,40 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
   TH2* hSig = (TH2*)fSigRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
 
   RooWorkspace* wspace = createWorkspace();
+  RooRealVar* vna = wspace->var("na");
+  RooRealVar* vnb = wspace->var("nb");
+  RooRealVar* vnc = wspace->var("nc");
+  RooRealVar* vnd = wspace->var("nd");
 
   double yields[4];
   double bkgs[4];
   double tt[4];
   double wjets[4];
 
-  const unsigned int nrmax(500);
-  std::vector<OptResult> results; results.reserve(2*nrmax);
+  const unsigned int nrmax(100000);
+  std::vector<OptResult> results; results.reserve(nrmax);
   OptResult result;
 
   int nbx = hBkg->GetNbinsX();
   int nby = hBkg->GetNbinsY();
-  for ( int ix0=1; ix0<=nbx; ix0+=dHT ) {
+  TAxis* xaxis = hBkg->GetXaxis();
+  TAxis* yaxis = hBkg->GetYaxis();
+  int iHTmin = max(xaxis->FindBin(HTmin),1);
+  int iMETmin = max(yaxis->FindBin(METmin),1);
+  for ( int ix0=iHTmin; ix0<=nbx; ix0+=dHT ) {
     for ( int ix1=ix0+dHT; ix1<=nbx; ix1+=dHT ) {
       for ( int ix2=ix1; ix2<=nbx; ix2+=dHT ) {
-	for ( int iy0=1; iy0<=nby; iy0+=dMET ) {
+	for ( int iy0=iMETmin; iy0<=nby; iy0+=dMET ) {
 	  for ( int iy1=iy0+dMET; iy1<=nby; iy1+=dMET ) {
 	    for ( int iy2=iy1; iy2<=nby; iy2+=dMET ) {
 
 	      std::cout << "Limits " 
-			<< hBkg->GetXaxis()->GetBinLowEdge(ix0) << " "
-			<< hBkg->GetXaxis()->GetBinLowEdge(ix1) << " "
-			<< hBkg->GetXaxis()->GetBinLowEdge(ix2) << " "
-			<< hBkg->GetYaxis()->GetBinLowEdge(iy0) << " "
-			<< hBkg->GetYaxis()->GetBinLowEdge(iy1) << " "
-			<< hBkg->GetYaxis()->GetBinLowEdge(iy2) << std::endl;
+			<< xaxis->GetBinLowEdge(ix0) << " "
+			<< xaxis->GetBinLowEdge(ix1) << " "
+			<< xaxis->GetBinLowEdge(ix2) << " "
+			<< yaxis->GetBinLowEdge(iy0) << " "
+			<< yaxis->GetBinLowEdge(iy1) << " "
+			<< yaxis->GetBinLowEdge(iy2) << std::endl;
 	      
 	      bkgs[3] = regionContent(hBkg,ix2,iy2,-1,-1);
 	      tt[3] = regionContent(hTt,ix2,iy2,-1,-1);
@@ -396,7 +398,7 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
 	      if ( yields[3]<0.001 ) {
 		break;
 	      }
-	      if ( fabs(kappa-1.)>0.2 ) {
+	      if ( fabs(kappa-1.)>0.1 ) {
 		continue;	
 	      }
 
@@ -404,15 +406,23 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
 	      setSignal(wspace,yields);
 	      setValRange(wspace,"sigmaKappa",sigma_kappa);
 	      
-	      // wspace->Print("v");
-	      // RooArgSet allVars = wspace->allVars();
-	      // allVars.printLatex(std::cout,1);
+// 	      wspace->Print("v");
+// 	      RooArgSet allVars = wspace->allVars();
+// 	      allVars.printLatex(std::cout,1);
 	      
-	      RooDataSet* data = new RooDataSet("data","data",*wspace->set("obs"));
-	      data->add(*wspace->set("obs"));
-	      data->Print("v");
-  
-	      MyLimit limit = computeLimit(wspace,data,method);
+	      RooDataSet data("data","data",*wspace->set("obs"));
+	      data.add(*wspace->set("obs"));
+
+	      result.nobs[0] = int(vna->getVal()+0.5);
+	      result.nobs[1] = int(vnb->getVal()+0.5);
+	      result.nobs[2] = int(vnc->getVal()+0.5);
+	      result.nobs[3] = int(vnd->getVal()+0.5);
+// 	      std::cout << result.nobs[0] << " "
+// 			<< result.nobs[1] << " "
+// 			<< result.nobs[2] << " "
+// 			<< result.nobs[3] << std::endl;
+
+	      MyLimit limit = computeLimit(wspace,&data,method);
 // 	      std::cout << "  Limit [ " << limit.lowerLimit << " , "
 // 			<< limit.upperLimit << " ] ; isIn = " << limit.isInInterval << std::endl;
 // 	      std::cout << "  yields =" 
@@ -430,14 +440,18 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
 	      result.metBins[0] = iy0;
 	      result.metBins[1] = iy1;
 	      result.metBins[2] = iy2;
+	      for ( int i=0; i<4; ++i ) {
+		result.bkgs[i] = bkgs[i];
+		result.yields[i] = yields[i];
+	      }
 	      result.kappa = kappa;
+	      result.kappaTT = kappatt;
+	      result.kappaWjets = kappawjets;
 	      result.sigKappa = sigma_kappa;
-	      result.bkg = bkgs[3];
-	      result.yield = yields[3];
 	      result.upperLimit = limit.upperLimit;
-	      result.relUpperLimit = limit.upperLimit/yields[3];
+// 	      result.relUpperLimit = limit.upperLimit/yields[3];
 
-	      if ( results.size()<nrmax ) {
+	      if ( results.size()<(nrmax-1) ) {
 		results.push_back(result);
 	      }
 	      else {
@@ -446,7 +460,7 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
 		*imax = result;
 	      }
 
-	      delete data;
+// 	      delete data;
 	    }
 	  }
 	}
@@ -456,7 +470,22 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
 
   std::sort(results.begin(),results.end());
 
+  float htCuts[3];
+  float metCuts[3];
+
   TFile* out = new TFile("RA4tot.root","RECREATE");
+  TTree* tree = new TTree("RA4opt","RA4opt");
+  tree->Branch("nev",result.nobs,"nev[4]/I");
+  tree->Branch("bkg",result.bkgs,"bkg[4]/F");
+  tree->Branch("sig",result.yields,"sig[4]/F");
+  tree->Branch("ht",htCuts,"ht[3]/F");
+  tree->Branch("met",metCuts,"met[3]/F");
+  tree->Branch("kappa",&result.kappa,"kappa/F");
+  tree->Branch("kappaTT",&result.kappaTT,"kappaTT/F");
+  tree->Branch("kappaWjets",&result.kappaWjets,"kappaWjets/F");
+  tree->Branch("sigKappa",&result.sigKappa,"sigKappa/F");
+  tree->Branch("upperLimit",&result.upperLimit,"upperLimit/F");
+
   TH1* hRelUpperLimit = new TH1F("RelUpperLimit","RelUpperLimit",nrmax,0,nrmax);
   TH1* hUpperLimit = new TH1F("UpperLimit","UpperLimit",nrmax,0,nrmax);
   TH1* hKappa = new TH1F("Kappa","Kappa",nrmax,0,nrmax);
@@ -468,25 +497,33 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
   TH1* hMET1 = new TH1F("MET1","MET1",nrmax,0,nrmax);
   TH1* hMET2 = new TH1F("MET2","MET2",nrmax,0,nrmax);
   for ( unsigned int ir=0; ir<results.size(); ++ir ) {
-    std::cout << results[ir].relUpperLimit << " "
-	      << results[ir].upperLimit << " "
-	      << results[ir].bkg << " "
-	      << results[ir].yield << " "
-	      << results[ir].kappa << " "
-	      << results[ir].sigKappa << " ";
-    for ( unsigned int i=0; i<3; ++i ) std::cout << results[ir].htBins[i] << " ";
-    for ( unsigned int i=0; i<3; ++i ) std::cout << results[ir].metBins[i] << " ";
-    std::cout << std::endl;
-    hRelUpperLimit->SetBinContent(ir+1,results[ir].relUpperLimit);
-    hUpperLimit->SetBinContent(ir+1,results[ir].upperLimit);
-    hKappa->SetBinContent(ir+1,results[ir].kappa);
-    hSigKappa->SetBinContent(ir+1,results[ir].sigKappa);;
-    hHT0->SetBinContent(ir+1,results[ir].htBins[0]);
-    hHT1->SetBinContent(ir+1,results[ir].htBins[1]);
-    hHT2->SetBinContent(ir+1,results[ir].htBins[2]);
-    hMET0->SetBinContent(ir+1,results[ir].metBins[0]);
-    hMET1->SetBinContent(ir+1,results[ir].metBins[1]);
-    hMET2->SetBinContent(ir+1,results[ir].metBins[2]);
+    result = results[ir];
+    for ( int i=0; i<3; ++i ) {
+      htCuts[i] = xaxis->GetBinLowEdge(result.htBins[i]);
+      metCuts[i] = yaxis->GetBinLowEdge(result.metBins[i]);
+    }
+    tree->Fill();
+    if ( ir<500 ) {
+      std::cout << result.upperLimit/result.yields[3] << " "
+		<< result.upperLimit << " "
+		<< result.bkgs[3] << " "
+		<< result.yields[3] << " "
+		<< result.kappa << " "
+		<< result.sigKappa << " ";
+      for ( unsigned int i=0; i<3; ++i ) std::cout << result.htBins[i] << " ";
+      for ( unsigned int i=0; i<3; ++i ) std::cout << result.metBins[i] << " ";
+      std::cout << std::endl;
+      hRelUpperLimit->SetBinContent(ir+1,result.upperLimit/result.yields[3]);
+      hUpperLimit->SetBinContent(ir+1,result.upperLimit);
+      hKappa->SetBinContent(ir+1,result.kappa);
+      hSigKappa->SetBinContent(ir+1,result.sigKappa);
+      hHT0->SetBinContent(ir+1,htCuts[0]);
+      hHT1->SetBinContent(ir+1,htCuts[1]);
+      hHT2->SetBinContent(ir+1,htCuts[2]);
+      hMET0->SetBinContent(ir+1,metCuts[0]);
+      hMET1->SetBinContent(ir+1,metCuts[1]);
+      hMET2->SetBinContent(ir+1,metCuts[2]);
+    }
     
   }
   out->Write();
