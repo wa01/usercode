@@ -317,6 +317,7 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
   double wjets[4];
 
   const unsigned int nrmax(100000);
+  const unsigned int nrhmax(500);
   std::vector<OptResult> results; results.reserve(nrmax);
   OptResult result;
 
@@ -400,6 +401,9 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
 	      }
 	      if ( fabs(kappa-1.)>0.1 ) {
 		continue;	
+	      }
+	      if ( sigma_kappa>1. ) {
+		continue;
 	      }
 
 	      setBackgrounds(wspace,bkgs);
@@ -486,16 +490,16 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
   tree->Branch("sigKappa",&result.sigKappa,"sigKappa/F");
   tree->Branch("upperLimit",&result.upperLimit,"upperLimit/F");
 
-  TH1* hRelUpperLimit = new TH1F("RelUpperLimit","RelUpperLimit",nrmax,0,nrmax);
-  TH1* hUpperLimit = new TH1F("UpperLimit","UpperLimit",nrmax,0,nrmax);
-  TH1* hKappa = new TH1F("Kappa","Kappa",nrmax,0,nrmax);
-  TH1* hSigKappa = new TH1F("sigKappa","sigKappa",nrmax,0,nrmax);
-  TH1* hHT0 = new TH1F("HT0","HT0",nrmax,0,nrmax);
-  TH1* hHT1 = new TH1F("HT1","HT1",nrmax,0,nrmax);
-  TH1* hHT2 = new TH1F("HT2","HT2",nrmax,0,nrmax);
-  TH1* hMET0 = new TH1F("MET0","MET0",nrmax,0,nrmax);
-  TH1* hMET1 = new TH1F("MET1","MET1",nrmax,0,nrmax);
-  TH1* hMET2 = new TH1F("MET2","MET2",nrmax,0,nrmax);
+  TH1* hRelUpperLimit = new TH1F("RelUpperLimit","RelUpperLimit",nrhmax,0,nrhmax);
+  TH1* hUpperLimit = new TH1F("UpperLimit","UpperLimit",nrhmax,0,nrhmax);
+  TH1* hKappa = new TH1F("Kappa","Kappa",nrhmax,0,nrhmax);
+  TH1* hSigKappa = new TH1F("sigKappa","sigKappa",nrhmax,0,nrhmax);
+  TH1* hHT0 = new TH1F("HT0","HT0",nrhmax,0,nrhmax);
+  TH1* hHT1 = new TH1F("HT1","HT1",nrhmax,0,nrhmax);
+  TH1* hHT2 = new TH1F("HT2","HT2",nrhmax,0,nrhmax);
+  TH1* hMET0 = new TH1F("MET0","MET0",nrhmax,0,nrhmax);
+  TH1* hMET1 = new TH1F("MET1","MET1",nrhmax,0,nrhmax);
+  TH1* hMET2 = new TH1F("MET2","MET2",nrhmax,0,nrhmax);
   for ( unsigned int ir=0; ir<results.size(); ++ir ) {
     result = results[ir];
     for ( int i=0; i<3; ++i ) {
@@ -503,7 +507,7 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
       metCuts[i] = yaxis->GetBinLowEdge(result.metBins[i]);
     }
     tree->Fill();
-    if ( ir<500 ) {
+    if ( ir<nrhmax ) {
       std::cout << result.upperLimit/result.yields[3] << " "
 		<< result.upperLimit << " "
 		<< result.bkgs[3] << " "
