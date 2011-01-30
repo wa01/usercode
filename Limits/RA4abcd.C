@@ -223,10 +223,10 @@ RooWorkspace* createWorkspace (const char* name)
   wspace->factory("bkgd[1,0,1000]");
   wspace->factory("kappa[1,0,2]");
   // pseudo-measurements for kappa and signal contamination
-  wspace->factory("kappanom[0,0,10]");
-  wspace->factory("sadnom[0.1,0,10]");
-  wspace->factory("sbdnom[0.1,0,10]");
-  wspace->factory("scdnom[0.1,0,10]");
+  wspace->factory("kappanom[1]");
+  wspace->factory("sadnom[0.1]");
+  wspace->factory("sbdnom[0.1]");
+  wspace->factory("scdnom[0.1]");
   wspace->factory("sigmaKappa[0.1]");
   // uncertainties on pseudo-measurements
   wspace->factory("sigmaSad[0.1]");
@@ -293,7 +293,8 @@ void setBackgrounds (RooWorkspace* wspace, double* bkgs)
   setValRange(wspace,"nc",observed[2],0,1000);
   setValRange(wspace,"nd",observed[3],0,1000);
   // .. pseudo-measurements
-  setValRange(wspace,"kappanom",kappa_mc,kappa_mc/10,kappa_mc*10);
+//   setValRange(wspace,"kappanom",kappa_mc,kappa_mc/10,kappa_mc*10);
+  setValRange(wspace,"kappanom",kappa_mc);
   // .. uncertainties on correlation and signal contamination
   setValRange(wspace,"sigmaKappa",sigma_kappa);
 
@@ -325,9 +326,15 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
 
   // Roo variables
   // .. pseudo-measurements
-  setValRange(wspace,"sadnom",sad_mc,sad_mc/10,sad_mc*10);
-  setValRange(wspace,"sbdnom",sbd_mc,sbd_mc/10,sbd_mc*10);
-  setValRange(wspace,"scdnom",scd_mc,scd_mc/10,scd_mc*10);
+//   setValRange(wspace,"sadnom",sad_mc,sad_mc/10,sad_mc*10);
+//   setValRange(wspace,"sbdnom",sbd_mc,sbd_mc/10,sbd_mc*10);
+//   setValRange(wspace,"scdnom",scd_mc,scd_mc/10,scd_mc*10);
+  setValRange(wspace,"sadnom",sad_mc);
+  setValRange(wspace,"sbdnom",sbd_mc);
+  setValRange(wspace,"scdnom",scd_mc);
+//   wspace->var("sadnom")->setConstant(true);
+//   wspace->var("sbdnom")->setConstant(true);
+//   wspace->var("scdnom")->setConstant(true);
   // .. uncertainties on signal contamination
   setValRange(wspace,"sigmaSad",sad_mc*sigma_sad_rel);
   setValRange(wspace,"sigmaSbd",sbd_mc*sigma_sbd_rel);
@@ -346,16 +353,17 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
 //
 // single measurement (LM0 or LM1)
 //
-void RA4Single (StatMethod method) {
+void RA4Single (StatMethod method, double* sig, double* bkg) {
 
   RooWorkspace* wspace = createWorkspace();
 
   // double lm0_mc[4] = { 16.9 , 13.5 , 16.8 , 7.2 }; // tight settings / HT2
   double lm0_mc[4] = { 3.24 , 15.57 , 7.82 , 31.96 };
   double lm1_mc[4] = { 0.05 , 0.34 , 1.12 , 3.43 };
+  double* lm_mc = sig ? sig : lm0_mc;
 
-  setBackgrounds(wspace);
-  setSignal(wspace,lm0_mc);
+  setBackgrounds(wspace,bkg);
+  setSignal(wspace,lm_mc);
 
   wspace->Print("v");
   // RooArgSet allVars = wspace->allVars();

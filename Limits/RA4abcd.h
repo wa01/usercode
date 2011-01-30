@@ -46,7 +46,7 @@ void setSignal (RooWorkspace* wspace, double* lm_mc);
 //
 // single measurement (LM0 or LM1)
 //
-void RA4Single (StatMethod method);
+void RA4Single (StatMethod method, double* sig=0, double* bkg=0);
 //
 // scan over parameter space
 //
