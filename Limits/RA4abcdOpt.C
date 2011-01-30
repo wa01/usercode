@@ -55,6 +55,61 @@ double regionContent (TH2* histo,
   return sum;
 }
 
+int setupRegions (int iht0, int iht1, int iht2, int imet0, int imet1, int imet2,
+		  TH2* hBkg, TH2* hTt, TH2* hWjets, TH2* hSig,
+		  double* bkgs, double* tt, double* wjets, double* yields)
+{
+  TAxis* xaxis = hBkg->GetXaxis();
+  TAxis* yaxis = hBkg->GetYaxis();
+  std::cout << "Limits " 
+	    << xaxis->GetBinLowEdge(iht0) << " "
+	    << xaxis->GetBinLowEdge(iht1) << " "
+	    << xaxis->GetBinLowEdge(iht2) << " "
+	    << yaxis->GetBinLowEdge(imet0) << " "
+	    << yaxis->GetBinLowEdge(imet1) << " "
+	    << yaxis->GetBinLowEdge(imet2) << std::endl;
+	      
+  bkgs[3] = regionContent(hBkg,iht2,imet2,-1,-1);
+  tt[3] = regionContent(hTt,iht2,imet2,-1,-1);
+  wjets[3] = regionContent(hWjets,iht2,imet2,-1,-1);
+  yields[3] = regionContent(hSig,iht2,imet2,-1,-1);
+  if ( bkgs[3]<0.001 || yields[3]<0.001 )  return -1;
+
+  bkgs[0] = regionContent(hBkg,iht0,imet0,iht1,imet1);
+  bkgs[1] = regionContent(hBkg,iht2,imet0,-1,imet1);
+  bkgs[2] = regionContent(hBkg,iht0,imet2,iht1,-1);
+
+  tt[0] = regionContent(hTt,iht0,imet0,iht1,imet1);
+  tt[1] = regionContent(hTt,iht2,imet0,-1,imet1);
+  tt[2] = regionContent(hTt,iht0,imet2,iht1,-1);
+
+  wjets[0] = regionContent(hWjets,iht0,imet0,iht1,imet1);
+  wjets[1] = regionContent(hWjets,iht2,imet0,-1,imet1);
+  wjets[2] = regionContent(hWjets,iht0,imet2,iht1,-1);
+
+  yields[0] = regionContent(hSig,iht0,imet0,iht1,imet1);
+  yields[1] = regionContent(hSig,iht2,imet0,-1,imet1);
+  yields[2] = regionContent(hSig,iht0,imet2,iht1,-1);
+
+// 	      std::cout << "bkgs / yields =";
+// 	      for ( unsigned int i=0; i<4; ++i ) 
+// 		std::cout << " ( " << bkgs[i] << " / " << yields[i] << " ) ";
+// 	      std::cout << std::endl;
+
+  double bkgmin(1.e30);
+  double ttmin(1.e30);
+  double wjetsmin(1.e30);
+  for ( unsigned int i=0; i<4; ++i ) {
+    bkgmin = min(bkgmin,bkgs[i]);
+    ttmin = min(ttmin,tt[i]);
+    wjetsmin = min(wjetsmin,wjets[i]);
+  }
+  if ( bkgmin<0.001 || ttmin<0.001 || wjetsmin<0.001 ) {
+    return 1;
+  }
+  return 0;
+}
+
 void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
 		 float HTCut, float METCut,
 		 int dHT=1, int dMET=1,
@@ -132,52 +187,24 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
       int iHTint = dHT>0 ? ix : iHTCut;
       int iMETlow = dMET>0 ? iMETCut : iy;
       int iMETint = dMET>0 ? iy : iMETCut;
-      std::cout << "Limits " 
-		<< hBkg->GetXaxis()->GetBinLowEdge(iHTlow) << " "
-		<< hBkg->GetXaxis()->GetBinLowEdge(iHTint) << " "
-		<< hBkg->GetYaxis()->GetBinLowEdge(iMETlow) << " "
-		<< hBkg->GetYaxis()->GetBinLowEdge(iMETint) << std::endl;
 
-      bkgs[0] = regionContent(hBkg,iHTlow,iMETlow,iHTint,iMETint);
-      bkgs[1] = regionContent(hBkg,iHTint,iMETlow,-1,iMETint);
-      bkgs[2] = regionContent(hBkg,iHTlow,iMETint,iHTint,-1);
-      bkgs[3] = regionContent(hBkg,iHTint,iMETint,-1,-1);
 
-      tt[0] = regionContent(hTt,iHTlow,iMETlow,iHTint,iMETint);
-      tt[1] = regionContent(hTt,iHTint,iMETlow,-1,iMETint);
-      tt[2] = regionContent(hTt,iHTlow,iMETint,iHTint,-1);
-      tt[3] = regionContent(hTt,iHTint,iMETint,-1,-1);
-
-      wjets[0] = regionContent(hWjets,iHTlow,iMETlow,iHTint,iMETint);
-      wjets[1] = regionContent(hWjets,iHTint,iMETlow,-1,iMETint);
-      wjets[2] = regionContent(hWjets,iHTlow,iMETint,iHTint,-1);
-      wjets[3] = regionContent(hWjets,iHTint,iMETint,-1,-1);
-
-      yields[0] = regionContent(hSig,iHTlow,iMETlow,iHTint,iMETint);
-      yields[1] = regionContent(hSig,iHTint,iMETlow,-1,iMETint);
-      yields[2] = regionContent(hSig,iHTlow,iMETint,iHTint,-1);
-      yields[3] = regionContent(hSig,iHTint,iMETint,-1,-1);
-
-      std::cout << "bkgs / yields =";
-      for ( unsigned int i=0; i<4; ++i ) 
-	std::cout << " ( " << bkgs[i] << " / " << yields[i] << " ) ";
-      std::cout << std::endl;
-
-      double bkgmin(1.e30);
-      double ttmin(1.e30);
-      double wjetsmin(1.e30);
-      for ( unsigned int i=0; i<4; ++i ) {
-	bkgmin = min(bkgmin,bkgs[i]);
-	ttmin = min(ttmin,tt[i]);
-	wjetsmin = min(wjetsmin,wjets[i]);
-      }
-      if ( bkgmin<0.001 || ttmin<0.001 || wjetsmin<0.001 ) {
+      int err = setupRegions(iHTlow,iHTint,iHTint,iMETlow,iMETint,iMETint,
+			     hBkg,hTt,hWjets,hSig,bkgs,tt,wjets,yields);
+      if ( err!=0 ) {
 	hExclusion->SetBinContent(ix,iy,-1.);
 	hLowerLimit->SetBinContent(ix,iy,-1.);
 	hUpperLimit->SetBinContent(ix,iy,-1.);
 	hRelUpperLimit->SetBinContent(ix,iy,-1.);
 	continue;
       }
+
+      std::cout << "bkgs / yields =";
+      for ( unsigned int i=0; i<4; ++i ) 
+	std::cout << " ( " << bkgs[i] << " / " << yields[i] << " ) ";
+      std::cout << std::endl;
+
+
       double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
       std::cout << " kappa = " << kappa << std::endl;
       hKappa->SetBinContent(ix,iy,kappa);
@@ -197,13 +224,6 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
 		<< sigma_kappa_abs << " " << sigma_kappa_delta << " " << sigma_kappa << std::endl;
       hSigKappa->SetBinContent(ix,iy,sigma_kappa);
 
-      if ( yields[3]<0.001 ) {
-	hExclusion->SetBinContent(ix,iy,-2.);
-	hLowerLimit->SetBinContent(ix,iy,-2.);
-	hUpperLimit->SetBinContent(ix,iy,-2.);
-	hRelUpperLimit->SetBinContent(ix,iy,-2.);
-	continue;
-      }
       if ( fabs(kappa-1.)>0.2 ) {
 	hExclusion->SetBinContent(ix,iy,-3.);
 	hLowerLimit->SetBinContent(ix,iy,-3.);
@@ -334,52 +354,13 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
 	  for ( int iy1=iy0+dMET; iy1<=nby; iy1+=dMET ) {
 	    for ( int iy2=iy1; iy2<=nby; iy2+=dMET ) {
 
-	      std::cout << "Limits " 
-			<< xaxis->GetBinLowEdge(ix0) << " "
-			<< xaxis->GetBinLowEdge(ix1) << " "
-			<< xaxis->GetBinLowEdge(ix2) << " "
-			<< yaxis->GetBinLowEdge(iy0) << " "
-			<< yaxis->GetBinLowEdge(iy1) << " "
-			<< yaxis->GetBinLowEdge(iy2) << std::endl;
-	      
-	      bkgs[3] = regionContent(hBkg,ix2,iy2,-1,-1);
-	      tt[3] = regionContent(hTt,ix2,iy2,-1,-1);
-	      wjets[3] = regionContent(hWjets,ix2,iy2,-1,-1);
-	      yields[3] = regionContent(hSig,ix2,iy2,-1,-1);
-	      if ( bkgs[3]<0.001 || yields[3]<0.001 )  break;
+	      int err = setupRegions(ix0,ix1,ix2,iy0,iy1,iy2,
+				     hBkg,hTt,hWjets,hSig,
+				     bkgs,tt,wjets,yields);
 
-	      bkgs[0] = regionContent(hBkg,ix0,iy0,ix1,iy1);
-	      bkgs[1] = regionContent(hBkg,ix2,iy0,-1,iy1);
-	      bkgs[2] = regionContent(hBkg,ix0,iy2,ix1,-1);
+	      if ( err<0 )  break;
+	      if ( err>0 )  continue;
 
-	      tt[0] = regionContent(hTt,ix0,iy0,ix1,iy1);
-	      tt[1] = regionContent(hTt,ix2,iy0,-1,iy1);
-	      tt[2] = regionContent(hTt,ix0,iy2,ix1,-1);
-
-	      wjets[0] = regionContent(hWjets,ix0,iy0,ix1,iy1);
-	      wjets[1] = regionContent(hWjets,ix2,iy0,-1,iy1);
-	      wjets[2] = regionContent(hWjets,ix0,iy2,ix1,-1);
-
-	      yields[0] = regionContent(hSig,ix0,iy0,ix1,iy1);
-	      yields[1] = regionContent(hSig,ix2,iy0,-1,iy1);
-	      yields[2] = regionContent(hSig,ix0,iy2,ix1,-1);
-
-// 	      std::cout << "bkgs / yields =";
-// 	      for ( unsigned int i=0; i<4; ++i ) 
-// 		std::cout << " ( " << bkgs[i] << " / " << yields[i] << " ) ";
-// 	      std::cout << std::endl;
-
-	      double bkgmin(1.e30);
-	      double ttmin(1.e30);
-	      double wjetsmin(1.e30);
-	      for ( unsigned int i=0; i<4; ++i ) {
-		bkgmin = min(bkgmin,bkgs[i]);
-		ttmin = min(ttmin,tt[i]);
-		wjetsmin = min(wjetsmin,wjets[i]);
-	      }
-	      if ( bkgmin<0.001 || ttmin<0.001 || wjetsmin<0.001 ) {
-		continue;
-	      }
 	      double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
 
 	      double kappatt = (tt[0]*tt[3])/(tt[1]*tt[2]);
@@ -409,14 +390,6 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
 	      setBackgrounds(wspace,bkgs);
 	      setSignal(wspace,yields);
 	      setValRange(wspace,"sigmaKappa",sigma_kappa);
-
-// 	      //
-// 	      // pessimistic estimate: change rounding in A,D and B, C
-// 	      //
-// 	      setValRange(wspace,"na",int(bkgs[0])+1,0,1000);
-// 	      setValRange(wspace,"nb",int(bkgs[1]),0,1000);
-// 	      setValRange(wspace,"nc",int(bkgs[2]),0,1000);
-// 	      setValRange(wspace,"nd",int(bkgs[3])+1,0,1000);
 	      
 // 	      wspace->Print("v");
 // 	      RooArgSet allVars = wspace->allVars();

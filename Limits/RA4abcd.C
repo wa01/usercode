@@ -332,9 +332,6 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
   setValRange(wspace,"sadnom",sad_mc);
   setValRange(wspace,"sbdnom",sbd_mc);
   setValRange(wspace,"scdnom",scd_mc);
-//   wspace->var("sadnom")->setConstant(true);
-//   wspace->var("sbdnom")->setConstant(true);
-//   wspace->var("scdnom")->setConstant(true);
   // .. uncertainties on signal contamination
   setValRange(wspace,"sigmaSad",sad_mc*sigma_sad_rel);
   setValRange(wspace,"sigmaSbd",sbd_mc*sigma_sbd_rel);
