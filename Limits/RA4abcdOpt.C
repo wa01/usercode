@@ -149,23 +149,29 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
 
   gROOT->cd();
   TH2* hExclusion = (TH2*)hBkg->Clone("Exclusion");
-  hExclusion->Reset();
   hExclusion->SetTitle("Exclusion");
-  TH2* hLowerLimit = (TH2*)hBkg->Clone("LowerLimit");
-  hLowerLimit->Reset();
+  hExclusion->Reset();
+  hExclusion->SetMinimum(); hExclusion->SetMaximum();
+  TH2* hLowerLimit = (TH2*)hExclusion->Clone("LowerLimit");
   hLowerLimit->SetTitle("LowerLimit");
-  TH2* hUpperLimit = (TH2*)hBkg->Clone("UpperLimit");
-  hUpperLimit->Reset();
+  TH2* hUpperLimit = (TH2*)hExclusion->Clone("UpperLimit");
   hUpperLimit->SetTitle("UpperLimit");
-  TH2* hRelUpperLimit = (TH2*)hBkg->Clone("RelUpperLimit");
-  hRelUpperLimit->Reset();
+  TH2* hRelUpperLimit = (TH2*)hExclusion->Clone("RelUpperLimit");
   hRelUpperLimit->SetTitle("UpperLimit / Yield");
-  TH2* hKappa = (TH2*)hBkg->Clone("Kappa");
-  hKappa->Reset();
+  TH2* hKappa = (TH2*)hExclusion->Clone("Kappa");
   hKappa->SetTitle("Kappa");
-  TH2* hSigKappa = (TH2*)hBkg->Clone("SigKappa");
-  hSigKappa->Reset();
+  TH2* hSigKappa = (TH2*)hExclusion->Clone("SigKappa");
   hSigKappa->SetTitle("SigKappa");
+  TH2* hBkgD = (TH2*)hExclusion->Clone("BkgD");
+  hBkgD->SetTitle("BkgD");
+  TH2* hSigD = (TH2*)hExclusion->Clone("SigD");
+  hSigD->SetTitle("SigD");
+  TH2* hNevD = (TH2*)hExclusion->Clone("NevD");
+  hNevD->SetTitle("NevD");
+  TH2* hSoB = (TH2*)hExclusion->Clone("SoB");
+  hSoB->SetTitle("SoB");
+  TH2* hSoRtB = (TH2*)hExclusion->Clone("SoRtB");
+  hSoRtB->SetTitle("SoRtB");
 
   RooWorkspace* wspace = createWorkspace();
 
@@ -203,7 +209,10 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
       for ( unsigned int i=0; i<4; ++i ) 
 	std::cout << " ( " << bkgs[i] << " / " << yields[i] << " ) ";
       std::cout << std::endl;
-
+      hBkgD->SetBinContent(ix,iy,bkgs[3]);
+      hSigD->SetBinContent(ix,iy,yields[3]);
+      hSoB->SetBinContent(ix,iy,yields[3]/bkgs[3]);
+      hSoRtB->SetBinContent(ix,iy,yields[3]/sqrt(bkgs[3]));
 
       double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
       std::cout << " kappa = " << kappa << std::endl;
@@ -244,6 +253,8 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
       data->add(*wspace->set("obs"));
       data->Print("v");
   
+      hNevD->SetBinContent(ix,iy,wspace->var("nd")->getVal());
+
       MyLimit limit = computeLimit(wspace,data,method);
       std::cout << "Checked ( " << hExclusion->GetXaxis()->GetBinCenter(ix) << " , "
 		<< hExclusion->GetYaxis()->GetBinCenter(iy) << " ) with signal yield " << yields[3] << std::endl;
@@ -268,17 +279,16 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
 
   TFile* out = new TFile("RA4regions.root","RECREATE");
   hExclusion->SetDirectory(out);
-  hExclusion->SetMinimum(); hExclusion->SetMaximum();
   hLowerLimit->SetDirectory(out);
-  hLowerLimit->SetMinimum(); hLowerLimit->SetMaximum();
   hUpperLimit->SetDirectory(out);
-  hUpperLimit->SetMinimum(); hUpperLimit->SetMaximum();
   hRelUpperLimit->SetDirectory(out);
-  hRelUpperLimit->SetMinimum(); hRelUpperLimit->SetMaximum();
   hKappa->SetDirectory(out);
-  hKappa->SetMinimum(); hKappa->SetMaximum();
   hSigKappa->SetDirectory(out);
-  hSigKappa->SetMinimum(); hSigKappa->SetMaximum();
+  hBkgD->SetDirectory(out);
+  hSigD->SetDirectory(out);
+  hNevD->SetDirectory(out);
+  hSoB->SetDirectory(out);
+  hSoRtB->SetDirectory(out);
   out->Write();
   delete out;
 }
