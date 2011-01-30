@@ -35,6 +35,7 @@
 
 using namespace RooFit;
 using namespace RooStats;
+
 //
 // scan over regions
 //
@@ -54,6 +55,88 @@ double regionContent (TH2* histo,
   }
   return sum;
 }
+
+struct WorkingPoint {
+  WorkingPoint () {
+    for ( unsigned int i=0; i<4; ++i ) {
+      bkgs_[i] = 0.;
+      tt_[i] = 0.;
+      wjets_[i] = 0.;
+      yields_[i] = 0.;
+    }
+  }
+  double* bkgs () {return bkgs_;}
+  double* yields () {return yields_;}
+  double bkgs_[4];
+  double tt_[4];
+  double wjets_[4];
+  double yields_[4];
+};
+
+class Distributions {
+public:
+  Distributions (TH2* hBkg, TH2* hTt, TH2* hWjets, TH2* hSig) :
+    hBkg_(hBkg), hTt_(hTt), hWjets_(hWjets), hSig_(hSig) {}
+  Distributions (const char* prefix, const char* postfix, const char* sigName) {
+  
+    std::string spre(prefix);
+    std::string spost(postfix);
+    TFile* fBkgRegions = new TFile((spre+"mc"+spost).c_str());
+    TFile* fTtRegions = new TFile((spre+"ttbar"+spost).c_str());
+    TFile* fWjRegions = new TFile((spre+"wjets"+spost).c_str());
+    TFile* fSigRegions = new TFile((spre+sigName+spost).c_str());
+    if ( fBkgRegions==0 || fBkgRegions->IsZombie() ||
+	 fTtRegions==0 || fTtRegions->IsZombie() ||
+	 fWjRegions==0 || fWjRegions->IsZombie() ||
+	 fSigRegions==0 || fSigRegions->IsZombie() ) {
+      std::cout << "Couldn't open one of the files" << std::endl;
+      hBkg_ = hTt_ = hWjets_ = hSig_ = 0;
+    }
+    hBkg_ = (TH2*)fBkgRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+    hTt_ = (TH2*)fTtRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+    hWjets_ = (TH2*)fWjRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+    hSig_ = (TH2*)fSigRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+  }
+  WorkingPoint workingPoint (int iht0, int iht1, int iht2,
+			     int imet0, int imet1, int imet2) {
+    WorkingPoint result;
+    
+    result.bkgs_[0] = regionContent(hBkg_,iht0,imet0,iht1,imet1);
+    result.bkgs_[1] = regionContent(hBkg_,iht2,imet0,-1,imet1);
+    result.bkgs_[2] = regionContent(hBkg_,iht0,imet2,iht1,-1);
+    result.bkgs_[3] = regionContent(hBkg_,iht2,imet2,-1,-1);
+    
+    result.tt_[0] = regionContent(hTt_,iht0,imet0,iht1,imet1);
+    result.tt_[1] = regionContent(hTt_,iht2,imet0,-1,imet1);
+    result.tt_[2] = regionContent(hTt_,iht0,imet2,iht1,-1);
+    result.tt_[3] = regionContent(hTt_,iht2,imet2,-1,-1);
+    
+    result.wjets_[0] = regionContent(hWjets_,iht0,imet0,iht1,imet1);
+    result.wjets_[1] = regionContent(hWjets_,iht2,imet0,-1,imet1);
+    result.wjets_[2] = regionContent(hWjets_,iht0,imet2,iht1,-1);
+    result.wjets_[3] = regionContent(hWjets_,iht2,imet2,-1,-1);
+    
+    result.yields_[0] = regionContent(hSig_,iht0,imet0,iht1,imet1);
+    result.yields_[1] = regionContent(hSig_,iht2,imet0,-1,imet1);
+    result.yields_[2] = regionContent(hSig_,iht0,imet2,iht1,-1);
+    result.yields_[3] = regionContent(hSig_,iht2,imet2,-1,-1);
+    
+    return result;
+  }
+  WorkingPoint workingPoint (double ht0, double ht1, double ht2,
+			     double met0, double met1, double met2) {
+    TAxis* xaxis = hBkg_->GetXaxis();
+    TAxis* yaxis = hBkg_->GetYaxis();
+    return workingPoint(xaxis->FindBin(ht0),xaxis->FindBin(ht1),xaxis->FindBin(ht2),
+			yaxis->FindBin(met0),yaxis->FindBin(met1),yaxis->FindBin(met2));
+  }
+private:
+  TH2* hBkg_;
+  TH2* hTt_;
+  TH2* hWjets_;
+  TH2* hSig_;
+};
+
 
 int setupRegions (int iht0, int iht1, int iht2, int imet0, int imet1, int imet2,
 		  TH2* hBkg, TH2* hTt, TH2* hWjets, TH2* hSig,
