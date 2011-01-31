@@ -300,11 +300,11 @@ void setBackgrounds (RooWorkspace* wspace, double* bkgs)
 
   // .. background variables
   setValRange(wspace,"bkgd",bkg_mc[3],0,10*bkg_mc[3]);
-  setValRange(wspace,"bbd",bbd_mc,bbd_mc/10,bbd_mc*10);
-  setValRange(wspace,"bcd",bcd_mc,bcd_mc/10,bcd_mc*10);
+  setValRange(wspace,"bbd",bbd_mc,0,bbd_mc*2);
+  setValRange(wspace,"bcd",bcd_mc,0,bcd_mc*2);
 
   // .. correlation and signal contamination variables
-  setValRange(wspace,"kappa",kappa_mc,kappa_mc/10,kappa_mc*10);
+  setValRange(wspace,"kappa",kappa_mc,0,2);
 }
 
 void setSignal (RooWorkspace* wspace, double* lm_mc)
@@ -342,9 +342,9 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
   // wspace->var("s")->Print("v");
 
   // .. correlation and signal contamination variables
-  setValRange(wspace,"sad",sad_mc,sad_mc/10,sad_mc*10);
-  setValRange(wspace,"sbd",sbd_mc,sbd_mc/10,sbd_mc*10);
-  setValRange(wspace,"scd",scd_mc,scd_mc/10,scd_mc*10);
+  setValRange(wspace,"sad",sad_mc,0,sad_mc*3);
+  setValRange(wspace,"sbd",sbd_mc,0,sbd_mc*3);
+  setValRange(wspace,"scd",scd_mc,0,scd_mc*3);
 
 }
 //
