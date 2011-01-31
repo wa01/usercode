@@ -145,8 +145,8 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
       delete bInt;
       return result;
     } else {
-      cout << "Bayesian Calc. only supports on parameter of interest" << endl;
-      return MyLimit();
+    cout << "Bayesian Calc. only supports on parameter of interest" << endl;
+    return MyLimit();
     }
   }
 
@@ -217,6 +217,7 @@ RooWorkspace* createWorkspace (const char* name)
   wspace->factory("sad[0,0,10]");
   wspace->factory("sbd[0,0,10]");
   wspace->factory("scd[0,0,10]");
+  wspace->factory("eff[1.,0.1,2.]");
   // bkg in A; relative bkg in B&C; kappa
   wspace->factory("bbd[0,0,10]");
   wspace->factory("bcd[0,0,10]");
@@ -227,32 +228,34 @@ RooWorkspace* createWorkspace (const char* name)
   wspace->factory("sadnom[0.1]");
   wspace->factory("sbdnom[0.1]");
   wspace->factory("scdnom[0.1]");
+  wspace->factory("effnom[1.]");
   wspace->factory("sigmaKappa[0.1]");
-  // uncertainties on pseudo-measurements
   wspace->factory("sigmaSad[0.1]");
   wspace->factory("sigmaSbd[0.1]");
   wspace->factory("sigmaScd[0.1]");
-  
+  wspace->factory("sigmaEff[0.1]");
   // Poisson distributions in the 4 regions
-  wspace->factory("Poisson::a(na, sum::tota(prod::sa(s,sad),prod::bkga(bkgd,bbd,bcd,kappa)))");
-  wspace->factory("Poisson::b(nb, sum::totb(prod::sb(s,sbd),prod::bkgb(bkgd,bbd)))");
-  wspace->factory("Poisson::c(nc, sum::totc(prod::sc(s,scd),prod::bkgc(bkgd,bcd)))");
-  wspace->factory("Poisson::d(nd, sum::splusb(s,bkgd))");
+  wspace->factory("prod::sd(s,eff)");
+  wspace->factory("Poisson::a(na, sum::tota(prod::sa(sd,sad),prod::bkga(bkgd,bbd,bcd,kappa)))");
+  wspace->factory("Poisson::b(nb, sum::totb(prod::sb(sd,sbd),prod::bkgb(bkgd,bbd)))");
+  wspace->factory("Poisson::c(nc, sum::totc(prod::sc(sd,scd),prod::bkgc(bkgd,bcd)))");
+  wspace->factory("Poisson::d(nd, sum::splusb(sd,bkgd))");
   // Pdfs for pseudo-measurements
   wspace->factory("Gaussian::mcKappa(kappanom, kappa, sigmaKappa)");
   wspace->factory("Gaussian::mcSad(sadnom, sad, sigmaSad)");
   wspace->factory("Gaussian::mcSbd(sbdnom, sbd, sigmaSbd)");
   wspace->factory("Gaussian::mcScd(scdnom, scd, sigmaScd)");
+  wspace->factory("Gaussian::mcEff(effnom, eff, sigmaEff)");
   // full model
-  wspace->factory("PROD::model(d,c,b,a,mcKappa,mcSad,mcSbd,mcScd)");
+  wspace->factory("PROD::model(d,c,b,a,mcKappa,mcSad,mcSbd,mcScd,mcEff)");
   // priors
   wspace->factory("Uniform::prior_poi({s})");
-  wspace->factory("Uniform::prior_nuis({bkgd,bbd,bcd,kappa,sad,sbd,scd})");
+  wspace->factory("Uniform::prior_nuis({bkgd,bbd,bcd,kappa,sad,sbd,scd,eff})");
   wspace->factory("PROD::prior(prior_poi,prior_nuis)"); 
   // sets (observables, POI, nuisance parameters)
-  wspace->defineSet("obs","nd,nc,nb,na,kappanom,sadnom,sbdnom,scdnom");
+  wspace->defineSet("obs","nd,nc,nb,na,kappanom,sadnom,sbdnom,scdnom,effnom");
   wspace->defineSet("poi","s");
-  wspace->defineSet("nuis","bkgd,bbd,bcd,kappa,sad,sbd,scd");
+  wspace->defineSet("nuis","bkgd,bbd,bcd,kappa,sad,sbd,scd,eff");
 
   return wspace;
 }
@@ -315,6 +318,7 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
   double sigma_sad_rel = 0.100;
   double sigma_sbd_rel = 0.100;
   double sigma_scd_rel = 0.100;
+  double sigma_eff = 0.001;
   // double sigma_sad_rel = 0.0030;
   // double sigma_sbd_rel = 0.0030;
   // double sigma_scd_rel = 0.0030;
@@ -323,6 +327,7 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
   double sad_mc = max(lm_mc[0]/lm_mc[3],0.01);
   double sbd_mc = max(lm_mc[1]/lm_mc[3],0.01);
   double scd_mc = max(lm_mc[2]/lm_mc[3],0.01);
+  double eff_mc = 1.;
 
   // Roo variables
   // .. pseudo-measurements
@@ -336,6 +341,7 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
   setValRange(wspace,"sigmaSad",sad_mc*sigma_sad_rel);
   setValRange(wspace,"sigmaSbd",sbd_mc*sigma_sbd_rel);
   setValRange(wspace,"sigmaScd",scd_mc*sigma_scd_rel);
+  setValRange(wspace,"sigmaEff",sigma_eff);
 
   // .. background and signal variables
   setValRange(wspace,"s",lm_mc[3],0,10*lm_mc[3]);
@@ -345,6 +351,7 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
   setValRange(wspace,"sad",sad_mc,0,sad_mc*3);
   setValRange(wspace,"sbd",sbd_mc,0,sbd_mc*3);
   setValRange(wspace,"scd",scd_mc,0,scd_mc*3);
+  setValRange(wspace,"eff",eff_mc,0.1,2);
 
 }
 //
@@ -482,6 +489,7 @@ void RA4Mult (const char* file, StatMethod method) {
   TFile* out = new TFile("RA4abcd.root","RECREATE");
   hExclusion->SetDirectory(out);
   hExclusion->SetMinimum(); hExclusion->SetMaximum();
+  hExclusion->SetContour(1); hExclusion->SetContourLevel(0,0.5);
   hLowerLimit->SetDirectory(out);
   hLowerLimit->SetMinimum(); hLowerLimit->SetMaximum();
   hUpperLimit->SetDirectory(out);
