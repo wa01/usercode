@@ -38,7 +38,7 @@ using namespace RooStats;
 //   contained in data
 //
 MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method, bool draw) {
-  
+
   // let's time this challenging example
   TStopwatch t;
   // for 2-d plots to inspect correlations:
@@ -217,7 +217,8 @@ RooWorkspace* createWorkspace (const char* name)
   wspace->factory("sad[0,0,10]");
   wspace->factory("sbd[0,0,10]");
   wspace->factory("scd[0,0,10]");
-  wspace->factory("eff[1.,0.1,2.]");
+//   wspace->factory("eff[1.,0.1,2.]");
+  wspace->factory("eff[1.]");
   // bkg in A; relative bkg in B&C; kappa
   wspace->factory("bbd[0,0,10]");
   wspace->factory("bcd[0,0,10]");
@@ -245,17 +246,21 @@ RooWorkspace* createWorkspace (const char* name)
   wspace->factory("Gaussian::mcSad(sadnom, sad, sigmaSad)");
   wspace->factory("Gaussian::mcSbd(sbdnom, sbd, sigmaSbd)");
   wspace->factory("Gaussian::mcScd(scdnom, scd, sigmaScd)");
-  wspace->factory("Gaussian::mcEff(effnom, eff, sigmaEff)");
+//   wspace->factory("Gaussian::mcEff(effnom, eff, sigmaEff)");
   // full model
-  wspace->factory("PROD::model(d,c,b,a,mcKappa,mcSad,mcSbd,mcScd,mcEff)");
+//   wspace->factory("PROD::model(d,c,b,a,mcKappa,mcSad,mcSbd,mcScd,mcEff)");
+  wspace->factory("PROD::model(d,c,b,a,mcKappa,mcSad,mcSbd,mcScd)");
   // priors
   wspace->factory("Uniform::prior_poi({s})");
-  wspace->factory("Uniform::prior_nuis({bkgd,bbd,bcd,kappa,sad,sbd,scd,eff})");
+//   wspace->factory("Uniform::prior_nuis({bkgd,bbd,bcd,kappa,sad,sbd,scd,eff})");
+  wspace->factory("Uniform::prior_nuis({bkgd,bbd,bcd,kappa,sad,sbd,scd})");
   wspace->factory("PROD::prior(prior_poi,prior_nuis)"); 
   // sets (observables, POI, nuisance parameters)
-  wspace->defineSet("obs","nd,nc,nb,na,kappanom,sadnom,sbdnom,scdnom,effnom");
+//   wspace->defineSet("obs","nd,nc,nb,na,kappanom,sadnom,sbdnom,scdnom,effnom");
+  wspace->defineSet("obs","nd,nc,nb,na,kappanom,sadnom,sbdnom,scdnom");
   wspace->defineSet("poi","s");
-  wspace->defineSet("nuis","bkgd,bbd,bcd,kappa,sad,sbd,scd,eff");
+//   wspace->defineSet("nuis","bkgd,bbd,bcd,kappa,sad,sbd,scd,eff");
+  wspace->defineSet("nuis","bkgd,bbd,bcd,kappa,sad,sbd,scd");
 
   return wspace;
 }
@@ -351,7 +356,7 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
   setValRange(wspace,"sad",sad_mc,0,sad_mc*3);
   setValRange(wspace,"sbd",sbd_mc,0,sbd_mc*3);
   setValRange(wspace,"scd",scd_mc,0,scd_mc*3);
-  setValRange(wspace,"eff",eff_mc,0.1,2);
+//   setValRange(wspace,"eff",eff_mc,0.1,2);
 
 }
 //

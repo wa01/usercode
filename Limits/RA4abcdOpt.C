@@ -194,17 +194,20 @@ int setupRegions (int iht0, int iht1, int iht2, int imet0, int imet1, int imet2,
 }
 
 void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
-		 float HTCut, float METCut,
-		 int dHT=1, int dMET=1,
+		 int index, int dHT, int dMET,
+		 float HTCut0, float METCut0,
+		 float HTCut1, float METCut1,
+		 float HTCut2=-1, float METCut2=-1,
 		 StatMethod method=ProfileLikelihoodMethod) {
 
-  if ( dHT>0 && dMET>0 ) {
-    std::cout << "*** Scanning intermediate limits" << std::endl;
-  }
-  else if ( dHT<0 && dMET<0 ) {
-    std::cout << "*** Scanning lower limits" << std::endl;
-  }
-  else {
+//   if ( dHT>0 && dMET>0 ) {
+//     std::cout << "*** Scanning intermediate limits" << std::endl;
+//   }
+//   else if ( dHT<0 && dMET<0 ) {
+//     std::cout << "*** Scanning lower limits" << std::endl;
+//   }
+//   else {
+  if ( index<0 || index>3 ) {
     std::cout << "*** Inconsistency between dHT and dMET" << std::endl;
     return;
   }
@@ -227,8 +230,12 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
   TH2* hWjets = (TH2*)fWjRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
   TH2* hSig = (TH2*)fSigRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
 
-  int iHTCut = hBkg->GetXaxis()->FindBin(HTCut);
-  int iMETCut = hBkg->GetYaxis()->FindBin(METCut);
+  int iHTCut0 = hBkg->GetXaxis()->FindBin(HTCut0);
+  int iHTCut1 = hBkg->GetXaxis()->FindBin(HTCut1);
+  int iHTCut2 = HTCut2>0 ? hBkg->GetXaxis()->FindBin(HTCut2) : iHTCut1;
+  int iMETCut0 = hBkg->GetYaxis()->FindBin(METCut0);
+  int iMETCut1 = hBkg->GetYaxis()->FindBin(METCut1);
+  int iMETCut2 = METCut2>0 ? hBkg->GetYaxis()->FindBin(METCut2) : iMETCut1;
 
   gROOT->cd();
   TH2* hExclusion = (TH2*)hBkg->Clone("Exclusion");
@@ -265,20 +272,73 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
 
   int nbx = hBkg->GetNbinsX();
   int nby = hBkg->GetNbinsY();
-//   int iHTbeg = dHT>0 ? iHTCut+dHT : 1;
-  int iHTend = dHT>0 ? nbx+1 : 0;
-//   int iMETbeg = dMET>0 ? iMETCut+dMET : 1;
-  int iMETend = dMET>0 ? nby+1 : 0;
-  for ( int ix=iHTCut+dHT; ix!=iHTend; ix+=dHT ) {
-    for ( int iy=iMETCut+dHT; iy!=iMETend; iy+=dMET ) {
+// //   int iHTbeg = dHT>0 ? iHTCut+dHT : 1;
+//   int iHTend = dHT>0 ? nbx+1 : 0;
+// //   int iMETbeg = dMET>0 ? iMETCut+dMET : 1;
+//   int iMETend = dMET>0 ? nby+1 : 0;
 
-      int iHTlow = dHT>0 ? iHTCut : ix;
-      int iHTint = dHT>0 ? ix : iHTCut;
-      int iMETlow = dMET>0 ? iMETCut : iy;
-      int iMETint = dMET>0 ? iy : iMETCut;
+  int iHT0 = iHTCut0;
+  int iHT1 = iHTCut1;
+  int iHT2 = iHTCut2;
+  int dHT0(0), dHT1(0), dHT2(0);
+  int dMET0(0), dMET1(0), dMET2(0);
+  if ( index==0 ) {
+    iHT0 = 1;
+    dHT0 = dHT;
+    dMET0 = dMET;
+  }
+  else if ( index==1 ) {
+    iHT1 = iHTCut0 + 1;
+    dHT1 = dHT;
+    dMET1 = dMET;
+  }
+  else if ( index==2 ) {
+    iHT2 = iHTCut1;
+    dHT2 = dHT;
+    dMET2 = dMET;
+  }
+  else {
+    iHT1 = iHTCut0 + 1;
+    iHT2 = iHT1 + (iHTCut2-iHTCut1);
+    dHT1 = dHT2 = dHT;
+    dMET1 = dMET2 = dMET;
+  }
+  int ix,iy;
+//   for ( int ix=iHTCut+dHT; ix!=iHTend; ix+=dHT ) {
+//     for ( int iy=iMETCut+dHT; iy!=iMETend; iy+=dMET ) {
 
+  for ( ; iHT0<iHT1&&iHT1<=iHT2&&iHT2<nbx+1; 
+	iHT0+=dHT0,iHT1+=dHT1,iHT2+=dHT2 ) {
+    int iMET0 = iMETCut0;
+    int iMET1 = iMETCut1;
+    int iMET2 = iMETCut2;
+    if ( index==0 ) {
+      iMET0 = 1;
+    }
+    else if ( index==1 ) {
+      iMET1 = iMETCut0 + 1;
+    }
+    else if ( index==2 ) {
+      iMET2 = iMETCut1;
+    }
+    else {
+      iMET1 = iMETCut0 + 1;
+      iMET2 = iMET1 + (iMETCut2-iMETCut1);
+    }
+    for ( ; iMET0<iMET1&&iMET1<=iMET2&&iMET2<nby+1; 
+	  iMET0+=dMET0,iMET1+=dMET1,iMET2+=dMET2 ) {
 
-      int err = setupRegions(iHTlow,iHTint,iHTint,iMETlow,iMETint,iMETint,
+      if ( index==0 ) {
+	ix = iHT0; iy = iMET0;
+      }
+      else if ( index==1 ) {
+	ix = iHT1; iy = iMET1;
+      }
+      else {
+	ix = iHT2; iy = iMET2;
+      }
+
+      int err = setupRegions(iHT0,iHT1,iHT2,iMET0,iMET1,iMET2,
 			     hBkg,hTt,hWjets,hSig,bkgs,tt,wjets,yields);
       if ( err!=0 ) {
 	hExclusion->SetBinContent(ix,iy,-1.);
