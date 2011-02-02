@@ -47,7 +47,7 @@ double regionContent (TH2* histo,
   // sum from begin to end (excluding)
   //  if end<0: sum to edge of histogram, including overflow bin
   int htEnd = iHTend>0 ? iHTend : histo->GetNbinsX()+2;
-  int metEnd = iMETend>0 ? iMETend : histo->GetNbinsX()+2;
+  int metEnd = iMETend>0 ? iMETend : histo->GetNbinsY()+2;
   for ( int ix=iHTbegin; ix<htEnd; ++ix ) {
     for ( int iy=iMETbegin; iy<metEnd; ++iy ) {
       sum += histo->GetBinContent(ix,iy);
