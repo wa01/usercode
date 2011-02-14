@@ -144,13 +144,15 @@ int setupRegions (int iht0, int iht1, int iht2, int imet0, int imet1, int imet2,
 {
   TAxis* xaxis = hBkg->GetXaxis();
   TAxis* yaxis = hBkg->GetYaxis();
-  std::cout << "Limits " 
-	    << xaxis->GetBinLowEdge(iht0) << " "
-	    << xaxis->GetBinLowEdge(iht1) << " "
-	    << xaxis->GetBinLowEdge(iht2) << " "
-	    << yaxis->GetBinLowEdge(imet0) << " "
-	    << yaxis->GetBinLowEdge(imet1) << " "
-	    << yaxis->GetBinLowEdge(imet2) << std::endl;
+  if ( (iht2%10)==0 && (imet2%10)==0 ) {
+    std::cout << "Limits " 
+	      << xaxis->GetBinLowEdge(iht0) << " "
+	      << xaxis->GetBinLowEdge(iht1) << " "
+	      << xaxis->GetBinLowEdge(iht2) << " "
+	      << yaxis->GetBinLowEdge(imet0) << " "
+	      << yaxis->GetBinLowEdge(imet1) << " "
+	      << yaxis->GetBinLowEdge(imet2) << std::endl;
+  }
 	      
   bkgs[3] = regionContent(hBkg,iht2,imet2,-1,-1);
   tt[3] = regionContent(hTt,iht2,imet2,-1,-1);
@@ -612,6 +614,187 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
   float metCuts[3];
 
   TFile* out = new TFile("RA4tot.root","RECREATE");
+  TTree* tree = new TTree("RA4opt","RA4opt");
+  tree->Branch("nev",result.nobs,"nev[4]/I");
+  tree->Branch("bkg",result.bkgs,"bkg[4]/F");
+  tree->Branch("sig",result.yields,"sig[4]/F");
+  tree->Branch("ht",htCuts,"ht[3]/F");
+  tree->Branch("met",metCuts,"met[3]/F");
+  tree->Branch("kappa",&result.kappa,"kappa/F");
+  tree->Branch("kappaTT",&result.kappaTT,"kappaTT/F");
+  tree->Branch("kappaWjets",&result.kappaWjets,"kappaWjets/F");
+  tree->Branch("sigKappa",&result.sigKappa,"sigKappa/F");
+  tree->Branch("upperLimit",&result.upperLimit,"upperLimit/F");
+
+  TH1* hRelUpperLimit = new TH1F("RelUpperLimit","RelUpperLimit",nrhmax,0,nrhmax);
+  TH1* hUpperLimit = new TH1F("UpperLimit","UpperLimit",nrhmax,0,nrhmax);
+  TH1* hKappa = new TH1F("Kappa","Kappa",nrhmax,0,nrhmax);
+  TH1* hSigKappa = new TH1F("sigKappa","sigKappa",nrhmax,0,nrhmax);
+  TH1* hHT0 = new TH1F("HT0","HT0",nrhmax,0,nrhmax);
+  TH1* hHT1 = new TH1F("HT1","HT1",nrhmax,0,nrhmax);
+  TH1* hHT2 = new TH1F("HT2","HT2",nrhmax,0,nrhmax);
+  TH1* hMET0 = new TH1F("MET0","MET0",nrhmax,0,nrhmax);
+  TH1* hMET1 = new TH1F("MET1","MET1",nrhmax,0,nrhmax);
+  TH1* hMET2 = new TH1F("MET2","MET2",nrhmax,0,nrhmax);
+  for ( unsigned int ir=0; ir<results.size(); ++ir ) {
+    result = results[ir];
+    for ( int i=0; i<3; ++i ) {
+      htCuts[i] = xaxis->GetBinLowEdge(result.htBins[i]);
+      metCuts[i] = yaxis->GetBinLowEdge(result.metBins[i]);
+    }
+    tree->Fill();
+    if ( ir<nrhmax ) {
+      std::cout << result.upperLimit/result.yields[3] << " "
+		<< result.upperLimit << " "
+		<< result.bkgs[3] << " "
+		<< result.yields[3] << " "
+		<< result.kappa << " "
+		<< result.sigKappa << " ";
+      for ( unsigned int i=0; i<3; ++i ) std::cout << result.htBins[i] << " ";
+      for ( unsigned int i=0; i<3; ++i ) std::cout << result.metBins[i] << " ";
+      std::cout << std::endl;
+      hRelUpperLimit->SetBinContent(ir+1,result.upperLimit/result.yields[3]);
+      hUpperLimit->SetBinContent(ir+1,result.upperLimit);
+      hKappa->SetBinContent(ir+1,result.kappa);
+      hSigKappa->SetBinContent(ir+1,result.sigKappa);
+      hHT0->SetBinContent(ir+1,htCuts[0]);
+      hHT1->SetBinContent(ir+1,htCuts[1]);
+      hHT2->SetBinContent(ir+1,htCuts[2]);
+      hMET0->SetBinContent(ir+1,metCuts[0]);
+      hMET1->SetBinContent(ir+1,metCuts[1]);
+      hMET2->SetBinContent(ir+1,metCuts[2]);
+    }
+    
+  }
+  out->Write();
+  delete out;
+}
+
+void RA4RegionsSimple (const char* prefix, const char* postfix, const char* sigName,
+		       int dHT=1, int dMET=1,
+		       float HTmin=0., float METmin=0.) {
+  
+  std::string spre(prefix);
+  std::string spost(postfix);
+  TFile* fBkgRegions = new TFile((spre+"mc"+spost).c_str());
+  TFile* fTtRegions = new TFile((spre+"ttbar"+spost).c_str());
+  TFile* fWjRegions = new TFile((spre+"wjets"+spost).c_str());
+  TFile* fSigRegions = new TFile((spre+sigName+spost).c_str());
+  if ( fBkgRegions==0 || fBkgRegions->IsZombie() ||
+       fTtRegions==0 || fTtRegions->IsZombie() ||
+       fWjRegions==0 || fWjRegions->IsZombie() ||
+       fSigRegions==0 || fSigRegions->IsZombie() ) {
+    std::cout << "Couldn't open one of the files" << std::endl;
+    return;
+  }
+  TH2* hBkg = (TH2*)fBkgRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+  TH2* hTt = (TH2*)fTtRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+  TH2* hWjets = (TH2*)fWjRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+  TH2* hSig = (TH2*)fSigRegions->Get("ROOT.c1")->FindObject("ht_vs_kinMetSig");
+
+  double yields[4];
+  double bkgs[4];
+  double tt[4];
+  double wjets[4];
+
+  const unsigned int nrmax(100000);
+  const unsigned int nrhmax(500);
+  std::vector<OptResult> results; results.reserve(nrmax);
+  OptResult result;
+
+  int nbx = hBkg->GetNbinsX();
+  int nby = hBkg->GetNbinsY();
+  TAxis* xaxis = hBkg->GetXaxis();
+  TAxis* yaxis = hBkg->GetYaxis();
+  int iHTmin = max(xaxis->FindBin(HTmin),1);
+  int iMETmin = max(yaxis->FindBin(METmin),1);
+  for ( int ix0=iHTmin; ix0<=nbx; ix0+=dHT ) {
+    for ( int ix1=ix0+dHT; ix1<=nbx; ix1+=dHT ) {
+      for ( int ix2=ix1; ix2<=nbx; ix2+=dHT ) {
+	for ( int iy0=iMETmin; iy0<=nby; iy0+=dMET ) {
+	  for ( int iy1=iy0+dMET; iy1<=nby; iy1+=dMET ) {
+	    for ( int iy2=iy1; iy2<=nby; iy2+=dMET ) {
+
+	      int err = setupRegions(ix0,ix1,ix2,iy0,iy1,iy2,
+				     hBkg,hTt,hWjets,hSig,
+				     bkgs,tt,wjets,yields);
+
+	      if ( err<0 )  break;
+	      if ( err>0 )  continue;
+
+	      double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
+
+	      double kappatt = (tt[0]*tt[3])/(tt[1]*tt[2]);
+	      double kappawjets = (wjets[0]*wjets[3])/(wjets[1]*wjets[2]);
+// 	      std::cout << " kappa (tot/tt/w) = " 
+// 			<< kappa << " " << kappatt << " " << kappawjets << std::endl;
+	      //
+	      // set uncertainty on kappa:
+	      //   deviation from 1 (+) diff. tt/W
+	      //
+	      double sigma_kappa_abs = kappa - 1.;
+	      double sigma_kappa_delta = kappatt - kappawjets;
+	      double sigma_kappa = sqrt(sigma_kappa_abs*sigma_kappa_abs+sigma_kappa_delta*sigma_kappa_delta+0.1*0.1);
+// 	      std::cout << "Setting uncertainty on kappa to " 
+// 			<< sigma_kappa_abs << " " << sigma_kappa_delta << " " << sigma_kappa << std::endl;
+
+	      if ( yields[3]<0.001 ) {
+		break;
+	      }
+	      if ( fabs(kappa-1.)>0.1 ) {
+		continue;	
+	      }
+	      if ( sigma_kappa>1. ) {
+		continue;
+	      }
+
+	      if ( bkgs[0]<0.001 || bkgs[1]<0.001 || bkgs[2]<0.001 )  continue;
+
+	      double sig1sq = bkgs[3];
+	      double sig2sq = kappa*kappa*(1/bkgs[0]+1/bkgs[1]+1/bkgs[2]);
+
+	      double sigtot = bkgs[3]*sqrt(1/bkgs[0]+1/bkgs[1]+1/bkgs[2]+1/bkgs[3]);
+	      MyLimit limit(false,0.,bkgs[3]+2*sigtot);
+	      
+	      result.htBins[0] = ix0;
+	      result.htBins[1] = ix1;
+	      result.htBins[2] = ix2;
+	      result.metBins[0] = iy0;
+	      result.metBins[1] = iy1;
+	      result.metBins[2] = iy2;
+	      for ( int i=0; i<4; ++i ) {
+		result.bkgs[i] = bkgs[i];
+		result.yields[i] = yields[i];
+	      }
+	      result.kappa = kappa;
+	      result.kappaTT = kappatt;
+	      result.kappaWjets = kappawjets;
+	      result.sigKappa = sigma_kappa;
+	      result.upperLimit = limit.upperLimit;
+// 	      result.relUpperLimit = limit.upperLimit/yields[3];
+
+	      if ( results.size()<(nrmax-1) ) {
+		results.push_back(result);
+	      }
+	      else {
+		std::vector<OptResult>::iterator imax = 
+		  std::max_element(results.begin(),results.end());
+		*imax = result;
+	      }
+
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  std::sort(results.begin(),results.end());
+
+  float htCuts[3];
+  float metCuts[3];
+
+  TFile* out = new TFile("RA4simple.root","RECREATE");
   TTree* tree = new TTree("RA4opt","RA4opt");
   tree->Branch("nev",result.nobs,"nev[4]/I");
   tree->Branch("bkg",result.bkgs,"bkg[4]/F");
