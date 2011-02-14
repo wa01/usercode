@@ -271,7 +271,7 @@ void setBackgrounds (RooWorkspace* wspace, double* bkgs)
 {
   // Inputs : expected values
   // double bkg_mc[4] = { 120. , 12.1 , 18.3 , 1.83 }; // tight settings / HT2
-  double bkg_mc[4] = { 43.76 , 38.88 , 23.77 , 22.13 };
+  double bkg_mc[4] = {  14.73, 18.20, 8.48, 10.98 };
   if ( bkgs ) {
     for ( unsigned int i=0; i<4; ++i )  bkg_mc[i] = bkgs[i];
   }
@@ -367,7 +367,7 @@ void RA4Single (StatMethod method, double* sig, double* bkg) {
   RooWorkspace* wspace = createWorkspace();
 
   // double lm0_mc[4] = { 16.9 , 13.5 , 16.8 , 7.2 }; // tight settings / HT2
-  double lm0_mc[4] = { 3.24 , 15.57 , 7.82 , 31.96 };
+  double lm0_mc[4] = { 1.09, 7.68, 3.78, 21.13 };
   double lm1_mc[4] = { 0.05 , 0.34 , 1.12 , 3.43 };
   double* lm_mc = sig ? sig : lm0_mc;
 
@@ -399,7 +399,9 @@ void RA4Single (StatMethod method, double* sig, double* bkg) {
 //
 // scan over parameter space
 //
-void RA4Mult (const char* file, StatMethod method) {
+void RA4Mult (const char* file, float bkgA, float bkgB, float bkgC, float bkgD, 
+	      StatMethod method) {
+
 
   TFile* fYield = new TFile(file);
   if ( fYield==0 || fYield->IsZombie() ) {
@@ -440,6 +442,25 @@ void RA4Mult (const char* file, StatMethod method) {
   double yields[4];
   double entries[4];
 
+  double bkgs[4];
+  bkgs[0] = bkgA;
+  bkgs[1] = bkgB;
+  bkgs[2] = bkgC;
+  bkgs[3] = bkgD;
+
+  // *2 for electrons
+  for ( int i=0; i<4; ++i )  bkgs[i] *= 2;
+
+//   // muons : 340 / 400 / 470 ; 2.4 / 4.0 / 5.6
+//   bkgs[0] = 18.45;
+//   bkgs[1] = 18.20;
+//   bkgs[2] = 10.77;
+//   bkgs[3] = 10.98;
+  double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
+  double sigma_kappa_base = 0.10;
+  double delta_kappa_abs = kappa - 1.;
+  double sigma_kappa = sqrt(sigma_kappa_base*sigma_kappa_base+delta_kappa_abs*delta_kappa_abs);
+
   int nbx = hYields[0]->GetNbinsX();
   int nby = hYields[0]->GetNbinsY();
   for ( int ix=1; ix<=nbx; ++ix ) {
@@ -449,13 +470,18 @@ void RA4Mult (const char* file, StatMethod method) {
 	yields[i] = hYields[i]->GetBinContent(ix,iy);
 	entries[i] = hYEntries[i]->GetBinContent(ix,iy);
       }
-      // yields[0] =3.58;
-      // yields[1] =8.21;
-      // yields[2] =16.37;
-      // yields[3] =25.21;
+//       yields[0] =1.52;
+//       yields[1] =7.68;
+//       yields[2] =5.17;
+//       yields[3] =21.12;
+      // *1.5 for electrons and *1.3 for NLO
+      for ( unsigned int i=0; i<4; ++i )  yields[i] *= (1.5*1.3);
 
-      setBackgrounds(wspace);
+      setBackgrounds(wspace,bkgs);
       setSignal(wspace,yields);
+
+      setValRange(wspace,"sigmaKappa",sigma_kappa);
+      setValRange(wspace,"s",yields[3],0,100);
 
       // wspace->Print("v");
       // RooArgSet allVars = wspace->allVars();
@@ -463,23 +489,27 @@ void RA4Mult (const char* file, StatMethod method) {
 
       RooDataSet* data = new RooDataSet("data","data",*wspace->set("obs"));
       data->add(*wspace->set("obs"));
-      // data->Print("v");
+      data->Print("v");
   
-      MyLimit limit = computeLimit(wspace,data,method);
+      MyLimit limit(false,0.,999.);
       std::cout << "Checked ( " << hExclusion->GetXaxis()->GetBinCenter(ix) << " , "
-		<< hExclusion->GetYaxis()->GetBinCenter(iy) << " ) with signal yield " << yields[3] << std::endl;
-      std::cout << "  Limit [ " << limit.lowerLimit << " , "
-		<< limit.upperLimit << " ] ; isIn = " << limit.isInInterval << std::endl;
+		<< hExclusion->GetYaxis()->GetBinCenter(iy) << " ) with signal yield " 
+		<< yields[3] << std::endl;
+      if ( yields[3]>0.01 ) {
+	limit = computeLimit(wspace,data,method);
+	std::cout << "  Limit [ " << limit.lowerLimit << " , "
+		  << limit.upperLimit << " ] ; isIn = " << limit.isInInterval << std::endl;
+      }
       std::cout << "  yields =" 
 		<< " " << yields[0]
 		<< " " << yields[1]
 		<< " " << yields[2]
 		<< " " << yields[3] << std::endl;
-      std::cout << "  entries =" 
-		<< " " << entries[0]
-		<< " " << entries[1]
-		<< " " << entries[2]
-		<< " " << entries[3] << std::endl;
+//       std::cout << "  entries =" 
+// 		<< " " << entries[0]
+// 		<< " " << entries[1]
+// 		<< " " << entries[2]
+// 		<< " " << entries[3] << std::endl;
       double excl = limit.isInInterval;
       if ( limit.upperLimit<limit.lowerLimit )  excl = -1;
       hExclusion->SetBinContent(ix,iy,excl);
