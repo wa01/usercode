@@ -50,6 +50,8 @@ void RA4Single (StatMethod method, double* sig=0, double* bkg=0);
 //
 // scan over parameter space
 //
-void RA4Mult (const char* file, StatMethod method=ProfileLikelihoodMethod);
+void RA4Mult (const char* fileMu, const char* fileEle,
+	      float bkgA, float bkgB, float bkgC, float bkgD,
+	      StatMethod method=ProfileLikelihoodMethod);
 
 #endif

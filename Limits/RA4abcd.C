@@ -87,7 +87,7 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
       LikelihoodIntervalPlot* lrplot = new LikelihoodIntervalPlot(plInt);
       lrplot->Draw();
     }
-    RooMsgService::instance().setGlobalKillBelow(msglevel);
+//     RooMsgService::instance().setGlobalKillBelow(msglevel);
     cout << "Profile Likelihood interval on s = [" << 
       plInt->LowerLimit( *wspace->var("s") ) << ", " <<
       plInt->UpperLimit( *wspace->var("s") ) << "]" << endl; 
@@ -231,10 +231,10 @@ RooWorkspace* createWorkspace (const char* name)
   wspace->factory("scdnom[0.1]");
   wspace->factory("effnom[1.]");
   wspace->factory("sigmaKappa[0.1]");
-  wspace->factory("sigmaSad[0.1]");
-  wspace->factory("sigmaSbd[0.1]");
-  wspace->factory("sigmaScd[0.1]");
-  wspace->factory("sigmaEff[0.1]");
+  wspace->factory("sigmaSad[0.15]");
+  wspace->factory("sigmaSbd[0.15]");
+  wspace->factory("sigmaScd[0.15]");
+  wspace->factory("sigmaEff[0.15]");
   // Poisson distributions in the 4 regions
   wspace->factory("prod::sd(s,eff)");
   wspace->factory("Poisson::a(na, sum::tota(prod::sa(sd,sad),prod::bkga(bkgd,bbd,bcd,kappa)))");
@@ -285,6 +285,10 @@ void setBackgrounds (RooWorkspace* wspace, double* bkgs)
   observed[1] = int(bkg_mc[1]);
   observed[2] = int(bkg_mc[2]);
   observed[3] = int(bkg_mc[3])+1;
+//   observed[0] = int(bkg_mc[0]);
+//   observed[1] = int(bkg_mc[1])+1;
+//   observed[2] = int(bkg_mc[2])+1;
+//   observed[3] = int(bkg_mc[3]);
 
   // scaling factors
   double sigma_kappa = 0.25;
@@ -320,10 +324,10 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
   // Inputs : expected values
 
   // relative uncertainties on relative signal contamination
-  double sigma_sad_rel = 0.100;
-  double sigma_sbd_rel = 0.100;
-  double sigma_scd_rel = 0.100;
-  double sigma_eff = 0.001;
+  double sigma_sad_rel = 0.150;
+  double sigma_sbd_rel = 0.150;
+  double sigma_scd_rel = 0.150;
+  double sigma_eff = 0.015;
   // double sigma_sad_rel = 0.0030;
   // double sigma_sbd_rel = 0.0030;
   // double sigma_scd_rel = 0.0030;
@@ -399,30 +403,72 @@ void RA4Single (StatMethod method, double* sig, double* bkg) {
 //
 // scan over parameter space
 //
-void RA4Mult (const char* file, float bkgA, float bkgB, float bkgC, float bkgD, 
+void RA4Mult (const char* fileMu, const char* fileEle, 
+	      float bkgA, float bkgB, float bkgC, float bkgD, 
 	      StatMethod method) {
 
 
-  TFile* fYield = new TFile(file);
-  if ( fYield==0 || fYield->IsZombie() ) {
-    std::cout << "failed to open " << file << std::endl;
+  TFile* fYield[2];
+
+  int nf(0);
+  if ( fileMu ) {
+    fYield[nf] = new TFile(fileMu);
+    if ( fYield[nf]==0 || fYield[nf]->IsZombie() ) {
+      std::cout << "failed to open " << fileMu << std::endl;
+      fYield[nf] = 0;
+    }
+    if ( fYield[nf] ) ++nf;
+  }
+  if ( fileEle ) {
+    fYield[nf] = new TFile(fileEle);
+    if ( fYield[nf]==0 || fYield[nf]->IsZombie() ) {
+      std::cout << "failed to open " << fileEle << std::endl;
+      fYield[nf] = 0;
+    }
+    if ( fYield[nf] ) ++nf;
+  }
+  if ( nf==0 ) {
+    std::cout << "No input file" << std::endl;
     return;
   }
+
   const char* cRegion = { "ABCD" };
   TH2* hYields[4];
   TH2* hYEntries[4];
+  for ( unsigned int i=0; i<4; ++i ) {
+    hYields[i] = 0;
+    hYEntries[i] = 0;
+  }
 
   std::string hName;
-  for ( unsigned int i=0; i<4; ++i ) {
-    hName = "Events";
-    hName += cRegion[i];
-    hYields[i] = (TH2*)fYield->Get(hName.c_str());
-    hName = "Entries";
-    hName += cRegion[i];
-    hYEntries[i] = (TH2*)fYield->Get(hName.c_str());
-    if ( hYields[i]==0 || hYEntries[i]==0 ) {
-      std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
-      return;
+  for ( unsigned int j=0; j<nf; ++j ) {
+    for ( unsigned int i=0; i<4; ++i ) {
+      hName = "Events";
+      hName += cRegion[i];
+      TH2* htmp = (TH2*)fYield[j]->Get(hName.c_str());
+      if ( htmp==0 ) {
+	std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
+	return;
+      }
+      if ( hYields[i] )
+	hYields[i]->Add(hYields[i],htmp);
+      else
+	hYields[i] = htmp;
+      hName = "Entries";
+      hName += cRegion[i];
+      htmp = (TH2*)fYield[j]->Get(hName.c_str());
+      if ( htmp==0 ) {
+	std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
+	return;
+      }
+      if ( hYEntries[i] ) 
+	hYEntries[i]->Add(hYEntries[i],htmp);
+      else
+	hYEntries[i] = htmp;
+      if ( hYields[i]==0 || hYEntries[i]==0 ) {
+	std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
+	return;
+      }
     }
   }
 
@@ -448,8 +494,8 @@ void RA4Mult (const char* file, float bkgA, float bkgB, float bkgC, float bkgD,
   bkgs[2] = bkgC;
   bkgs[3] = bkgD;
 
-  // *2 for electrons
-  for ( int i=0; i<4; ++i )  bkgs[i] *= 2;
+//   // *2 for electrons
+//   for ( int i=0; i<4; ++i )  bkgs[i] *= 2;
 
 //   // muons : 340 / 400 / 470 ; 2.4 / 4.0 / 5.6
 //   bkgs[0] = 18.45;
@@ -460,6 +506,7 @@ void RA4Mult (const char* file, float bkgA, float bkgB, float bkgC, float bkgD,
   double sigma_kappa_base = 0.10;
   double delta_kappa_abs = kappa - 1.;
   double sigma_kappa = sqrt(sigma_kappa_base*sigma_kappa_base+delta_kappa_abs*delta_kappa_abs);
+  sigma_kappa = sqrt(0.129*0.129+0.1*0.1);
 
   int nbx = hYields[0]->GetNbinsX();
   int nby = hYields[0]->GetNbinsY();
@@ -474,8 +521,8 @@ void RA4Mult (const char* file, float bkgA, float bkgB, float bkgC, float bkgD,
 //       yields[1] =7.68;
 //       yields[2] =5.17;
 //       yields[3] =21.12;
-      // *1.5 for electrons and *1.3 for NLO
-      for ( unsigned int i=0; i<4; ++i )  yields[i] *= (1.5*1.3);
+      // *1.3 for NLO
+      for ( unsigned int i=0; i<4; ++i )  yields[i] *= 1.3;
 
       setBackgrounds(wspace,bkgs);
       setSignal(wspace,yields);
