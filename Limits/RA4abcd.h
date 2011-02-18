@@ -16,7 +16,7 @@ enum StatMethod { ProfileLikelihoodMethod, FeldmanCousinsMethod, BayesianMethod,
 
 // simple class to hold the calculated limit
 struct MyLimit {
-  MyLimit () : isInInterval(false), lowerLimit(999999), upperLimit(-999999) {}
+  MyLimit () : isInInterval(true), lowerLimit(-999999), upperLimit(999999) {}
   MyLimit (bool inInterval, double lower, double upper) : 
     isInInterval(inInterval), lowerLimit(lower), upperLimit(upper) {}
   bool isInInterval;
@@ -50,8 +50,10 @@ void RA4Single (StatMethod method, double* sig=0, double* bkg=0);
 //
 // scan over parameter space
 //
-void RA4Mult (const char* fileMu, const char* fileEle,
+void RA4Mult (const char* yieldsMu, const char* yieldsEle,
+	      const char* kfactorsMu, const char* kfactorsEle,
 	      float bkgA, float bkgB, float bkgC, float bkgD,
+	      int obsA=-1, int obsB=-1, int obsC=-1, int obsD=-1,
 	      StatMethod method=ProfileLikelihoodMethod);
 
 #endif

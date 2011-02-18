@@ -324,10 +324,15 @@ void setSignal (RooWorkspace* wspace, double* lm_mc)
   // Inputs : expected values
 
   // relative uncertainties on relative signal contamination
-  double sigma_sad_rel = 0.150;
-  double sigma_sbd_rel = 0.150;
-  double sigma_scd_rel = 0.150;
-  double sigma_eff = 0.015;
+//   double sigma_sad_rel = 0.150;
+//   double sigma_sbd_rel = 0.150;
+//   double sigma_scd_rel = 0.150;
+//   double sigma_eff = 0.015;
+  // add explicit k-factor uncertainty
+  double sigma_sad_rel = 0.10;
+  double sigma_sbd_rel = 0.10;
+  double sigma_scd_rel = 0.10;
+  double sigma_eff = 0.05;
   // double sigma_sad_rel = 0.0030;
   // double sigma_sbd_rel = 0.0030;
   // double sigma_scd_rel = 0.0030;
@@ -403,27 +408,40 @@ void RA4Single (StatMethod method, double* sig, double* bkg) {
 //
 // scan over parameter space
 //
-void RA4Mult (const char* fileMu, const char* fileEle, 
+void RA4Mult (const char* yieldsMu, const char* yieldsEle, 
+	      const char* kfactorsMu, const char* kfactorsEle,
 	      float bkgA, float bkgB, float bkgC, float bkgD, 
+	      int obsA, int obsB, int obsC, int obsD,
 	      StatMethod method) {
 
 
   TFile* fYield[2];
+  TFile* fKFactor[2];
 
   int nf(0);
-  if ( fileMu ) {
-    fYield[nf] = new TFile(fileMu);
+  if ( yieldsMu ) {
+    fYield[nf] = new TFile(yieldsMu);
     if ( fYield[nf]==0 || fYield[nf]->IsZombie() ) {
-      std::cout << "failed to open " << fileMu << std::endl;
+      std::cout << "failed to open " << yieldsMu << std::endl;
       fYield[nf] = 0;
+    }
+    fKFactor[nf] = new TFile(kfactorsMu);
+    if ( fKFactor[nf]==0 || fKFactor[nf]->IsZombie() ) {
+      std::cout << "failed to open " << kfactorsMu << std::endl;
+      fKFactor[nf] = 0;
     }
     if ( fYield[nf] ) ++nf;
   }
-  if ( fileEle ) {
-    fYield[nf] = new TFile(fileEle);
+  if ( yieldsEle ) {
+    fYield[nf] = new TFile(yieldsEle);
     if ( fYield[nf]==0 || fYield[nf]->IsZombie() ) {
-      std::cout << "failed to open " << fileEle << std::endl;
+      std::cout << "failed to open " << yieldsEle << std::endl;
       fYield[nf] = 0;
+    }
+    fKFactor[nf] = new TFile(kfactorsEle);
+    if ( fKFactor[nf]==0 || fKFactor[nf]->IsZombie() ) {
+      std::cout << "failed to open " << kfactorsEle << std::endl;
+      fKFactor[nf] = 0;
     }
     if ( fYield[nf] ) ++nf;
   }
@@ -434,10 +452,32 @@ void RA4Mult (const char* fileMu, const char* fileEle,
 
   const char* cRegion = { "ABCD" };
   TH2* hYields[4];
+  TH2* hYields05[4];
+  TH2* hYields20[4];
   TH2* hYEntries[4];
   for ( unsigned int i=0; i<4; ++i ) {
     hYields[i] = 0;
+    hYields05[i] = 0;
+    hYields20[i] = 0;
     hYEntries[i] = 0;
+  }
+  TH2* hKF05[2];
+  TH2* hKF10[2];
+  TH2* hKF20[2];
+  for ( unsigned int i=0; i<2; ++i ) {
+    hKF05[i] = 0;
+    hKF10[i] = 0;
+    hKF20[i] = 0;
+  }
+
+  for ( unsigned int j=0; j<nf; ++j ) {
+    hKF05[j] = (TH2*)fKFactor[j]->Get("hKF05D");
+    hKF10[j] = (TH2*)fKFactor[j]->Get("hKF10D");
+    hKF20[j] = (TH2*)fKFactor[j]->Get("hKF20D");
+    if ( hKF05[j]==0 || hKF10==0 || hKF20==0 ) {
+      std::cout << "Missing histogram for kfactor for channel " << j << std::endl;
+      return;
+    }
   }
 
   std::string hName;
@@ -445,15 +485,26 @@ void RA4Mult (const char* fileMu, const char* fileEle,
     for ( unsigned int i=0; i<4; ++i ) {
       hName = "Events";
       hName += cRegion[i];
-      TH2* htmp = (TH2*)fYield[j]->Get(hName.c_str());
+      TH2* htmp = (TH2*)fYield[j]->Get(hName.c_str())->Clone();
+      TH2* htmp05 = (TH2*)fYield[j]->Get(hName.c_str())->Clone();
+      TH2* htmp20 = (TH2*)fYield[j]->Get(hName.c_str())->Clone();
       if ( htmp==0 ) {
 	std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
 	return;
       }
-      if ( hYields[i] )
+      htmp->Multiply(htmp,hKF10[j]);
+      htmp05->Multiply(htmp05,hKF05[j]);
+      htmp20->Multiply(htmp20,hKF20[j]);
+      if ( hYields[i] ) {
 	hYields[i]->Add(hYields[i],htmp);
-      else
+	hYields05[i]->Add(hYields05[i],htmp05);
+	hYields20[i]->Add(hYields20[i],htmp20);
+      }
+      else {
 	hYields[i] = htmp;
+	hYields05[i] = htmp05;
+	hYields20[i] = htmp20;
+      }
       hName = "Entries";
       hName += cRegion[i];
       htmp = (TH2*)fYield[j]->Get(hName.c_str());
@@ -517,41 +568,67 @@ void RA4Mult (const char* fileMu, const char* fileEle,
 	yields[i] = hYields[i]->GetBinContent(ix,iy);
 	entries[i] = hYEntries[i]->GetBinContent(ix,iy);
       }
+      double yields05 = hYields05[3]->GetBinContent(ix,iy);
+      double yields20 = hYields20[3]->GetBinContent(ix,iy);
+
 //       yields[0] =1.52;
 //       yields[1] =7.68;
 //       yields[2] =5.17;
 //       yields[3] =21.12;
-      // *1.3 for NLO
-      for ( unsigned int i=0; i<4; ++i )  yields[i] *= 1.3;
+//       // *1.3 for NLO
+//       for ( unsigned int i=0; i<4; ++i )  yields[i] *= 1.3;
 
-      setBackgrounds(wspace,bkgs);
-      setSignal(wspace,yields);
-
-      setValRange(wspace,"sigmaKappa",sigma_kappa);
-      setValRange(wspace,"s",yields[3],0,100);
-
-      // wspace->Print("v");
-      // RooArgSet allVars = wspace->allVars();
-      // allVars.printLatex(std::cout,1);
-
-      RooDataSet* data = new RooDataSet("data","data",*wspace->set("obs"));
-      data->add(*wspace->set("obs"));
-      data->Print("v");
-  
-      MyLimit limit(false,0.,999.);
+      MyLimit limit(true,0.,999.);
       std::cout << "Checked ( " << hExclusion->GetXaxis()->GetBinCenter(ix) << " , "
 		<< hExclusion->GetYaxis()->GetBinCenter(iy) << " ) with signal yield " 
 		<< yields[3] << std::endl;
-      if ( yields[3]>0.01 ) {
+
+      if ( yields[3]>0.01 && iy<=20 ) {
+
+	setBackgrounds(wspace,bkgs);
+	setSignal(wspace,yields);
+      
+	setValRange(wspace,"sigmaKappa",sigma_kappa);
+	setValRange(wspace,"s",yields[3],0,100);
+
+	double sigKF(0.15);
+	sigKF = max(fabs((yields20-yields[3])/yields[3]),
+		    fabs((yields05-yields[3])/yields[3]));
+	double sad_mc = wspace->var("sadnom")->getVal();
+	double sbd_mc = wspace->var("sbdnom")->getVal();
+	double scd_mc = wspace->var("scdnom")->getVal();
+	setValRange(wspace,"sigmaSad",sad_mc*sqrt(0.10*0.10+sigKF*sigKF));
+	setValRange(wspace,"sigmaSbd",sbd_mc*sqrt(0.10*0.10+sigKF*sigKF));
+	setValRange(wspace,"sigmaScd",scd_mc*sqrt(0.10*0.10+sigKF*sigKF));
+	setValRange(wspace,"sigmaEff",sqrt(0.05*0.05+sigKF*sigKF));
+
+	if ( obsA>=0 && obsB>=0 && obsC>=0 && obsD>=0 ) {
+	  setValRange(wspace,"na",obsA,0,1000);
+	  setValRange(wspace,"nb",obsB,0,1000);
+	  setValRange(wspace,"nc",obsC,0,1000);
+	  setValRange(wspace,"nd",obsD,0,1000);
+	}
+	std::cout << "  yields =" 
+		  << " " << yields[0]
+		  << " " << yields[1]
+		  << " " << yields[2]
+		  << " " << yields[3] << " " << sigKF << std::endl;
+	
+	// wspace->Print("v");
+	// RooArgSet allVars = wspace->allVars();
+	// allVars.printLatex(std::cout,1);
+
+	RooDataSet* data = new RooDataSet("data","data",*wspace->set("obs"));
+	data->add(*wspace->set("obs"));
+	data->Print("v");
+  
+//       if ( yields[3]>0.01 ) {
 	limit = computeLimit(wspace,data,method);
 	std::cout << "  Limit [ " << limit.lowerLimit << " , "
 		  << limit.upperLimit << " ] ; isIn = " << limit.isInInterval << std::endl;
+
+	delete data;
       }
-      std::cout << "  yields =" 
-		<< " " << yields[0]
-		<< " " << yields[1]
-		<< " " << yields[2]
-		<< " " << yields[3] << std::endl;
 //       std::cout << "  entries =" 
 // 		<< " " << entries[0]
 // 		<< " " << entries[1]
@@ -563,7 +640,6 @@ void RA4Mult (const char* fileMu, const char* fileEle,
       hLowerLimit->SetBinContent(ix,iy,limit.lowerLimit);
       hUpperLimit->SetBinContent(ix,iy,limit.upperLimit);
 
-      delete data;
 
     }
   }
