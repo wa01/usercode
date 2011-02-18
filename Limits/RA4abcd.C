@@ -5,6 +5,7 @@
 #include "TROOT.h"
 #include "TFile.h"
 #include "TH2F.h"
+#include "TGraph.h"
 #include "RooPlot.h"
 #include "RooAbsPdf.h"
 #include "RooWorkspace.h"
@@ -583,7 +584,7 @@ void RA4Mult (const char* yieldsMu, const char* yieldsEle,
 		<< hExclusion->GetYaxis()->GetBinCenter(iy) << " ) with signal yield " 
 		<< yields[3] << std::endl;
 
-      if ( yields[3]>0.01 && iy<=20 ) {
+      if ( yields[3]>0.01 ) {
 
 	setBackgrounds(wspace,bkgs);
 	setSignal(wspace,yields);
