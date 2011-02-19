@@ -7,6 +7,7 @@
 #include "TH2F.h"
 #include "RooPlot.h"
 #include "RooAbsPdf.h"
+#include "RooProdPdf.h"
 #include "RooWorkspace.h"
 #include "RooDataSet.h"
 #include "RooGlobalFunc.h"
@@ -102,18 +103,15 @@ RA4WorkSpace::addChannel (ChannelType channel)
   //
   // observation
   //
-  RooArgSet obsSet(*setObs_,"obs");
-  obsSet.Print();
   for ( unsigned int i=0; i<4; ++i ) {
     std::string name("n");
     name = name + regions[i] + suffix;
-    RooRealVar tmp(name.c_str(),0,0,1000);
+    RooRealVar tmp(name.c_str(),name.c_str(),0,0,1000);
     wspace_->import(tmp);
     vObs_[i][channel] = wspace_->var(name.c_str());
-    obsSet.add(*vObs_[i][channel]);
+    wspace_->extendSet("obs",name.c_str());
   }
-  wspace_->import(obsSet,obsSet.GetName(),true);
-  setObs_ = wspace_->set(obsSet.GetName());
+  // wspace_->Print("v");
   //
   // efficiency
   //
@@ -140,9 +138,6 @@ RA4WorkSpace::addChannel (ChannelType channel)
   //
   // signal contamination
   //
-  // std::cout << "bef Nuis " << setNuis_ << std::endl;
-  RooArgSet nuisSet1(*setNuis_,"nuis");
-  // std::cout << "after Nuis " << setNuis_ << std::endl;
   for ( unsigned int i=0; i<3; ++i ) {
     // std::cout << i << std::endl;
     std::string name("s");
@@ -150,24 +145,20 @@ RA4WorkSpace::addChannel (ChannelType channel)
     RooRealVar tmp(name.c_str(),name.c_str(),0,0,10);
     wspace_->import(tmp);
     vSCont_[i][channel] = wspace_->var(name.c_str());
-    nuisSet1.add(*vSCont_[i][channel]);
+    // nuisSet1.add(*vSCont_[i][channel]);
+    wspace_->extendSet("nuis",name.c_str());
   }
-  wspace_->import(nuisSet1,nuisSet1.GetName(),true);
-  setNuis_ = wspace_->set("nuis");
-  // std::cout << "scont" << std::endl;
   // wspace_->Print("v");
 
   // bkg in A; relative bkg in B&C; kappa
-  RooArgSet nuisSet2(*setNuis_,"nuis");
   for ( unsigned int i=0; i<2; ++i ) {
     std::string name("b");
     name = name + regions[i+1] + "d" + suffix;
     RooRealVar tmp(name.c_str(),name.c_str(),0,0,10);
     wspace_->import(tmp);
     vBxd_[i][channel] = wspace_->var(name.c_str());
-    nuisSet2.add(*vBxd_[i][channel]);
+    wspace_->extendSet("nuis",name.c_str());
   }
-  // std::cout << "bkga" << std::endl;
   // wspace_->Print("v");
   {
     std::string name("bkgd");
@@ -175,9 +166,8 @@ RA4WorkSpace::addChannel (ChannelType channel)
     RooRealVar tmp(name.c_str(),name.c_str(),1,0,1000);
     wspace_->import(tmp);
     vBkgd_[channel] = wspace_->var(name.c_str());
-    nuisSet2.add(*vBkgd_[channel]);
+    wspace_->extendSet("nuis",name.c_str());
   }
-  wspace_->import(nuisSet2,nuisSet2.GetName(),true);
   //
   // pdfs for the 4 regions
   //
@@ -285,6 +275,14 @@ RA4WorkSpace::addChannel (ChannelType channel)
     wspace_->import(tmpPoisD);
     pdfReg_[3][channel] = wspace_->pdf(name.c_str());
   }
+  // wspace_->Print("v");
+  RooArgList modelList(((RooProdPdf*)wspace_->pdf("model"))->pdfList());
+  modelList.add(*pdfReg_[0][channel]);
+  modelList.add(*pdfReg_[1][channel]);
+  modelList.add(*pdfReg_[2][channel]);
+  modelList.add(*pdfReg_[3][channel]);
+  RooProdPdf model("model","model",modelList);
+  wspace_->import(model,RenameConflictNodes("old"));
   wspace_->Print("v");
   return;
 
