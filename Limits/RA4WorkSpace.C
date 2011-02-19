@@ -1,45 +1,47 @@
 #include "RA4WorkSpace.h"
 
-#include "TStopwatch.h"
-#include "TCanvas.h"
+// #include "TStopwatch.h"
+// #include "TCanvas.h"
 #include "TROOT.h"
-#include "TFile.h"
-#include "TH2F.h"
-#include "RooPlot.h"
+// #include "TFile.h"
+// #include "TH2F.h"
+// #include "RooPlot.h"
 #include "RooAbsPdf.h"
 #include "RooProdPdf.h"
+#include "RooUniform.h"
 #include "RooWorkspace.h"
 #include "RooDataSet.h"
-#include "RooGlobalFunc.h"
-#include "RooFitResult.h"
-#include "RooRandom.h"
+// #include "RooGlobalFunc.h"
+// #include "RooFitResult.h"
+// #include "RooRandom.h"
 #include "RooAddition.h"
+#include "RooProduct.h"
 #include "RooPoisson.h"
-#include "RooStats/ProfileLikelihoodCalculator.h"
-#include "RooStats/LikelihoodInterval.h"
-#include "RooStats/LikelihoodIntervalPlot.h"
-#include "RooStats/BayesianCalculator.h"
-#include "RooStats/MCMCCalculator.h"
-#include "RooStats/MCMCInterval.h"
-#include "RooStats/MCMCIntervalPlot.h"
-#include "RooStats/ProposalHelper.h"
-#include "RooStats/SimpleInterval.h"
-#include "RooStats/FeldmanCousins.h"
-#include "RooStats/PointSetInterval.h"
-#include "RooStats/SimpleLikelihoodRatioTestStat.h"
-#include <vector>
+// #include "RooStats/ProfileLikelihoodCalculator.h"
+// #include "RooStats/LikelihoodInterval.h"
+// #include "RooStats/LikelihoodIntervalPlot.h"
+// #include "RooStats/BayesianCalculator.h"
+// #include "RooStats/MCMCCalculator.h"
+// #include "RooStats/MCMCInterval.h"
+// #include "RooStats/MCMCIntervalPlot.h"
+// #include "RooStats/ProposalHelper.h"
+// #include "RooStats/SimpleInterval.h"
+// #include "RooStats/FeldmanCousins.h"
+// #include "RooStats/PointSetInterval.h"
+// #include "RooStats/SimpleLikelihoodRatioTestStat.h"
+// #include <vector>
 
 using namespace RooFit;
-using namespace RooStats;
+// using namespace RooStats;
 
 RA4WorkSpace::RA4WorkSpace (const char* name) :
-  wspace_(new RooWorkspace(name)), hasEle_(false), hasMu_(false) 
+  wspace_(new RooWorkspace(name)), finalized_(false), hasEle_(false), hasMu_(false) 
 {
   // total signal in D
   wspace_->factory("s[1,0,100]");
   vS_ = wspace_->var("s");
   // systematic uncertainty on efficiency
-  wspace_->factory("effsys[1.]");
+  wspace_->factory("effsys[1.,0,2]");
   vEffsys_ = wspace_->var("effsys");
   // systematic uncertainty on kappa
   wspace_->factory("kappasys[1,0,2]");
@@ -48,33 +50,32 @@ RA4WorkSpace::RA4WorkSpace (const char* name) :
   wspace_->factory("scontsys[1,0,2]");
   vSContsys_ = wspace_->var("scontsys");
   // pseudo-measurements for kappa and signal contamination syst
+  wspace_->factory("effnom[1]");
   wspace_->factory("kappanom[1]");
   wspace_->factory("scontnom[1]");
+  wspace_->factory("sigmaEff[0.15]");
   wspace_->factory("sigmaKappa[0.15]");
   wspace_->factory("sigmaScont[0.15]");
   // Pdfs for pseudo-measurements
+  wspace_->factory("Gaussian::mcEff(effnom, effsys, sigmaEff)");
+  pdfMcEff_ = wspace_->pdf("mcEff");
   wspace_->factory("Gaussian::mcKappa(kappanom, kappasys, sigmaKappa)");
   pdfMcKappa_ = wspace_->pdf("mcKappa");
   wspace_->factory("Gaussian::mcScont(scontnom, scontsys, sigmaScont)");
   pdfMcSCont_ = wspace_->pdf("mcScont");
-  // model
-  wspace_->factory("PROD::model(mcKappa,mcScont)");
-  pdfModel_ = wspace_->pdf("model");
-  // priors
-  wspace_->factory("Uniform::prior_poi({s})");
-  wspace_->defineSet("obs","kappanom,scontnom");
+  // // model
+  // wspace_->factory("PROD::model(mcKappa,mcScont)");
+  // pdfModel_ = wspace_->pdf("model");
+  // // priors
+  // wspace_->factory("Uniform::prior_poi({s})");
+  wspace_->defineSet("obs","effnom,kappanom,scontnom");
   setObs_ = wspace_->set("obs");
   wspace_->defineSet("poi","s");
-  wspace_->defineSet("nuis","kappasys,scontsys");
+  wspace_->defineSet("nuis","effsys,kappasys,scontsys");
   setNuis_ = wspace_->set("nuis");
 
   wspace_->Print("v");
 }
-
-// void 
-// RA4WorkSpace::addChannel (ChannelType channel)
-// {
-// }
 
 void 
 RA4WorkSpace::setBackground (float bkgA, float bkgB, float bkgC, float bkgD)
@@ -85,6 +86,10 @@ RA4WorkSpace::setBackground (float bkgA, float bkgB, float bkgC, float bkgD)
 void
 RA4WorkSpace::addChannel (ChannelType channel)
 {
+  if ( finalized_ ) {
+    std::cout << "Workspace has already been finalized" << std::endl;
+    return;
+  }
   if ( channel!=EleChannel && channel!=MuChannel ) {
     std::cout << "No such channel type" << std::endl;
     return;
@@ -145,8 +150,7 @@ RA4WorkSpace::addChannel (ChannelType channel)
     RooRealVar tmp(name.c_str(),name.c_str(),0,0,10);
     wspace_->import(tmp);
     vSCont_[i][channel] = wspace_->var(name.c_str());
-    // nuisSet1.add(*vSCont_[i][channel]);
-    wspace_->extendSet("nuis",name.c_str());
+    // wspace_->extendSet("nuis",name.c_str());
   }
   // wspace_->Print("v");
 
@@ -275,16 +279,48 @@ RA4WorkSpace::addChannel (ChannelType channel)
     wspace_->import(tmpPoisD);
     pdfReg_[3][channel] = wspace_->pdf(name.c_str());
   }
-  // wspace_->Print("v");
-  RooArgList modelList(((RooProdPdf*)wspace_->pdf("model"))->pdfList());
-  modelList.add(*pdfReg_[0][channel]);
-  modelList.add(*pdfReg_[1][channel]);
-  modelList.add(*pdfReg_[2][channel]);
-  modelList.add(*pdfReg_[3][channel]);
-  RooProdPdf model("model","model",modelList);
-  wspace_->import(model,RenameConflictNodes("old"));
+
+  switch ( channel ) {
+  case EleChannel:
+    hasEle_ = true;
+    break;
+  case MuChannel:
+    hasMu_ = true;
+    break;
+  }
+}
+
+void 
+RA4WorkSpace::finalize ()
+{
+  //
+  // check
+  //
+  if ( !hasEle_ && !hasMu_ ) {
+    std::cout << "no channel has been defined" << std::endl;
+    return;
+  }
+  //
+  // combined model
+  RooArgSet modelSet(*pdfMcKappa_,*pdfMcSCont_);
+  if ( hasEle_ ) {
+    for ( unsigned int i=0; i<4; ++i )  modelSet.add(*pdfReg_[i][0]);
+  }
+  if ( hasMu_ ) {
+    for ( unsigned int i=0; i<4; ++i )  modelSet.add(*pdfReg_[i][1]);
+  }
+  RooProdPdf model("model","model",modelSet);
+  wspace_->import(model);
+  //
+  // priors
+  //
+  wspace_->factory("Uniform::prior_poi({s})");
+  RooUniform priorNuis("prior_nuis","prior_nuis",*setNuis_);
+  wspace_->import(priorNuis);
   wspace_->Print("v");
-  return;
+
+  finalized_ = true;
+}
 
   // {
   //   std::string name("sd");
@@ -340,7 +376,7 @@ RA4WorkSpace::addChannel (ChannelType channel)
 
 //   return wspace;
 
-}
+// }
 
 void 
 RA4WorkSpace::setSignal (float sigA, float sigB, float sigC, float sigD)
