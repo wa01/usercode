@@ -26,9 +26,11 @@ public:
   void finalize ();
 
   /// setting background-related numbers
-  void setBackground (float bkgA, float bkgB, float bkgC, float bkgD);
+  void setBackground (ChannelType channel, float bkgA, float bkgB, float bkgC, float bkgD);
   /// setting signal-related numbers
   void setSignal (float sigA, float sigB, float sigC, float sigD);
+  /// setting observations
+  void setObserved (int obsA, int obsB, int obsC, int obsD);
 
   /// access to the work space
   RooWorkspace* workspace () {return wspace_;}
