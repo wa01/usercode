@@ -56,6 +56,28 @@ RA4WorkSpace::RA4WorkSpace (const char* name) :
   // wspace_->Print("v");
 }
 
+//
+// set value and range for a variable in the workspace
+//
+void 
+RA4WorkSpace::setValRange (const char* name, double val, double vmin, double vmax)
+{
+  RooRealVar* var = wspace_->var(name);
+  setValRange(var,val,vmin,vmax);
+}
+
+//
+// set value and range for a variable in the workspace
+//
+void 
+RA4WorkSpace::setValRange (RooRealVar* var, double val, double vmin, double vmax)
+{
+  if ( var ) {
+    if ( vmax>vmin )  var->setRange(vmin,vmax);
+    var->setVal(val);
+  }
+}
+
 void
 RA4WorkSpace::addChannel (ChannelType channel)
 {
@@ -99,6 +121,7 @@ RA4WorkSpace::addChannel (ChannelType channel)
     RooRealVar tmp(name.c_str(),name.c_str(),1.);
     wspace_->import(tmp);
     vEff_[channel] = wspace_->var(name.c_str());
+    vEff_[channel]->setConstant(true);
   }
   //
   // kappa
@@ -106,7 +129,7 @@ RA4WorkSpace::addChannel (ChannelType channel)
   {
     std::string name("kappa");
     name += suffix;
-    RooRealVar tmp(name.c_str(),name.c_str(),1.);
+    RooRealVar tmp(name.c_str(),name.c_str(),1.,0,2);
     wspace_->import(tmp);
     vKappa_[channel] = wspace_->var(name.c_str());
   }
@@ -275,7 +298,7 @@ RA4WorkSpace::finalize ()
   }
   //
   // combined model
-  RooArgSet modelSet(*pdfMcKappa_,*pdfMcSCont_);
+  RooArgSet modelSet(*pdfMcEff_,*pdfMcKappa_,*pdfMcSCont_);
   if ( hasEle_ ) {
     for ( unsigned int i=0; i<4; ++i )  modelSet.add(*pdfReg_[i][0]);
   }
@@ -290,66 +313,12 @@ RA4WorkSpace::finalize ()
   wspace_->factory("Uniform::prior_poi({s})");
   RooUniform priorNuis("prior_nuis","prior_nuis",*setNuis_);
   wspace_->import(priorNuis);
+  wspace_->factory("PROD::prior(prior_poi,prior_nuis)"); 
   wspace_->Print("v");
 
   finalized_ = true;
 }
 
-  // {
-  //   std::string name("sd");
-  //   name += suffix;
-  //   RooArgSet tmpSet(*wspace_->var("s"),*vEff_[channel],*wspace_->var("effsys"));
-  //   RooProduct tmp(name.c_str(),name.c_str(),tmpSet);
-  //   wspace_->import(tmp);
-  //   pSd_[channel] = (RooProduct*)wspace_->var(name.c_str());
-  //   RooArgList pdfList(
-  // }
-
-//   wspace->factory("bbd[0,0,10]");
-//   wspace->factory("bcd[0,0,10]");
-//   wspace->factory("bkgd[1,0,1000]");
-//   wspace->factory("kappa[1,0,2]");
-//   // pseudo-measurements for kappa and signal contamination
-//   wspace->factory("kappanom[1]");
-//   wspace->factory("sadnom[0.1]");
-//   wspace->factory("sbdnom[0.1]");
-//   wspace->factory("scdnom[0.1]");
-//   wspace->factory("effnom[1.]");
-//   wspace->factory("sigmaKappa[0.1]");
-//   wspace->factory("sigmaSad[0.1]");
-//   wspace->factory("sigmaSbd[0.1]");
-//   wspace->factory("sigmaScd[0.1]");
-//   wspace->factory("sigmaEff[0.1]");
-//   // Poisson distributions in the 4 regions
-//   wspace->factory("prod::sd(s,eff)");
-//   wspace->factory("Poisson::a(na, sum::tota(prod::sa(sd,sad),prod::bkga(bkgd,bbd,bcd,kappa)))");
-//   wspace->factory("Poisson::b(nb, sum::totb(prod::sb(sd,sbd),prod::bkgb(bkgd,bbd)))");
-//   wspace->factory("Poisson::c(nc, sum::totc(prod::sc(sd,scd),prod::bkgc(bkgd,bcd)))");
-//   wspace->factory("Poisson::d(nd, sum::splusb(sd,bkgd))");
-//   // Pdfs for pseudo-measurements
-//   wspace->factory("Gaussian::mcKappa(kappanom, kappa, sigmaKappa)");
-//   wspace->factory("Gaussian::mcSad(sadnom, sad, sigmaSad)");
-//   wspace->factory("Gaussian::mcSbd(sbdnom, sbd, sigmaSbd)");
-//   wspace->factory("Gaussian::mcScd(scdnom, scd, sigmaScd)");
-// //   wspace->factory("Gaussian::mcEff(effnom, eff, sigmaEff)");
-//   // full model
-// //   wspace->factory("PROD::model(d,c,b,a,mcKappa,mcSad,mcSbd,mcScd,mcEff)");
-//   wspace->factory("PROD::model(d,c,b,a,mcKappa,mcSad,mcSbd,mcScd)");
-//   // priors
-//   wspace->factory("Uniform::prior_poi({s})");
-// //   wspace->factory("Uniform::prior_nuis({bkgd,bbd,bcd,kappa,sad,sbd,scd,eff})");
-//   wspace->factory("Uniform::prior_nuis({bkgd,bbd,bcd,kappa,sad,sbd,scd})");
-//   wspace->factory("PROD::prior(prior_poi,prior_nuis)"); 
-//   // sets (observables, POI, nuisance parameters)
-// //   wspace->defineSet("obs","nd,nc,nb,na,kappanom,sadnom,sbdnom,scdnom,effnom");
-//   wspace->defineSet("obs","nd,nc,nb,na,kappanom,sadnom,sbdnom,scdnom");
-//   wspace->defineSet("poi","s");
-// //   wspace->defineSet("nuis","bkgd,bbd,bcd,kappa,sad,sbd,scd,eff");
-//   wspace->defineSet("nuis","bkgd,bbd,bcd,kappa,sad,sbd,scd");
-
-//   return wspace;
-
-// }
 
 void 
 RA4WorkSpace::setBackground (ChannelType channel,
@@ -376,13 +345,19 @@ RA4WorkSpace::setBackground (ChannelType channel,
   //
   // background numbers
   //
-  vBkgd_[channel]->setVal(bkgD);
-  vBxd_[0][channel]->setVal(bkgB/bkgD);
-  vBxd_[1][channel]->setVal(bkgC/bkgD);
+  // vBkgd_[channel]->setVal(bkgD);
+  // vBxd_[0][channel]->setVal(bkgB/bkgD);
+  // vBxd_[1][channel]->setVal(bkgC/bkgD);
+  setValRange(vBkgd_[channel],bkgD,0,10*bkgD);
+  setValRange(vBxd_[0][channel],bkgB/bkgD,0,2*bkgB/bkgD);
+  setValRange(vBxd_[1][channel],bkgC/bkgD,0,2*bkgC/bkgD);
   //
   // kappa
   //
-  vKappa_[channel]->setVal((bkgA*bkgD)/(bkgB*bkgC));
+  // vKappa_[channel]->setVal((bkgA*bkgD)/(bkgB*bkgC));
+  setValRange(vKappa_[channel],(bkgA*bkgD)/(bkgB*bkgC),0,2);
+  vKappa_[channel]->Print("v");
+  vKappa_[channel]->printValue(std::cout);
   //
   // set observed values to expectations
   // use pessimistic scenario for rounding of expected numbers
@@ -423,16 +398,20 @@ RA4WorkSpace::setSignal (ChannelType channel,
   // double sigma_eff = 0.05;
 
   // derived quantities
-  double sad_mc = max(sigA/sigD,0.01);
-  double sbd_mc = max(sigB/sigD,0.01);
-  double scd_mc = max(sigC/sigD,0.01);
-  vSCont[0][channel]->setVal(sad_mc);
-  vSCont[1][channel]->setVal(sbd_mc);
-  vSCont[2][channel]->setVal(scd_mc);
+  double sad_mc = max(sigA/sigD,float(0.01));
+  double sbd_mc = max(sigB/sigD,float(0.01));
+  double scd_mc = max(sigC/sigD,float(0.01));
+  vSCont_[0][channel]->setVal(sad_mc);
+  vSCont_[1][channel]->setVal(sbd_mc);
+  vSCont_[2][channel]->setVal(scd_mc);
+  vSCont_[0][channel]->setConstant(true);
+  vSCont_[1][channel]->setConstant(true);
+  vSCont_[2][channel]->setConstant(true);
 
   // .. background and signal variables
-  vS_->setRange(0,10*sigD);
-  vS_->setVal(sigD);
+  // vS_->setRange(0,10*sigD);
+  // vS_->setVal(sigD);
+  setValRange(vS_,sigD,0,10*sigD);
  }
 
 void 

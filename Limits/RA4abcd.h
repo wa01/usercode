@@ -33,27 +33,27 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
 // set value and range for a variable in the workspace
 //
 void setValRange (RooWorkspace* workspace, const char* name, double val, double vmin=999999, double vmax=-999999);
-//
-// create a workspace with the variables (with dummy values) and the pdfs
-//
-RooWorkspace* createWorkspace (const char* name = "wspace");
-//
-// set background-related variables of the workspace
-//
-void setBackgrounds (RooWorkspace* wspace, double* bkgs=0);
+/* // */
+/* // create a workspace with the variables (with dummy values) and the pdfs */
+/* // */
+/* RooWorkspace* createWorkspace (const char* name = "wspace"); */
+/* // */
+/* // set background-related variables of the workspace */
+/* // */
+/* void setBackgrounds (RooWorkspace* wspace, double* bkgs=0); */
 
-void setSignal (RooWorkspace* wspace, double* lm_mc);
+/* void setSignal (RooWorkspace* wspace, double* lm_mc); */
 //
 // single measurement (LM0 or LM1)
 //
 void RA4Single (StatMethod method, double* sig=0, double* bkg=0);
-//
-// scan over parameter space
-//
-void RA4Mult (const char* yieldsMu, const char* yieldsEle,
-	      const char* kfactorsMu, const char* kfactorsEle,
-	      float bkgA, float bkgB, float bkgC, float bkgD,
-	      int obsA=-1, int obsB=-1, int obsC=-1, int obsD=-1,
-	      StatMethod method=ProfileLikelihoodMethod);
+/* // */
+/* // scan over parameter space */
+/* // */
+/* void RA4Mult (const char* yieldsMu, const char* yieldsEle, */
+/* 	      const char* kfactorsMu, const char* kfactorsEle, */
+/* 	      float bkgA, float bkgB, float bkgC, float bkgD, */
+/* 	      int obsA=-1, int obsB=-1, int obsC=-1, int obsD=-1, */
+/* 	      StatMethod method=ProfileLikelihoodMethod); */
 
 #endif

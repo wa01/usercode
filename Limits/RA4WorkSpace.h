@@ -28,14 +28,18 @@ public:
   /// setting background-related numbers
   void setBackground (ChannelType channel, float bkgA, float bkgB, float bkgC, float bkgD);
   /// setting signal-related numbers
-  void setSignal (float sigA, float sigB, float sigC, float sigD);
+  void setSignal (ChannelType channel, float sigA, float sigB, float sigC, float sigD);
   /// setting observations
-  void setObserved (int obsA, int obsB, int obsC, int obsD);
+  void setObserved (ChannelType channel, int obsA, int obsB, int obsC, int obsD);
 
   /// access to the work space
   RooWorkspace* workspace () {return wspace_;}
+  
+ private:
+  void setValRange (const char* name, double val, double vmin=999999, double vmax=-999999);
+  void setValRange (RooRealVar* var, double val, double vmin=999999, double vmax=-999999);
 
-private:
+ private:
   /// the work space
   RooWorkspace* wspace_;
 
