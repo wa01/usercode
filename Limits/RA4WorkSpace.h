@@ -14,7 +14,8 @@ public:
   /// channel definitions
   enum ChannelType { EleChannel, MuChannel };
   /// constructor
-  RA4WorkSpace (const char* name = "wspace");
+  RA4WorkSpace (const char* name = "wspace", bool constEff = false, bool constSCont = false,
+		bool constKappa = false);
   /// destructor
   ~RA4WorkSpace () {delete wspace_;}
   //
@@ -42,6 +43,10 @@ public:
  private:
   /// the work space
   RooWorkspace* wspace_;
+
+  bool constEff_;   //< no systematics on efficiency
+  bool constSCont_; //< no systematics on signal contamination
+  bool constKappa_; //< no systematics on kappa
 
   bool finalized_;  //< finalization flag
   bool hasEle_;     //< electron channel defined?

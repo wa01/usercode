@@ -13,7 +13,9 @@
 using namespace RooFit;
 // using namespace RooStats;
 
-RA4WorkSpace::RA4WorkSpace (const char* name) :
+RA4WorkSpace::RA4WorkSpace (const char* name, bool constEff, bool constSCont,
+			    bool constKappa) :
+  constEff_(constEff), constSCont_(constSCont), constKappa_(constKappa),
   wspace_(new RooWorkspace(name)), finalized_(false), hasEle_(false), hasMu_(false) 
 {
   //
@@ -25,32 +27,56 @@ RA4WorkSpace::RA4WorkSpace (const char* name) :
   // systematic uncertainty on efficiency
   wspace_->factory("effsys[1.,0,2]");
   vEffsys_ = wspace_->var("effsys");
+  if ( constEff_ )  vEffsys_->setConstant(true);
   // systematic uncertainty on kappa
   wspace_->factory("kappasys[1,0,2]");
   vKappasys_ = wspace_->var("kappasys");
+  if ( constKappa_ )  vKappasys_->setConstant(true);
   // systematic uncertainty on signal contamination
   wspace_->factory("scontsys[1,0,2]");
   vSContsys_ = wspace_->var("scontsys");
+  if ( constSCont_ )  vSContsys_->setConstant(true);
   // pseudo-measurements for systematics on efficiency,
   // kappa and signal contamination syst
-  wspace_->factory("effnom[1]");
-  wspace_->factory("kappanom[1]");
-  wspace_->factory("scontnom[1]");
-  wspace_->factory("sigmaEff[0.15]");
-  wspace_->factory("sigmaKappa[0.15]");
-  wspace_->factory("sigmaScont[0.15]");
+  if ( !constEff_ ) {
+    wspace_->factory("effnom[1]");
+    wspace_->factory("sigmaEff[0.15]");
+  }
+  if ( !constKappa_ ) {
+    wspace_->factory("kappanom[1]");
+    wspace_->factory("sigmaKappa[0.15]");
+  }
+  if ( !constSCont_ ) {
+    wspace_->factory("scontnom[1]");
+    wspace_->factory("sigmaScont[0.15]");
+  }
   // Pdfs for pseudo-measurements
-  wspace_->factory("Gaussian::mcEff(effnom, effsys, sigmaEff)");
-  pdfMcEff_ = wspace_->pdf("mcEff");
-  wspace_->factory("Gaussian::mcKappa(kappanom, kappasys, sigmaKappa)");
-  pdfMcKappa_ = wspace_->pdf("mcKappa");
-  wspace_->factory("Gaussian::mcScont(scontnom, scontsys, sigmaScont)");
-  pdfMcSCont_ = wspace_->pdf("mcScont");
+  pdfMcEff_ = 0;
+  if ( !constEff_ ) {
+    wspace_->factory("Gaussian::mcEff(effnom, effsys, sigmaEff)");
+    pdfMcEff_ = wspace_->pdf("mcEff");
+  }
+  pdfMcKappa_ = 0;
+  if ( !constKappa_ ) {
+    wspace_->factory("Gaussian::mcKappa(kappanom, kappasys, sigmaKappa)");
+    pdfMcKappa_ = wspace_->pdf("mcKappa");
+  }
+  pdfMcSCont_ = 0;
+  if ( !constSCont_ ) {
+    wspace_->factory("Gaussian::mcScont(scontnom, scontsys, sigmaScont)");
+    pdfMcSCont_ = wspace_->pdf("mcScont");
+  }
   // sets
-  wspace_->defineSet("obs","effnom,kappanom,scontnom");
-  setObs_ = wspace_->set("obs");
   wspace_->defineSet("poi","s");
-  wspace_->defineSet("nuis","effsys,kappasys,scontsys");
+  wspace_->defineSet("obs","");
+  if ( !constEff_ )  wspace_->extendSet("obs","effnom");
+  if ( !constKappa_ )  wspace_->extendSet("obs","kappanom");
+  if ( !constSCont_ )  wspace_->extendSet("obs","scontnom");
+  setObs_ = wspace_->set("obs");
+  wspace_->defineSet("nuis","");
+  if ( !constEff_ )  wspace_->extendSet("nuis","effsys");
+  if ( !constKappa_ )  wspace_->extendSet("nuis","kappasys");
+  if ( !constSCont_ )  wspace_->extendSet("nuis","scontsys");
   setNuis_ = wspace_->set("nuis");
 
   // wspace_->Print("v");
@@ -298,7 +324,11 @@ RA4WorkSpace::finalize ()
   }
   //
   // combined model
-  RooArgSet modelSet(*pdfMcEff_,*pdfMcKappa_,*pdfMcSCont_);
+  RooArgSet modelSet;
+  if ( !constEff_ )  modelSet.add(*pdfMcEff_);
+  if ( !constKappa_ )  modelSet.add(*pdfMcKappa_);
+  if ( !constSCont_ )  modelSet.add(*pdfMcSCont_);
+  // RooArgSet modelSet(*pdfMcEff_,*pdfMcKappa_,*pdfMcSCont_);
   if ( hasEle_ ) {
     for ( unsigned int i=0; i<4; ++i )  modelSet.add(*pdfReg_[i][0]);
   }
