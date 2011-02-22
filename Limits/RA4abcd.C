@@ -110,8 +110,8 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
     fc.SetNBins(100);
     PointSetInterval* fcInt = NULL;
     fcInt = (PointSetInterval*) fc.GetInterval(); // fix cast
-    double lowLim = plInt->LowerLimit(*wspace->var("s"));
-    double uppLim = plInt->UpperLimit(*wspace->var("s"));
+    double lowLim = fcInt->LowerLimit(*wspace->var("s"));
+    double uppLim = fcInt->UpperLimit(*wspace->var("s"));
     double exp_sig_val = wspace->var("s")->getVal();
     cout << "Feldman Cousins interval on s = [" << lowLim << " " << uppLim << endl;
     // std::cout << "isIn " << result << std::endl;
