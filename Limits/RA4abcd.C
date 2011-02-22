@@ -97,11 +97,14 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
       lrplot->Draw();
     }
 //     RooMsgService::instance().setGlobalKillBelow(msglevel);
+    double lowLim = plInt->LowerLimit(*wspace->var("s"));
+    double uppLim = plInt->UpperLimit(*wspace->var("s"));
+    double exp_sig_val = wspace->var("s")->getVal();
     cout << "Profile Likelihood interval on s = [" << 
-      plInt->LowerLimit( *wspace->var("s") ) << ", " <<
-      plInt->UpperLimit( *wspace->var("s") ) << "]" << endl; 
-    MyLimit result(plInt->IsInInterval(exp_sig),
-		   plInt->LowerLimit(*wspace->var("s")),plInt->UpperLimit(*wspace->var("s")));
+      lowLim << ", " <<
+      uppLim << "]" << endl; 
+//     MyLimit result(plInt->IsInInterval(exp_sig),
+    MyLimit result(exp_sig_val>lowLim&&exp_sig_val<uppLim,lowLim,uppLim);
     // std::cout << "isIn " << result << std::endl;
     delete plInt;
 //     delete modelConfig;
@@ -118,11 +121,12 @@ MyLimit computeLimit (RooWorkspace* wspace, RooDataSet* data, StatMethod method,
     fc.SetNBins(100);
     PointSetInterval* fcInt = NULL;
     fcInt = (PointSetInterval*) fc.GetInterval(); // fix cast
-    cout << "Feldman Cousins interval on s = [" << 
-      fcInt->LowerLimit( *wspace->var("s") ) << ", " <<
-      fcInt->UpperLimit( *wspace->var("s") ) << "]" << endl;
+    double lowLim = plInt->LowerLimit(*wspace->var("s"));
+    double uppLim = plInt->UpperLimit(*wspace->var("s"));
+    double exp_sig_val = wspace->var("s")->getVal();
+    cout << "Feldman Cousins interval on s = [" << lowLim << " " << uppLim << endl;
     // std::cout << "isIn " << result << std::endl;
-    MyLimit result(fcInt->IsInInterval(exp_sig),
+    MyLimit result(exp_sig_val>lowLim&&exp_sig_val<uppLim,
 		   fcInt->LowerLimit(*wspace->var("s")),fcInt->UpperLimit(*wspace->var("s")));
     delete fcInt;
     return result;
@@ -609,8 +613,131 @@ void RA4Single (StatMethod method, double* sig, double* bkg) {
 
 //       if ( yields[3]>0.01 ) {
 
-// 	setBackgrounds(wspace,bkgs);
-// 	setSignal(wspace,yields);
+  std::string hName;
+  for ( unsigned int j=0; j<nf; ++j ) {
+    for ( unsigned int i=0; i<4; ++i ) {
+      hName = "Events";
+      hName += cRegion[i];
+      TH2* htmp = (TH2*)fYield[j]->Get(hName.c_str())->Clone();
+      TH2* htmp05 = (TH2*)fYield[j]->Get(hName.c_str())->Clone();
+      TH2* htmp20 = (TH2*)fYield[j]->Get(hName.c_str())->Clone();
+      if ( htmp==0 ) {
+	std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
+	return;
+      }
+      htmp->Multiply(htmp,hKF10[j]);
+      htmp05->Multiply(htmp05,hKF05[j]);
+      htmp20->Multiply(htmp20,hKF20[j]);
+      if ( hYields[i] ) {
+	hYields[i]->Add(hYields[i],htmp);
+	hYields05[i]->Add(hYields05[i],htmp05);
+	hYields20[i]->Add(hYields20[i],htmp20);
+      }
+      else {
+	hYields[i] = htmp;
+	hYields05[i] = htmp05;
+	hYields20[i] = htmp20;
+      }
+      hName = "Entries";
+      hName += cRegion[i];
+      htmp = (TH2*)fYield[j]->Get(hName.c_str());
+      if ( htmp==0 ) {
+	std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
+	return;
+      }
+      if ( hYEntries[i] ) 
+	hYEntries[i]->Add(hYEntries[i],htmp);
+      else
+	hYEntries[i] = htmp;
+      if ( hYields[i]==0 || hYEntries[i]==0 ) {
+	std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
+	return;
+      }
+    }
+  }
+
+  gROOT->cd();
+  TH2* hExclusion = (TH2*)hYields[0]->Clone("Exclusion");
+  hExclusion->Reset();
+  hExclusion->SetTitle("Exclusion");
+  TH2* hLowerLimit = (TH2*)hYields[0]->Clone("LowerLimit");
+  hLowerLimit->Reset();
+  hLowerLimit->SetTitle("LowerLimit");
+  TH2* hUpperLimit = (TH2*)hYields[0]->Clone("UpperLimit");
+  hUpperLimit->Reset();
+  hUpperLimit->SetTitle("UpperLimit");
+
+  RooWorkspace* wspace = createWorkspace();
+
+  double yields[4];
+  double entries[4];
+
+  double bkgs[4];
+  bkgs[0] = bkgA;
+  bkgs[1] = bkgB;
+  bkgs[2] = bkgC;
+  bkgs[3] = bkgD;
+
+//   // *2 for electrons
+//   for ( int i=0; i<4; ++i )  bkgs[i] *= 2;
+
+//   // muons : 340 / 400 / 470 ; 2.4 / 4.0 / 5.6
+//   bkgs[0] = 18.45;
+//   bkgs[1] = 18.20;
+//   bkgs[2] = 10.77;
+//   bkgs[3] = 10.98;
+  double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
+  double sigma_kappa_base = 0.10;
+  double delta_kappa_abs = kappa - 1.;
+  double sigma_kappa = sqrt(sigma_kappa_base*sigma_kappa_base+delta_kappa_abs*delta_kappa_abs);
+  sigma_kappa = sqrt(0.129*0.129+0.1*0.1);
+
+
+  TGraph* limitGraph = new TGraph();
+  limitGraph->SetName("limits");
+  limitGraph->SetTitle("limits");
+  int npLimitGraph(0);
+
+  TAxis* xaxis = hYields[0]->GetXaxis();
+  TAxis* yaxis = hYields[0]->GetYaxis();
+  double yaxisMin = yaxis->GetXmin();
+  double yaxisDy = (yaxis->GetXmax()-yaxis->GetXmin())/yaxis->GetNbins();
+
+  int nbx = hYields[0]->GetNbinsX();
+  int nby = hYields[0]->GetNbinsY();
+  for ( int ix=1; ix<=nbx; ++ix ) {
+//   for ( int ix=1; ix<=1; ++ix ) {
+
+    int iyLast = -1;
+    double limToYieldLast = 999.;
+    bool foundLimit = false;
+     for ( int iy=nby; iy>=1; --iy ) {
+//     for ( int iy=20; iy>=1; --iy ) {
+//     for ( int iy=15; iy>=14; --iy ) {
+
+      for ( unsigned int i=0; i<4; ++i ) {
+	yields[i] = hYields[i]->GetBinContent(ix,iy);
+	entries[i] = hYEntries[i]->GetBinContent(ix,iy);
+      }
+      double yields05 = hYields05[3]->GetBinContent(ix,iy);
+      double yields20 = hYields20[3]->GetBinContent(ix,iy);
+
+//       yields[0] =1.52;
+//       yields[1] =7.68;
+//       yields[2] =5.17;
+//       yields[3] =21.12;
+//       // *1.3 for NLO
+//       for ( unsigned int i=0; i<4; ++i )  yields[i] *= 1.3;
+
+      MyLimit limit(true,0.,999.);
+      std::cout << "Checked ( " << hExclusion->GetXaxis()->GetBinCenter(ix) << " , "
+		<< hExclusion->GetYaxis()->GetBinCenter(iy) << " ) with signal yield " 
+		<< yields[3] << std::endl;
+
+      if ( yields[3]>0.01 ) {
+
+	setBackgrounds(wspace,bkgs);
+	setSignal(wspace,yields);
       
 // 	setValRange(wspace,"sigmaKappa",sigma_kappa);
 // 	setValRange(wspace,"s",yields[3],0,100);
@@ -646,39 +773,73 @@ void RA4Single (StatMethod method, double* sig, double* bkg) {
 // 	data->add(*wspace->set("obs"));
 // 	data->Print("v");
   
-// //       if ( yields[3]>0.01 ) {
-// 	limit = computeLimit(wspace,data,method);
-// 	std::cout << "  Limit [ " << limit.lowerLimit << " , "
-// 		  << limit.upperLimit << " ] ; isIn = " << limit.isInInterval << std::endl;
+//       if ( yields[3]>0.01 ) {
+	limit = computeLimit(wspace,data,method);
+	std::cout << "  Limit [ " << limit.lowerLimit << " , "
+		  << limit.upperLimit << " ] ; isIn = " << limit.isInInterval << std::endl;
 
-// 	delete data;
-//       }
-// //       std::cout << "  entries =" 
-// // 		<< " " << entries[0]
-// // 		<< " " << entries[1]
-// // 		<< " " << entries[2]
-// // 		<< " " << entries[3] << std::endl;
-//       double excl = limit.isInInterval;
-//       if ( limit.upperLimit<limit.lowerLimit )  excl = -1;
-//       hExclusion->SetBinContent(ix,iy,excl);
-//       hLowerLimit->SetBinContent(ix,iy,limit.lowerLimit);
-//       hUpperLimit->SetBinContent(ix,iy,limit.upperLimit);
+	//
+	// find highest m12 with transition to exclusion
+	//
+	if ( !foundLimit ) {
+	  //
+	  // ratio upper limit  to yield (<1 for exclusion)
+	  //
+	  double limToYield = limit.upperLimit/yields[3]; 
+	  if ( limToYield<1. ) {
+	    double yLim = iy;
+	    if ( iyLast>0 ) {
+	      // linear interpolation
+	      yLim = (iyLast*(1-limToYield)-iy*(1-limToYieldLast))/(limToYieldLast-limToYield);
+	      // ((iyLast-iy)-(limToYield*iyLast-limToYieldLast*iy))/(limToYieldLast-limToYield);
+	      std::cout << "Found limit at " << ix << " " << iyLast << " " << limToYieldLast
+			<< " ; " << iy << " " << limToYield << " " << yLim
+			<< " ; " << yaxisMin+(yLim-0.5)*yaxisDy << std::endl;
+	    }
+	    else {
+	      std::cout << "Found limit at first point " << ix
+			<< " ; " << iy << " " << limToYield << " " << yLim
+			<< " ; " << yaxisMin+(yLim-0.5)*yaxisDy << std::endl;
+	    }
+	    limitGraph->SetPoint(npLimitGraph++,
+				 xaxis->GetBinCenter(ix),
+				 yaxisMin+(yLim-0.5)*yaxisDy);
+	    foundLimit = true;
+	    break;
+	  }
+	  iyLast = iy;
+	  limToYieldLast = limToYield;
+	}
+
+	delete data;
+      }
+//       std::cout << "  entries =" 
+// 		<< " " << entries[0]
+// 		<< " " << entries[1]
+// 		<< " " << entries[2]
+// 		<< " " << entries[3] << std::endl;
+      double excl = limit.isInInterval;
+      if ( limit.upperLimit<limit.lowerLimit )  excl = -1;
+      hExclusion->SetBinContent(ix,iy,excl);
+      hLowerLimit->SetBinContent(ix,iy,limit.lowerLimit);
+      hUpperLimit->SetBinContent(ix,iy,limit.upperLimit);
 
 
-//     }
-//   }
+    }
+  }
 
-//   TFile* out = new TFile("RA4abcd.root","RECREATE");
-//   hExclusion->SetDirectory(out);
-//   hExclusion->SetMinimum(); hExclusion->SetMaximum();
-//   hExclusion->SetContour(1); hExclusion->SetContourLevel(0,0.5);
-//   hLowerLimit->SetDirectory(out);
-//   hLowerLimit->SetMinimum(); hLowerLimit->SetMaximum();
-//   hUpperLimit->SetDirectory(out);
-//   hUpperLimit->SetMinimum(); hUpperLimit->SetMaximum();
-//   hYields[3]->SetDirectory(out);
-//   hYields[3]->SetMinimum(); hYields[3]->SetMaximum();
-//   out->Write();
-//   delete out;
-// }
+  TFile* out = new TFile("RA4abcd.root","RECREATE");
+  hExclusion->SetDirectory(out);
+  hExclusion->SetMinimum(); hExclusion->SetMaximum();
+  hExclusion->SetContour(1); hExclusion->SetContourLevel(0,0.5);
+  hLowerLimit->SetDirectory(out);
+  hLowerLimit->SetMinimum(); hLowerLimit->SetMaximum();
+  hUpperLimit->SetDirectory(out);
+  hUpperLimit->SetMinimum(); hUpperLimit->SetMaximum();
+  hYields[3]->SetDirectory(out);
+  hYields[3]->SetMinimum(); hYields[3]->SetMaximum();
+  limitGraph->Write();
+  out->Write();
+  delete out;
+}
 
