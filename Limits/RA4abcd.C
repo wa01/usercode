@@ -296,7 +296,7 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
   //
   // Prepare workspace
   //
-  RA4WorkSpace ra4WSpace("wspace",true,true,false);
+  RA4WorkSpace ra4WSpace("wspace",true,false,false);
 
 
   TFile* fYield[2];
@@ -470,15 +470,15 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
       // for the time being: work with yields
       if ( muChannel.valid_ ) {
 	wspace->var("effM")->setVal(1.);
-	wspace->var("sadM")->setVal(0.);
-	wspace->var("sbdM")->setVal(0.);
-	wspace->var("scdM")->setVal(0.);
+// 	wspace->var("sadM")->setVal(0.);
+// 	wspace->var("sbdM")->setVal(0.);
+// 	wspace->var("scdM")->setVal(0.);
       }
       if ( eleChannel.valid_ ) {
 	wspace->var("effE")->setVal(1.);
-	wspace->var("sadE")->setVal(0.);
-	wspace->var("sbdE")->setVal(0.);
-	wspace->var("scdE")->setVal(0.);
+// 	wspace->var("sadE")->setVal(0.);
+// 	wspace->var("sbdE")->setVal(0.);
+// 	wspace->var("scdE")->setVal(0.);
       }
 
       wspace->Print("v");
@@ -504,40 +504,6 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 		<< hExclusion->GetYaxis()->GetBinCenter(iy) << " ) with signal yield " 
 		<< yields[3] << std::endl;
 	
-// 	if ( yields[3]>0.01 ) {
-
-// 	setBackgrounds(wspace,bkgs);
-// 	setSignal(wspace,yields);
-      
-// 	setValRange(wspace,"sigmaKappa",sigma_kappa);
-// 	setValRange(wspace,"s",yields[3],0,100);
-
-// 	double sigKF(0.15);
-// 	sigKF = max(fabs((yields20-yields[3])/yields[3]),
-// 		    fabs((yields05-yields[3])/yields[3]));
-// 	double sad_mc = wspace->var("sadnom")->getVal();
-// 	double sbd_mc = wspace->var("sbdnom")->getVal();
-// 	double scd_mc = wspace->var("scdnom")->getVal();
-// 	setValRange(wspace,"sigmaSad",sad_mc*sqrt(0.15*0.15+sigKF*sigKF));
-// 	setValRange(wspace,"sigmaSbd",sbd_mc*sqrt(0.15*0.15+sigKF*sigKF));
-// 	setValRange(wspace,"sigmaScd",scd_mc*sqrt(0.15*0.15+sigKF*sigKF));
-// 	setValRange(wspace,"sigmaEff",sqrt(0.15*0.15+sigKF*sigKF));
-
-// 	if ( obsA>=0 && obsB>=0 && obsC>=0 && obsD>=0 ) {
-// 	  setValRange(wspace,"na",obsA,0,1000);
-// 	  setValRange(wspace,"nb",obsB,0,1000);
-// 	  setValRange(wspace,"nc",obsC,0,1000);
-// 	  setValRange(wspace,"nd",obsD,0,1000);
-// 	}
-// 	std::cout << "  yields =" 
-// 		  << " " << yields[0]
-// 		  << " " << yields[1]
-// 		  << " " << yields[2]
-// 		  << " " << yields[3] << " " << sigKF << std::endl;
-	
-	// wspace->Print("v");
-	// RooArgSet allVars = wspace->allVars();
-	// allVars.printLatex(std::cout,1);
 
       RooDataSet data("data","data",*wspace->set("obs"));
       data.add(*wspace->set("obs"));
