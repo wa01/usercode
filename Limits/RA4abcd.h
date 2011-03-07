@@ -3,6 +3,7 @@
 
 #include "RooWorkspace.h"
 #include "RooDataSet.h"
+#include "RA4WorkingPoint.h"
 
 /** Some functions for limit calculation with ABCD.
  *  RA4Single: one test with LM0
@@ -47,13 +48,11 @@ void setValRange (RooWorkspace* workspace, const char* name, double val, double 
 // single measurement (LM0 or LM1)
 //
 void RA4Single (StatMethod method, double* sig=0, double* bkg=0);
-/* // */
-/* // scan over parameter space */
-/* // */
-/* void RA4Mult (const char* yieldsMu, const char* yieldsEle, */
-/* 	      const char* kfactorsMu, const char* kfactorsEle, */
-/* 	      float bkgA, float bkgB, float bkgC, float bkgD, */
-/* 	      int obsA=-1, int obsB=-1, int obsC=-1, int obsD=-1, */
-/* 	      StatMethod method=ProfileLikelihoodMethod); */
+//
+// scan over parameter space
+//
+void RA4Mult (const RA4WorkingPoint& muChannel,
+	      const RA4WorkingPoint& eleChannel,
+	      StatMethod method=ProfileLikelihoodMethod);
 
 #endif

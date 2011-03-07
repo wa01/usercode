@@ -56,6 +56,24 @@ double regionContent (TH2* histo,
   return sum;
 }
 
+double regionError (TH2* histo, 
+		    int iHTbegin, int iMETbegin, 
+		    int iHTend=-1, int iMETend=-1)
+{
+  double sum(0.);
+  // sum from begin to end (excluding)
+  //  if end<0: sum to edge of histogram, including overflow bin
+  int htEnd = iHTend>0 ? iHTend : histo->GetNbinsX()+2;
+  int metEnd = iMETend>0 ? iMETend : histo->GetNbinsY()+2;
+  for ( int ix=iHTbegin; ix<htEnd; ++ix ) {
+    for ( int iy=iMETbegin; iy<metEnd; ++iy ) {
+      double err = histo->GetBinError(ix,iy);
+      sum += err*err;
+    }
+  }
+  return sqrt(sum);
+}
+
 struct WorkingPoint {
   WorkingPoint () {
     for ( unsigned int i=0; i<4; ++i ) {
@@ -195,6 +213,29 @@ int setupRegions (int iht0, int iht1, int iht2, int imet0, int imet1, int imet2,
   return 0;
 }
 
+void setupRegErr (int iht0, int iht1, int iht2, int imet0, int imet1, int imet2,
+		  TH2* hBkg, double* bkgErrs)
+{
+  TAxis* xaxis = hBkg->GetXaxis();
+  TAxis* yaxis = hBkg->GetYaxis();
+//   if ( (iht2%10)==0 && (imet2%10)==0 ) {
+//     std::cout << "Limits " 
+// 	      << xaxis->GetBinLowEdge(iht0) << " "
+// 	      << xaxis->GetBinLowEdge(iht1) << " "
+// 	      << xaxis->GetBinLowEdge(iht2) << " "
+// 	      << yaxis->GetBinLowEdge(imet0) << " "
+// 	      << yaxis->GetBinLowEdge(imet1) << " "
+// 	      << yaxis->GetBinLowEdge(imet2) << std::endl;
+//   }
+	      
+  bkgErrs[0] = regionError(hBkg,iht0,imet0,iht1,imet1);
+  bkgErrs[1] = regionError(hBkg,iht2,imet0,-1,imet1);
+  bkgErrs[2] = regionError(hBkg,iht0,imet2,iht1,-1);
+  bkgErrs[3] = regionError(hBkg,iht2,imet2,-1,-1);
+
+  return;
+}
+
 void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
 		 int index, int dHT, int dMET,
 		 float HTCut0, float METCut0,
@@ -252,8 +293,10 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
   hRelUpperLimit->SetTitle("UpperLimit / Yield");
   TH2* hKappa = (TH2*)hExclusion->Clone("Kappa");
   hKappa->SetTitle("Kappa");
-  TH2* hSigKappa = (TH2*)hExclusion->Clone("SigKappa");
-  hSigKappa->SetTitle("SigKappa");
+  TH2* hErrKappa = (TH2*)hExclusion->Clone("ErrKappa");
+  hErrKappa->SetTitle("ErrKappa");
+  TH2* hKappaSyst = (TH2*)hExclusion->Clone("KappaSyst");
+  hKappaSyst->SetTitle("KappaSyst");
   TH2* hBkgD = (TH2*)hExclusion->Clone("BkgD");
   hBkgD->SetTitle("BkgD");
   TH2* hSigD = (TH2*)hExclusion->Clone("SigD");
@@ -271,6 +314,7 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
   double bkgs[4];
   double tt[4];
   double wjets[4];
+  double bkgErrs[4];
 
   int nbx = hBkg->GetNbinsX();
   int nby = hBkg->GetNbinsY();
@@ -349,11 +393,19 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
 	hRelUpperLimit->SetBinContent(ix,iy,-1.);
 	continue;
       }
+      setupRegErr(iHT0,iHT1,iHT2,iMET0,iMET1,iMET2,
+		  hBkg,bkgErrs);
 
       std::cout << "bkgs / yields =";
       for ( unsigned int i=0; i<4; ++i ) 
 	std::cout << " ( " << bkgs[i] << " / " << yields[i] << " ) ";
       std::cout << std::endl;
+      for ( unsigned int i=0; i<4; ++i ) 
+	std::cout << " " << bkgErrs[i];
+      std::cout << std::endl;
+      std::cout << "Bins " << iHT0 << " " << iHT1 << " " << iHT2 << " ; "
+		<< iMET0 << " " << iMET1 << " " << iMET2 << std::endl;
+		
       hBkgD->SetBinContent(ix,iy,bkgs[3]);
       hSigD->SetBinContent(ix,iy,yields[3]);
       hSoB->SetBinContent(ix,iy,yields[3]/bkgs[3]);
@@ -362,6 +414,12 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
       double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
       std::cout << " kappa = " << kappa << std::endl;
       hKappa->SetBinContent(ix,iy,kappa);
+      if ( bkgs[0]>1.e-6 && bkgs[1]>1.e-6 && bkgs[2]>1.e-6 && bkgs[3]>1.e-6 ) {
+	double bkgErr(0.);
+	for ( unsigned int j=0; j<4; ++j )  
+	  bkgErr += (bkgErrs[j]/bkgs[j])*(bkgErrs[j]/bkgs[j]);
+	hErrKappa->SetBinContent(ix,iy,kappa*sqrt(bkgErr));
+      }
 
       double kappatt = (tt[0]*tt[3])/(tt[1]*tt[2]);
       double kappawjets = (wjets[0]*wjets[3])/(wjets[1]*wjets[2]);
@@ -376,15 +434,15 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
       double sigma_kappa = sqrt(sigma_kappa_abs*sigma_kappa_abs+sigma_kappa_delta*sigma_kappa_delta+0.1*0.1);
       std::cout << "Setting uncertainty on kappa to " 
 		<< sigma_kappa_abs << " " << sigma_kappa_delta << " " << sigma_kappa << std::endl;
-      hSigKappa->SetBinContent(ix,iy,sigma_kappa);
+      hKappaSyst->SetBinContent(ix,iy,sigma_kappa);
 
-      if ( fabs(kappa-1.)>0.2 ) {
-	hExclusion->SetBinContent(ix,iy,-3.);
-	hLowerLimit->SetBinContent(ix,iy,-3.);
-	hUpperLimit->SetBinContent(ix,iy,-3.);
-	hRelUpperLimit->SetBinContent(ix,iy,-3.);
-	continue;	
-      }
+//       if ( fabs(kappa-1.)>0.2 ) {
+// 	hExclusion->SetBinContent(ix,iy,-3.);
+// 	hLowerLimit->SetBinContent(ix,iy,-3.);
+// 	hUpperLimit->SetBinContent(ix,iy,-3.);
+// 	hRelUpperLimit->SetBinContent(ix,iy,-3.);
+// 	continue;	
+//       }
 
       setBackgrounds(wspace,bkgs);
       setSignal(wspace,yields);
@@ -428,7 +486,8 @@ void RA4Regions (const char* prefix, const char* postfix, const char* sigName,
   hUpperLimit->SetDirectory(out);
   hRelUpperLimit->SetDirectory(out);
   hKappa->SetDirectory(out);
-  hSigKappa->SetDirectory(out);
+  hErrKappa->SetDirectory(out);
+  hKappaSyst->SetDirectory(out);
   hBkgD->SetDirectory(out);
   hSigD->SetDirectory(out);
   hNevD->SetDirectory(out);
@@ -535,12 +594,18 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
 	      if ( yields[3]<0.001 ) {
 		break;
 	      }
-	      if ( fabs(kappa-1.)>0.1 ) {
-		continue;	
-	      }
-	      if ( sigma_kappa>1. ) {
-		continue;
-	      }
+// 	      if ( fabs(kappa-1.)>0.1 ) {
+// 		continue;	
+// 	      }
+// 	      if ( sigma_kappa>1. ) {
+// 		continue;
+// 	      }
+ 	      if ( fabs(kappa-1.)>1 ) {
+ 		continue;	
+ 	      }
+ 	      if ( sigma_kappa>1.5 ) {
+ 		continue;
+ 	      }
 
 	      setBackgrounds(wspace,bkgs);
 	      setSignal(wspace,yields);
@@ -629,7 +694,7 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
   TH1* hRelUpperLimit = new TH1F("RelUpperLimit","RelUpperLimit",nrhmax,0,nrhmax);
   TH1* hUpperLimit = new TH1F("UpperLimit","UpperLimit",nrhmax,0,nrhmax);
   TH1* hKappa = new TH1F("Kappa","Kappa",nrhmax,0,nrhmax);
-  TH1* hSigKappa = new TH1F("sigKappa","sigKappa",nrhmax,0,nrhmax);
+  TH1* hKappaSyst = new TH1F("kappaSyst","kappaSyst",nrhmax,0,nrhmax);
   TH1* hHT0 = new TH1F("HT0","HT0",nrhmax,0,nrhmax);
   TH1* hHT1 = new TH1F("HT1","HT1",nrhmax,0,nrhmax);
   TH1* hHT2 = new TH1F("HT2","HT2",nrhmax,0,nrhmax);
@@ -656,7 +721,7 @@ void RA4RegionsTot (const char* prefix, const char* postfix, const char* sigName
       hRelUpperLimit->SetBinContent(ir+1,result.upperLimit/result.yields[3]);
       hUpperLimit->SetBinContent(ir+1,result.upperLimit);
       hKappa->SetBinContent(ir+1,result.kappa);
-      hSigKappa->SetBinContent(ir+1,result.sigKappa);
+      hKappaSyst->SetBinContent(ir+1,result.sigKappa);
       hHT0->SetBinContent(ir+1,htCuts[0]);
       hHT1->SetBinContent(ir+1,htCuts[1]);
       hHT2->SetBinContent(ir+1,htCuts[2]);
@@ -810,7 +875,7 @@ void RA4RegionsSimple (const char* prefix, const char* postfix, const char* sigN
   TH1* hRelUpperLimit = new TH1F("RelUpperLimit","RelUpperLimit",nrhmax,0,nrhmax);
   TH1* hUpperLimit = new TH1F("UpperLimit","UpperLimit",nrhmax,0,nrhmax);
   TH1* hKappa = new TH1F("Kappa","Kappa",nrhmax,0,nrhmax);
-  TH1* hSigKappa = new TH1F("sigKappa","sigKappa",nrhmax,0,nrhmax);
+  TH1* hKappaSyst = new TH1F("sigKappa","sigKappa",nrhmax,0,nrhmax);
   TH1* hHT0 = new TH1F("HT0","HT0",nrhmax,0,nrhmax);
   TH1* hHT1 = new TH1F("HT1","HT1",nrhmax,0,nrhmax);
   TH1* hHT2 = new TH1F("HT2","HT2",nrhmax,0,nrhmax);
@@ -837,7 +902,7 @@ void RA4RegionsSimple (const char* prefix, const char* postfix, const char* sigN
       hRelUpperLimit->SetBinContent(ir+1,result.upperLimit/result.yields[3]);
       hUpperLimit->SetBinContent(ir+1,result.upperLimit);
       hKappa->SetBinContent(ir+1,result.kappa);
-      hSigKappa->SetBinContent(ir+1,result.sigKappa);
+      hKappaSyst->SetBinContent(ir+1,result.sigKappa);
       hHT0->SetBinContent(ir+1,htCuts[0]);
       hHT1->SetBinContent(ir+1,htCuts[1]);
       hHT2->SetBinContent(ir+1,htCuts[2]);

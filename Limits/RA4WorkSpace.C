@@ -15,8 +15,9 @@ using namespace RooFit;
 
 RA4WorkSpace::RA4WorkSpace (const char* name, bool constEff, bool constSCont,
 			    bool constKappa) :
+  wspace_(new RooWorkspace(name)), 
   constEff_(constEff), constSCont_(constSCont), constKappa_(constKappa),
-  wspace_(new RooWorkspace(name)), finalized_(false), hasEle_(false), hasMu_(false) 
+  finalized_(false), hasEle_(false), hasMu_(false) 
 {
   //
   // definition of common variables, sets and pdfs
@@ -25,58 +26,58 @@ RA4WorkSpace::RA4WorkSpace (const char* name, bool constEff, bool constSCont,
   wspace_->factory("s[1,0,100]");
   vS_ = wspace_->var("s");
   // systematic uncertainty on efficiency
-  wspace_->factory("effsys[1.,0,2]");
-  vEffsys_ = wspace_->var("effsys");
-  if ( constEff_ )  vEffsys_->setConstant(true);
+  wspace_->factory("effSys[1.,0,2]");
+  vEffSys_ = wspace_->var("effSys");
+  if ( constEff_ )  vEffSys_->setConstant(true);
   // systematic uncertainty on kappa
-  wspace_->factory("kappasys[1,0,2]");
-  vKappasys_ = wspace_->var("kappasys");
-  if ( constKappa_ )  vKappasys_->setConstant(true);
+  wspace_->factory("kappaSys[1,0,2]");
+  vKappaSys_ = wspace_->var("kappaSys");
+  if ( constKappa_ )  vKappaSys_->setConstant(true);
   // systematic uncertainty on signal contamination
-  wspace_->factory("scontsys[1,0,2]");
-  vSContsys_ = wspace_->var("scontsys");
-  if ( constSCont_ )  vSContsys_->setConstant(true);
+  wspace_->factory("scontSys[1,0,2]");
+  vSContSys_ = wspace_->var("scontSys");
+  if ( constSCont_ )  vSContSys_->setConstant(true);
   // pseudo-measurements for systematics on efficiency,
   // kappa and signal contamination syst
   if ( !constEff_ ) {
-    wspace_->factory("effnom[1]");
+    wspace_->factory("effScale[1]");
     wspace_->factory("sigmaEff[0.15]");
   }
   if ( !constKappa_ ) {
-    wspace_->factory("kappanom[1]");
+    wspace_->factory("kappaScale[1]");
     wspace_->factory("sigmaKappa[0.15]");
   }
   if ( !constSCont_ ) {
-    wspace_->factory("scontnom[1]");
+    wspace_->factory("scontScale[1]");
     wspace_->factory("sigmaScont[0.15]");
   }
   // Pdfs for pseudo-measurements
   pdfMcEff_ = 0;
   if ( !constEff_ ) {
-    wspace_->factory("Gaussian::mcEff(effnom, effsys, sigmaEff)");
+    wspace_->factory("Gaussian::mcEff(effScale, effSys, sigmaEff)");
     pdfMcEff_ = wspace_->pdf("mcEff");
   }
   pdfMcKappa_ = 0;
   if ( !constKappa_ ) {
-    wspace_->factory("Gaussian::mcKappa(kappanom, kappasys, sigmaKappa)");
+    wspace_->factory("Gaussian::mcKappa(kappaScale, kappaSys, sigmaKappa)");
     pdfMcKappa_ = wspace_->pdf("mcKappa");
   }
   pdfMcSCont_ = 0;
   if ( !constSCont_ ) {
-    wspace_->factory("Gaussian::mcScont(scontnom, scontsys, sigmaScont)");
+    wspace_->factory("Gaussian::mcScont(scontScale, scontSys, sigmaScont)");
     pdfMcSCont_ = wspace_->pdf("mcScont");
   }
   // sets
   wspace_->defineSet("poi","s");
   wspace_->defineSet("obs","");
-  if ( !constEff_ )  wspace_->extendSet("obs","effnom");
-  if ( !constKappa_ )  wspace_->extendSet("obs","kappanom");
-  if ( !constSCont_ )  wspace_->extendSet("obs","scontnom");
+  if ( !constEff_ )  wspace_->extendSet("obs","effScale");
+  if ( !constKappa_ )  wspace_->extendSet("obs","kappaScale");
+  if ( !constSCont_ )  wspace_->extendSet("obs","scontScale");
   setObs_ = wspace_->set("obs");
   wspace_->defineSet("nuis","");
-  if ( !constEff_ )  wspace_->extendSet("nuis","effsys");
-  if ( !constKappa_ )  wspace_->extendSet("nuis","kappasys");
-  if ( !constSCont_ )  wspace_->extendSet("nuis","scontsys");
+  if ( !constEff_ )  wspace_->extendSet("nuis","effSys");
+  if ( !constKappa_ )  wspace_->extendSet("nuis","kappaSys");
+  if ( !constSCont_ )  wspace_->extendSet("nuis","scontSys");
   setNuis_ = wspace_->set("nuis");
 
   // wspace_->Print("v");
@@ -202,7 +203,7 @@ RA4WorkSpace::addChannel (ChannelType channel)
   {
     std::string name("sd");
     name += suffix;
-    RooArgSet tmpSet(*wspace_->var("s"),*vEff_[channel],*wspace_->var("effsys"));
+    RooArgSet tmpSet(*wspace_->var("s"),*vEff_[channel],*wspace_->var("effSys"));
     RooProduct tmp(name.c_str(),name.c_str(),tmpSet);
     wspace_->import(tmp);
     // pSd_[channel] = (RooProduct*)wspace_->var(name.c_str());
@@ -213,12 +214,12 @@ RA4WorkSpace::addChannel (ChannelType channel)
   {
     std::string name1("sa");
     name1 += suffix;
-    RooArgSet tmpSetSa(*wspace_->var("s"),*vEff_[channel],*vSCont_[0][channel],*wspace_->var("scontsys"));
+    RooArgSet tmpSetSa(*wspace_->var("s"),*vEff_[channel],*vSCont_[0][channel],*wspace_->var("scontSys"));
     RooProduct tmpSa(name1.c_str(),name1.c_str(),tmpSetSa);
     wspace_->import(tmpSa);
     std::string name2("bkga");
     name2 += suffix;
-    RooArgSet tmpSetBkga(*vBkgd_[channel],*vBxd_[0][channel],*vBxd_[1][channel],*vKappa_[channel],*wspace_->var("kappasys"));
+    RooArgSet tmpSetBkga(*vBkgd_[channel],*vBxd_[0][channel],*vBxd_[1][channel],*vKappa_[channel],*wspace_->var("kappaSys"));
     RooProduct tmpBkga(name2.c_str(),name2.c_str(),tmpSetBkga);
     wspace_->import(tmpBkga);
     std::string name3("tota");
@@ -238,7 +239,7 @@ RA4WorkSpace::addChannel (ChannelType channel)
   {
     std::string name1("sb");
     name1 += suffix;
-    RooArgSet tmpSetSb(*wspace_->var("s"),*vEff_[channel],*vSCont_[1][channel],*wspace_->var("scontsys"));
+    RooArgSet tmpSetSb(*wspace_->var("s"),*vEff_[channel],*vSCont_[1][channel],*wspace_->var("scontSys"));
     RooProduct tmpSb(name1.c_str(),name1.c_str(),tmpSetSb);
     wspace_->import(tmpSb);
     std::string name2("bkgb");
@@ -263,7 +264,7 @@ RA4WorkSpace::addChannel (ChannelType channel)
   {
     std::string name1("sc");
     name1 += suffix;
-    RooArgSet tmpSetSc(*wspace_->var("s"),*vEff_[channel],*vSCont_[2][channel],*wspace_->var("scontsys"));
+    RooArgSet tmpSetSc(*wspace_->var("s"),*vEff_[channel],*vSCont_[2][channel],*wspace_->var("scontSys"));
     RooProduct tmpSc(name1.c_str(),name1.c_str(),tmpSetSc);
     wspace_->import(tmpSc);
     std::string name2("bkgc");

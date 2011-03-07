@@ -57,9 +57,9 @@ public:
   //
   // common variables
   RooRealVar* vS_;                      //< signal
-  RooRealVar* vEffsys_;                 //< rel. uncertainty on the efficiency
-  RooRealVar* vKappasys_;               //< rel. uncertainty on kappa
-  RooRealVar* vSContsys_;               //< rel. uncertainty on the signal contamination
+  RooRealVar* vEffSys_;                 //< rel. uncertainty on the efficiency
+  RooRealVar* vKappaSys_;               //< rel. uncertainty on kappa
+  RooRealVar* vSContSys_;               //< rel. uncertainty on the signal contamination
   // variables / channel
   RooRealVar* vObs_[4][2];              //< observed values / region / channel
   RooRealVar* vEff_[2];                 //< efficiency*acceptance in D / channel
