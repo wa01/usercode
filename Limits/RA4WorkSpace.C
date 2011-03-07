@@ -13,8 +13,7 @@
 using namespace RooFit;
 // using namespace RooStats;
 
-RA4WorkSpace::RA4WorkSpace (const char* name, bool constEff, bool constSCont,
-			    bool constKappa) :
+RA4WorkSpace::RA4WorkSpace (const char* name, bool constEff, bool constSCont, bool constKappa) :
   wspace_(new RooWorkspace(name)), 
   constEff_(constEff), constSCont_(constSCont), constKappa_(constKappa),
   finalized_(false), hasEle_(false), hasMu_(false) 
@@ -156,9 +155,11 @@ RA4WorkSpace::addChannel (ChannelType channel)
   {
     std::string name("kappa");
     name += suffix;
-    RooRealVar tmp(name.c_str(),name.c_str(),1.,0,2);
+//     RooRealVar tmp(name.c_str(),name.c_str(),1.,0,2);
+    RooRealVar tmp(name.c_str(),name.c_str(),1.);
     wspace_->import(tmp);
     vKappa_[channel] = wspace_->var(name.c_str());
+    vKappa_[channel]->setConstant(true);
   }
   // std::cout << "Eff" << std::endl;
   // wspace_->Print("v");
@@ -170,9 +171,11 @@ RA4WorkSpace::addChannel (ChannelType channel)
     // std::cout << i << std::endl;
     std::string name("s");
     name = name + regions[i] + "d" + suffix;
-    RooRealVar tmp(name.c_str(),name.c_str(),0,0,10);
+//     RooRealVar tmp(name.c_str(),name.c_str(),0,0,10);
+    RooRealVar tmp(name.c_str(),name.c_str(),0);
     wspace_->import(tmp);
     vSCont_[i][channel] = wspace_->var(name.c_str());
+    vSCont_[i][channel]->setConstant(true);
     // wspace_->extendSet("nuis",name.c_str());
   }
   // wspace_->Print("v");
@@ -380,13 +383,14 @@ RA4WorkSpace::setBackground (ChannelType channel,
   // vBxd_[0][channel]->setVal(bkgB/bkgD);
   // vBxd_[1][channel]->setVal(bkgC/bkgD);
   setValRange(vBkgd_[channel],bkgD,0,10*bkgD);
-  setValRange(vBxd_[0][channel],bkgB/bkgD,0,2*bkgB/bkgD);
-  setValRange(vBxd_[1][channel],bkgC/bkgD,0,2*bkgC/bkgD);
+  setValRange(vBxd_[0][channel],bkgB/bkgD,0,5*bkgB/bkgD);
+  setValRange(vBxd_[1][channel],bkgC/bkgD,0,5*bkgC/bkgD);
   //
   // kappa
   //
   // vKappa_[channel]->setVal((bkgA*bkgD)/(bkgB*bkgC));
-  setValRange(vKappa_[channel],(bkgA*bkgD)/(bkgB*bkgC),0,2);
+//   setValRange(vKappa_[channel],(bkgA*bkgD)/(bkgB*bkgC),0,2);
+  setValRange(vKappa_[channel],(bkgA*bkgD)/(bkgB*bkgC));
   vKappa_[channel]->Print("v");
   vKappa_[channel]->printValue(std::cout);
   //
@@ -442,7 +446,8 @@ RA4WorkSpace::setSignal (ChannelType channel,
   // .. background and signal variables
   // vS_->setRange(0,10*sigD);
   // vS_->setVal(sigD);
-  setValRange(vS_,sigD,0,10*sigD);
+//   setValRange(vS_,sigD,0,10*sigD);
+  setValRange(vS_,sigD,0,100);
  }
 
 void 

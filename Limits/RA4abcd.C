@@ -415,7 +415,7 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
   double yields[4][2];
   double entries[4][2];
 
-  double bkgs[4][2];
+//   double bkgs[4][2];
 
 //   double kappa = (bkgs[0]*bkgs[3])/(bkgs[1]*bkgs[2]);
 //   double sigma_kappa_base = 0.10;
@@ -423,22 +423,23 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 //   double sigma_kappa = sqrt(sigma_kappa_base*sigma_kappa_base+delta_kappa_abs*delta_kappa_abs);
 //   sigma_kappa = sqrt(0.129*0.129+0.1*0.1);
 
-  int nbx = hYields[0][0]->GetNbinsX();
-  int nby = hYields[0][0]->GetNbinsY();
-  for ( int ix=1; ix<=nbx; ++ix ) {
-    for ( int iy=1; iy<=nby; ++iy ) {
+//   int nbx = hYields[0][0]->GetNbinsX();
+//   int nby = hYields[0][0]->GetNbinsY();
+//   for ( int ix=1; ix<=nbx; ++ix ) {
+//     for ( int iy=1; iy<=nby; ++iy ) {
+  { 
+    int ix=40;
+    {
+      int iy=11;
 
       bool process(false);
       for ( unsigned int j=0; j<nf; ++j ) {
-	std::cout << " 1 " << std::endl;
 	ra4WSpace.setBackground(channelTypes[j],
 				workingPoints[j]->bkg_[0],workingPoints[j]->bkg_[1],
 				workingPoints[j]->bkg_[2],workingPoints[j]->bkg_[3]);
-	std::cout << " 2 " << std::endl;
 	ra4WSpace.setObserved(channelTypes[j],
 			      workingPoints[j]->obs_[0],workingPoints[j]->obs_[1],
 			      workingPoints[j]->obs_[2],workingPoints[j]->obs_[3]);
-	std::cout << " 3 " << std::endl;
 	for ( unsigned int i=0; i<4; ++i ) {
 	  yields[i][j] = hYields[i][j]->GetBinContent(ix,iy);
 	  entries[i][j] = hYEntries[i][j]->GetBinContent(ix,iy);
@@ -446,12 +447,18 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 	}
 	double yields05 = hYields05[3][j]->GetBinContent(ix,iy);
 	double yields20 = hYields20[3][j]->GetBinContent(ix,iy);
-	std::cout << " 4 " << std::endl;
 	ra4WSpace.setSignal(channelTypes[j],
 			    yields[0][j],yields[1][j],
 			    yields[2][j],yields[3][j]);
+	std::cout << "yields for channel " << j << " =";
+	for ( unsigned int i=0; i<4; ++i )
+	  std::cout << " " << yields[i][j];
+	std::cout << endl;
+	std::cout << "backgrounds for channel " << j << " =";
+	for ( unsigned int i=0; i<4; ++i )
+	  std::cout << " " << workingPoints[j]->bkg_[i];
+	std::cout << endl;
       }
-	std::cout << " 5 " << std::endl;
 
       double sigK(0.);
       for ( unsigned int j=0; j<nf; ++j ) {
@@ -459,6 +466,20 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 	  sigK = workingPoints[j]->sigKappa_;
       }
       wspace->var("sigmaKappa")->setVal(sigK);
+//       wspace->var("sigmaKappa")->setVal(sqrt(0.129*0.129+0.1*0.1)*0.967);
+      // for the time being: work with yields
+      if ( muChannel.valid_ ) {
+	wspace->var("effM")->setVal(1.);
+	wspace->var("sadM")->setVal(0.);
+	wspace->var("sbdM")->setVal(0.);
+	wspace->var("scdM")->setVal(0.);
+      }
+      if ( eleChannel.valid_ ) {
+	wspace->var("effE")->setVal(1.);
+	wspace->var("sadE")->setVal(0.);
+	wspace->var("sbdE")->setVal(0.);
+	wspace->var("scdE")->setVal(0.);
+      }
 
       wspace->Print("v");
       RooArgSet allVars = wspace->allVars();
@@ -470,7 +491,7 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 	var->printValue(std::cout);
 	std::cout << std::endl;
       }
-      return;
+      
 //       yields[0] =1.52;
 //       yields[1] =7.68;
 //       yields[2] =5.17;
@@ -521,7 +542,7 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
       RooDataSet data("data","data",*wspace->set("obs"));
       data.add(*wspace->set("obs"));
       data.Print("v");
-  
+      
 //       if ( yields[3]>0.01 ) {
       limit = computeLimit(wspace,&data,method);
       std::cout << "  Limit [ " << limit.lowerLimit << " , "
@@ -538,7 +559,7 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
       hExclusion->SetBinContent(ix,iy,excl);
       hLowerLimit->SetBinContent(ix,iy,limit.lowerLimit);
       hUpperLimit->SetBinContent(ix,iy,limit.upperLimit);
-      
+      return;
       
     }
   }
