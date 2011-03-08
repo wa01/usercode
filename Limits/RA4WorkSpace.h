@@ -29,7 +29,9 @@ public:
   /// setting background-related numbers
   void setBackground (ChannelType channel, float bkgA, float bkgB, float bkgC, float bkgD);
   /// setting signal-related numbers
-  void setSignal (ChannelType channel, float sigA, float sigB, float sigC, float sigD);
+  void setSignal (ChannelType channel, 
+		  float sigA, float sigB, float sigC, float sigD,
+		  float effA, float effB, float effC, float effD);
   /// setting observations
   void setObserved (ChannelType channel, int obsA, int obsB, int obsC, int obsD);
 

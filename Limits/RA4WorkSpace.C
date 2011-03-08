@@ -391,18 +391,27 @@ RA4WorkSpace::setBackground (ChannelType channel,
   // vKappa_[channel]->setVal((bkgA*bkgD)/(bkgB*bkgC));
 //   setValRange(vKappa_[channel],(bkgA*bkgD)/(bkgB*bkgC),0,2);
   setValRange(vKappa_[channel],(bkgA*bkgD)/(bkgB*bkgC));
-  vKappa_[channel]->Print("v");
-  vKappa_[channel]->printValue(std::cout);
+//   vKappa_[channel]->Print("v");
+//   vKappa_[channel]->printValue(std::cout);
   //
   // set observed values to expectations
   // use pessimistic scenario for rounding of expected numbers
   //  
   setObserved(channel,int(bkgA)+1,int(bkgB),int(bkgC),int(bkgD)+1);
+  //
+  //
+  //
+  setValRange(vKappaSys_,1.,0.,2.);
+  if ( !constKappa_ ) {
+    setValRange(wspace_->var("kappaScale"),1.);
+    setValRange(wspace_->var("sigmaKappa"),0.15);
+  }
 }
 
 void 
 RA4WorkSpace::setSignal (ChannelType channel,
-			 float sigA, float sigB, float sigC, float sigD)
+			 float sigA, float sigB, float sigC, float sigD,
+			 float effA, float effB, float effC, float effD)
 {
  //
   // set signal-related variables of the workspace
@@ -433,9 +442,9 @@ RA4WorkSpace::setSignal (ChannelType channel,
   // double sigma_eff = 0.05;
 
   // derived quantities
-  double sad_mc = max(sigA/sigD,float(0.01));
-  double sbd_mc = max(sigB/sigD,float(0.01));
-  double scd_mc = max(sigC/sigD,float(0.01));
+  double sad_mc = max((sigA*effA)/(sigD*effD),float(0.01));
+  double sbd_mc = max((sigB*effB)/(sigD*effD),float(0.01));
+  double scd_mc = max((sigC*effC)/(sigD*effD),float(0.01));
   vSCont_[0][channel]->setVal(sad_mc);
   vSCont_[1][channel]->setVal(sbd_mc);
   vSCont_[2][channel]->setVal(scd_mc);
@@ -446,9 +455,21 @@ RA4WorkSpace::setSignal (ChannelType channel,
   // .. background and signal variables
   // vS_->setRange(0,10*sigD);
   // vS_->setVal(sigD);
-//   setValRange(vS_,sigD,0,10*sigD);
-  setValRange(vS_,sigD,0,100);
- }
+  setValRange(vS_,sigD,0,20*sigD);
+//   setValRange(vS_,sigD,0,100);
+  setValRange(vEff_[channel],effD);
+
+  setValRange(vEffSys_,1.,0.,2.);
+  if ( !constEff_ ) {
+    setValRange(wspace_->var("effScale"),1.);
+    setValRange(wspace_->var("sigmaEff"),0.15);
+   }
+  setValRange(vSContSys_,1.,0.,2.);
+  if ( !constSCont_ ) {
+    setValRange(wspace_->var("scontScale"),1.);
+    setValRange(wspace_->var("sigmaSCont"),0.15);
+  }
+}
 
 void 
 RA4WorkSpace::setObserved (ChannelType channel,
