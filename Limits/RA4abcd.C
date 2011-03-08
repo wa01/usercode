@@ -345,12 +345,14 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
   TH2* hYields05[4][2];
   TH2* hYields20[4][2];
   TH2* hYEntries[4][2];
+  TH2* hYESmooth[4][2];
   for ( unsigned int j=0; j<nf; ++j ) {
     for ( unsigned int i=0; i<4; ++i ) {
       hYields[i][j] = 0;
       hYields05[i][j] = 0;
       hYields20[i][j] = 0;
       hYEntries[i][j] = 0;
+      hYESmooth[i][j] = 0;
     }
   }
   TH2* hKF05[2];
@@ -400,8 +402,16 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 	std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
 	return;
       }
+      hName = "SmoothEntries";
+      hName += cRegion[i];
+      hYESmooth[i][j] = (TH2*)fYield[j]->Get(hName.c_str());
+      if ( hYESmooth[i][j]==0 ) {
+	std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
+	return;
+      }
       // convert to efficiency (assume 10000 MC events/bin)
       hYEntries[i][j]->Scale(1/10000.);
+      hYESmooth[i][j]->Scale(1/10000.);
       // convert yield to cross section
       hYields[i][j]->Divide(hYields[i][j],hYEntries[i][j]);
       hYields05[i][j]->Divide(hYields05[i][j],hYEntries[i][j]);
@@ -459,9 +469,9 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 	  yields[i][j] = hYields[i][j]->GetBinContent(ix,iy);
 	  yields05[i][j] = hYields05[i][j]->GetBinContent(ix,iy);
 	  yields20[i][j] = hYields20[i][j]->GetBinContent(ix,iy);
-	  entries[i][j] = hYEntries[i][j]->GetBinContent(ix,iy);
-	  if ( yields[3][j]>0.01 && entries[i][j]>0.0001 )  process = true;
+	  entries[i][j] = hYESmooth[i][j]->GetBinContent(ix,iy);
 	}
+	if ( yields[3][j]>0.01 && yields[3][j]<10000 && entries[3][j]>0.0001 )  process = true;
 	ra4WSpace.setSignal(channelTypes[j],
 			    yields[0][j],yields[1][j],
 			    yields[2][j],yields[3][j],
@@ -499,9 +509,10 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 
       double sigK(0.);
       for ( unsigned int j=0; j<nf; ++j ) {
-	if ( workingPoints[j]->sigKappa_>sigK )
-	  sigK = workingPoints[j]->sigKappa_;
+// 	if ( workingPoints[j]->sigKappa_>sigK )
+	  sigK += workingPoints[j]->sigKappa_;
       }
+      sigK /= nf;
       double sigEffBase(0.15);
       double sigEffLept(0.05);
       double sigEffNLO(0.);
@@ -513,6 +524,7 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
       }
       double sigEff = sqrt(sigEffBase*sigEffBase+sigEffLept*sigEffLept+sigEffNLO*sigEffNLO);
       std::cout << "Systematics are " << sigK << " " << sigEff << std::endl;
+      sigEff = 0.20;
       if ( !noKappaSyst ) 
 	wspace->var("sigmaKappa")->setVal(sigK);
       if ( !noSContSyst )
