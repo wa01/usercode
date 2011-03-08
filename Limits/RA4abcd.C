@@ -509,10 +509,11 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 
       double sigK(0.);
       for ( unsigned int j=0; j<nf; ++j ) {
-// 	if ( workingPoints[j]->sigKappa_>sigK )
-	  sigK += workingPoints[j]->sigKappa_;
+ 	if ( workingPoints[j]->sigKappa_>sigK )
+	  sigK = workingPoints[j]->sigKappa_;
+// 	  sigK += workingPoints[j]->sigKappa_;
       }
-      sigK /= nf;
+//       sigK /= nf;
       double sigEffBase(0.15);
       double sigEffLept(0.05);
       double sigEffNLO(0.);
