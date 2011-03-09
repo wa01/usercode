@@ -391,9 +391,9 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 	std::cout << "Missing histogram for region " << cRegion[i] << std::endl;
 	return;
       }
-      hYields[i][j]->Multiply(hYields[i][j],hKF10[j]);
-      hYields05[i][j]->Multiply(hYields05[i][j],hKF05[j]);
-      hYields20[i][j]->Multiply(hYields20[i][j],hKF20[j]);
+       hYields[i][j]->Multiply(hYields[i][j],hKF10[j]);
+       hYields05[i][j]->Multiply(hYields05[i][j],hKF05[j]);
+       hYields20[i][j]->Multiply(hYields20[i][j],hKF20[j]);
 
       hName = "Entries";
       hName += cRegion[i];
@@ -416,8 +416,33 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
       hYields[i][j]->Divide(hYields[i][j],hYEntries[i][j]);
       hYields05[i][j]->Divide(hYields05[i][j],hYEntries[i][j]);
       hYields20[i][j]->Divide(hYields20[i][j],hYEntries[i][j]);
+
     }
+//     TFile* fout;
+//     if ( channelTypes[j]==RA4WorkSpace::MuChannel )
+//       fout = new TFile("MuSummary.root","RECREATE");
+//     else
+//       fout = new TFile("EleSummary.root","RECREATE");
+//     for ( unsigned int i=0; i<4; ++i ) {
+//       std::string hname(hYields[i][j]->GetName());
+//       TH2* hY = (TH2*)hYields[i][j]->Clone();
+//       TH2* hY05 = (TH2*)hYields[i][j]->Clone((hname+"05").c_str());
+//       TH2* hY20 = (TH2*)hYields[i][j]->Clone((hname+"20").c_str());
+//       hY->SetDirectory(fout);
+//       hY05->SetDirectory(fout);
+//       hY20->SetDirectory(fout);
+//       TH2* hE = (TH2*)hYEntries[i][j]->Clone();
+//       hE->SetDirectory(fout);
+//       TH2* hES = (TH2*)hYESmooth[i][j]->Clone();
+//       hES->SetDirectory(fout);
+//       hY->Multiply(hY,hES);
+//       hY05->Multiply(hY05,hES);
+//       hY20->Multiply(hY20,hES);
+//     }
+//     fout->Write();
+//     delete fout;
   }
+//   return;
   //
   // histograms with exclusion and limits
   //
@@ -450,13 +475,24 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
   int nby = hYields[0][0]->GetNbinsY();
   for ( int ix=1; ix<=nbx; ++ix ) {
     for ( int iy=1; iy<=nby; ++iy ) {
+      if ( hYields[0][0]->GetYaxis()->GetBinCenter(iy)>300. ||
+	   hYields[0][0]->GetYaxis()->GetBinCenter(iy)<100. )  continue;
 #else
    { 
-     int ix=40;
+//      int ix=30;
+// //      int ix=40;
+//      int ix=20;
+     int ix = hYields[0][0]->GetXaxis()->FindBin(400.);
      {
-       int iy=11;
+//        int iy=11;
+//        int iy=7;
+       int iy =  hYields[0][0]->GetYaxis()->FindBin(200.);
 #endif
 
+       double nav = 0;
+       double ulsum = 0.;
+       std::vector<double> uls;
+       for ( int iav=0; iav<50; ++iav ) {
       bool process(false);
       for ( unsigned int j=0; j<nf; ++j ) {
 	ra4WSpace.setBackground(channelTypes[j],
@@ -469,7 +505,7 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 	  yields[i][j] = hYields[i][j]->GetBinContent(ix,iy);
 	  yields05[i][j] = hYields05[i][j]->GetBinContent(ix,iy);
 	  yields20[i][j] = hYields20[i][j]->GetBinContent(ix,iy);
-	  entries[i][j] = hYESmooth[i][j]->GetBinContent(ix,iy);
+ 	  entries[i][j] = hYESmooth[i][j]->GetBinContent(ix,iy);
 	}
 	if ( yields[3][j]>0.01 && yields[3][j]<10000 && entries[3][j]>0.0001 )  process = true;
 	ra4WSpace.setSignal(channelTypes[j],
@@ -535,18 +571,20 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
       
 //       wspace->var("sigmaKappa")->setVal(sqrt(0.129*0.129+0.1*0.1)*0.967);
       // for the time being: work with yields
-//       if ( muChannel.valid_ ) {
-// 	wspace->var("effM")->setVal(1.);
-//  	wspace->var("sadM")->setVal(0.);
-//  	wspace->var("sbdM")->setVal(0.);
-//  	wspace->var("scdM")->setVal(0.);
-//       }
-//       if ( eleChannel.valid_ ) {
-// 	wspace->var("effE")->setVal(1.);
-//  	wspace->var("sadE")->setVal(0.);
-//  	wspace->var("sbdE")->setVal(0.);
-//  	wspace->var("scdE")->setVal(0.);
-//       }
+      if ( noSContSyst ) {
+	if ( muChannel.valid_ ) {
+	  // 	wspace->var("effM")->setVal(1.);
+	  wspace->var("sadM")->setVal(0.);
+	  wspace->var("sbdM")->setVal(0.);
+	  wspace->var("scdM")->setVal(0.);
+	}
+	if ( eleChannel.valid_ ) {
+	  // 	wspace->var("effE")->setVal(1.);
+	  wspace->var("sadE")->setVal(0.);
+	  wspace->var("sbdE")->setVal(0.);
+	  wspace->var("scdE")->setVal(0.);
+	}
+      }
 #ifdef DEBUG
       wspace->Print("v");
       RooArgSet allVars = wspace->allVars();
@@ -564,20 +602,52 @@ void RA4Mult (const RA4WorkingPoint& muChannel,
 		<< yields[3][nf-1] << std::endl;
 	
 
-      RooDataSet data("data","data",*wspace->set("obs"));
-      data.add(*wspace->set("obs"));
-      data.Print("v");
+//       RooDataSet data("data","data",*wspace->set("obs"));
+//       data.add(*wspace->set("obs"));
+      double sig_save = wspace->var("s")->getVal();
+      wspace->var("s")->setVal(0.);
+      RooDataSet* data = wspace->pdf("model")->generate(*wspace->set("obs"),1);
+      wspace->var("s")->setVal(sig_save);
+      data->Print("v");
       
-      limit = computeLimit(wspace,&data,method);
+      limit = computeLimit(wspace,data,method);
       std::cout << "  Limit [ " << limit.lowerLimit << " , "
 		<< limit.upperLimit << " ] ; isIn = " << limit.isInInterval << std::endl;
-      
+      std::cout << limit.upperLimit*(entries[3][0]+entries[3][1]) << std::endl;
+      std::cout << yields[3][0]*entries[3][0] << " "
+ 		<< yields[3][1]*entries[3][1] 
+		<< std::endl;
 
-      double excl = limit.isInInterval;
-      if ( limit.upperLimit<limit.lowerLimit )  excl = -1;
+      std::cout << yields[3][0] << " " << entries[3][0] << " "
+ 		<< entries[3][1] 
+		<< std::endl;
+
+      if ( limit.upperLimit>0.1 ) {
+	nav += 1;
+	ulsum += limit.upperLimit;
+	uls.push_back(limit.upperLimit);
+      }
+      delete data;
+       }
+
+       if ( nav>0.01 ) ulsum /= nav;
+       else  ulsum = 999999999.;
+       if ( uls.size()>0 ) {
+	 sort(uls.begin(),uls.end());
+	 if ( uls.size()%2==0 ) {
+	   ulsum = (uls[uls.size()/2-1]+uls[uls.size()/2])/2.;
+	 }
+	 else {
+	   ulsum = uls[uls.size()/2];
+	 }
+       }
+       std::cout << "ulsum " << ulsum << " " << nav << std::endl;
+       MyLimit newLimit(yields[3][nf-1]<ulsum,0.,ulsum);
+      double excl = newLimit.isInInterval;
+      if ( newLimit.upperLimit<newLimit.lowerLimit )  excl = -1;
       hExclusion->SetBinContent(ix,iy,excl);
-      hLowerLimit->SetBinContent(ix,iy,limit.lowerLimit);
-      hUpperLimit->SetBinContent(ix,iy,limit.upperLimit);
+      hLowerLimit->SetBinContent(ix,iy,newLimit.lowerLimit);
+      hUpperLimit->SetBinContent(ix,iy,newLimit.upperLimit);
 //       return;
       
     }
