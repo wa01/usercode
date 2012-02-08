@@ -71,21 +71,6 @@ for line in f:
                     for key in errPred[sign]:
                         if not key in errorsPredSign[ht][met]:  errorsPredSign[ht][met][key] = {}
                         errorsPredSign[ht][met][key][sign] = math.sqrt(errPred[sign][key])
-#            sums = []
-#            for key in systkeys:
-#                if len(sums) == 0:
-#                    for v in systs[key]: sums.append(v*v)
-#                else:
-#                    for i,v in enumerate(systs[key]):
-#                        sums[i] = sums[i] + v*v
-#                line = (key + ":").ljust(50)
-#                for v in systs[key]:
-#                    line= line + "%6.1f" % v
-#                print line
-#            line = "sum:".ljust(50)
-#            for v in sums:
-#                line= line + "%6.1f" % math.sqrt(v)
-#            print line
             # reset variables
             label = ""
             inTable = False
@@ -178,7 +163,9 @@ for ht in errorsPredSign:
     for met in errorsPredSign[ht]:
         errorsPred[ht][met] = {}
         for btag in errorsPredSign[ht][met]:
-            errorsPred[ht][met][btag] = (errorsPredSign[ht][met][btag][1]+errorsPredSign[ht][met][btag][-1])/2.
+            errP = errorsPredSign[ht][met][btag][1]
+            errM = errorsPredSign[ht][met][btag][-1]
+            errorsPred[ht][met][btag] = (errP+errM)/2.
 # print result
 print "countsPred = "+str(countsPred)
 print "errorsPred = "+str(errorsPred)
@@ -192,7 +179,8 @@ if len(countsObs.keys()) != len(countsPred.keys()) or  len(countsObs.keys()) != 
 for ht in countsObs:
     if ( not ht in countsPred ) or ( not ht in errorsPred ):
         print "No HT=",ht," in predictions"
-    if len(countsObs[ht].keys()) != len(countsPred[ht].keys()) or  len(countsObs[ht].keys()) != len(errorsPred[ht].keys()):
+    if len(countsObs[ht].keys()) != len(countsPred[ht].keys()) or \
+       len(countsObs[ht].keys()) != len(errorsPred[ht].keys()):
         print "Inconsistency in #MET bins for HT=",ht
     for met in countsObs[ht]:
         if ( not met in countsPred[ht] ) or ( not met in errorsPred[ht] ):
