@@ -55,6 +55,7 @@ ofile.write("bkgStat lnN     -   " + "%7.2f" % (1+errpred/pred) + "\n")
 #
 # background systematics from file
 #
+inf = float('inf')
 #
 # systematics for inclusive, 0, >=1
 #
@@ -74,7 +75,7 @@ for key in largestAbsDoubleRatioDeviation:
         if err2 < err:
             print "single < double ratio for ",key,lep,options.btag,err2,err
             err = err2
-        print key,lep,err
+#        print key,lep,err
         sumerr = sumerr + err*err
 #ofile.write("bkgSyst lnN     -   " + "%7.2f" % (1+math.sqrt(sumerr)) + "\n")
 
@@ -89,14 +90,15 @@ bt = options.btag
 if bt == "binc":  bt = "inc"
 for key in largestAbsDoubleRatioDeviation:
     for lep in [ "Mu", "Ele" ]:
-        if key == 'ScaleFrac' or bt != 'inc':
-            err = largestAbsDoubleRatioDeviation[key][lep][bt]
-            err2 = largestAbsSingleRatioDeviation[key][lep][bt]
-            if err2 < err:
-                print "single < double ratio for ",key,lep,options.btag,err2,err
-                err = err2
-            print key,lep,err
-            sumerr = sumerr + err*err
+        err = largestAbsDoubleRatioDeviation[key][lep][bt]
+        err2 = largestAbsSingleRatioDeviation[key][lep][bt]
+        if err2 < err:
+            print "single < double ratio for ",key,lep,options.btag,err2,err
+            err = err2
+#        print key,lep,err
+        sumerr = sumerr + err*err
+        if key != 'ScaleFrac' and err != inf and abs(err/err2-1)>0.00001:
+            print "****** different errors for ",key,err,err2
 ofile.write("bkgSyst lnN     -   " + "%7.2f" % (1+math.sqrt(sumerr)) + "\n")
 
         
