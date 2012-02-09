@@ -301,7 +301,7 @@ def createMultiCards (filename,ht,met,sigYields):
     #print "Combination of", ", ".join(args)
     print "imax %d number of bins" % len(bins)
     print "jmax %d number of processes minus 1" % (len(signals) + len(backgrounds) - 1)
-    print "kmax %d number of nuisance parameters" % (len(systlines) + len(paramSysts))
+    print "kmax %d number of nuisance parameters" % (len(systlines) + len(paramSysts) - 1)   ########### -1 is TEMPORARY (sigBTag)!!!
     print "-" * 80
 
     if shapeLines:
