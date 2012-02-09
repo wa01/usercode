@@ -8,11 +8,18 @@ python extractCounts.py
 # generate template cards file for limit calculation 
 #  (including all background info - signal is added when creating jobs)
 #  only needs to be redone if background or systematics change
+
+# for a single b-tag bin
 python createCardsFromDict.py
  Mandatory options: ht and met cuts
  Optional: btag bin (default: binc)
  Input: eventCounts.py systematics_htSig*_metSig*.py systematics_BT_htSig*_metSig*.py
  Output: <btag>-ht*-met*.txt
+# OR: for multiple b-tag bins (0, 1, >=2)
+python createMultiCardsFromDict.py
+ Mandatory options: ht and met cuts
+ Input: eventCounts.py systematics_htSig*_metSig*.py systematics_BT_htSig*_metSig*.py
+ Output: multibtag-ht*-met*.txt
 
 
 # merge outputs from all jobs
