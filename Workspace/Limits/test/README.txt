@@ -1,6 +1,7 @@
 Sequence for limit calculation (all executed in /test):
-
+#
 # get observed counts and prediction (from tex -> to python)
+#
 python extractCounts.py
   Input: TemplateFit.tex
   Output: eventCounts.py
@@ -21,6 +22,17 @@ python createMultiCardsFromDict.py
  Input: eventCounts.py systematics_htSig*_metSig*.py systematics_BT_htSig*_metSig*.py
  Output: multibtag-ht*-met*.txt
 
+#
+# create directory for crab job submission
+#
+python createMultiJobs.py
+  Mandatory options: ht and met cuts
+  Optional: see createMultiJobs.py -h
+  Input: efficiencies: <Ele/Mu>_msugra_LO_Efficiency.pkl or <Ele/Mu>_<SMS>_Efficiencies.pkl
+         cross sections: goodModelNames_10_0_1.pkl or xsec<SMS>.pkl
+  Other code: signalUtils.py getM0M12.py createCards.py HiggsAnalysis/CombinedLimit/python/DatacardParser.py
+  Output: directory /tmp/adamwo/job_<parameters> 
+          (to be moved to /test and used for submission; contains a cfg file)
 
 # merge outputs from all jobs
 ./mergeLimits.csh <job_working_directory>

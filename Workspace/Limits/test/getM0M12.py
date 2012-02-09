@@ -42,7 +42,7 @@ def getM0M12a (effMu,effEle,xsecs,btag,ht,met,regroupM0=1, regroupM12=1):
             tup = tup + ( int(p), )
 #        print tup
         if not tup in xsecs:
-            print "**** key not found in xsLO ",key
+#            print "**** key not found in xsLO ",key
             continue
         m0m12s[m0].append(m12)
         

@@ -338,15 +338,28 @@ def createMultiCards (filename,ht,met,sigYields):
     print "-" * 80
 
     sysnamesSorted = systlines.keys(); sysnamesSorted.sort()
+    # get sigBTag row
+    #  for the time being: insert these signal uncertainties into the beff row
+    sigBTagLine = []
+    if 'sigBTag' in sysnamesSorted:
+        sigBTagLine = systlines['sigBTag']
+        (pdfB,pdfargsB,effectB,nofloatB) = sigBTagLine
     for name in sysnamesSorted:
+        if name == 'sigBTag': continue
         (pdf,pdfargs,effect,nofloat) = systlines[name]
         if nofloat: name += "[nofloat]"
         systline = []
         for b,p,s in keyline:
-            try:
-                systline.append(effect[b][p])
-            except KeyError:
-                systline.append("-");
+            if name == 'beff' and len(sigBTagLine) > 0 and s:
+                try:
+                    systline.append(effectB[b][p])
+                except KeyError:
+                    systline.append("-");
+            else:
+                try:
+                    systline.append(effect[b][p])
+                except KeyError:
+                    systline.append("-");
         print hfmt % ("%-21s   %s  %s" % (name, pdf, " ".join(pdfargs))), "  ".join([cfmt % x for x in systline])
     for (pname, pargs) in paramSysts.items():
         print "%-12s  param  %s" %  (pname, " ".join(pargs))
