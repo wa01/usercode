@@ -11,12 +11,17 @@ eval `scram runtime -csh`
 #which root
 #cd /tmp/adamwo
 
-set echo
+#set echo
 if ( $#argv < 1 )  then
   exit 1
 endif
 
-set d = `echo $1 | sed 's:/::g'`
+set djob = $1
+if ( djob =~ */ ) then
+  set djob = $djob:h
+endif
+
+set d = `echo $djob | sed 's:/::g'`
 if ( !(-d $d) ) then
   echo "Directory does not exist"
   exit 1
@@ -34,7 +39,7 @@ if ( !(-d $crabs/res) ) then
   exit 1
 endif
 
-set oname = `echo $1 | sed 's/job_//'`
+set oname = `echo $djob | sed 's/job_//'`
 set oname = "limits_${oname}"
 
 pushd $crabs/res
