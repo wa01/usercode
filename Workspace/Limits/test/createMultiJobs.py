@@ -35,6 +35,12 @@ def getRange (rangeString):
     result = ( int(parts[0]), int(parts[1]) )
     return result
 
+def zeroSignalChannel (yields):
+    noSig = False
+    for btag in yields:
+        if yields[btag] < 0.001: return True
+    return False
+
 from signalUtils import *
 
 from optparse import OptionParser
@@ -55,6 +61,7 @@ parser.add_option("-a", "--algo", dest="algo", default="HybridNew", type="string
 parser.add_option("--single", dest="single", default=False, action="store_true", help="single point evaluation (for HybridNew)")
 parser.add_option("--exp", dest="exp", default=-1, type="float", action="store", help="quantile for expected limit")
 parser.add_option("-M", "--model", dest="model", default="msugra", type="string", action="store", help="signal model")
+parser.add_option("--nlo", dest="nlo", default=False, action="store_true", help="use NLO")
 (options, args) = parser.parse_args()
 #options.bin = True # fake that is a binary output, so that we parse shape lines
 
@@ -141,10 +148,20 @@ fEffEle.close()
 #
 # cross sections
 #
-fXsecName = xsecFileName(options.model)
-fXsecLO = open(fXsecName)
-xsecsLO = cPickle.load(fXsecLO)
-fXsecLO.close()
+if options.nlo:
+    fXsecName = xsecFileName(options.model,"NLO")
+    fXsecNLO = open(fXsecName)
+    xsecsNLO = cPickle.load(fXsecNLO)
+    fXsecNLO.close()
+    xsecsLO = []
+    for m12 in xsecsNLO:
+        for m0 in xsecsNLO[m12]:
+            xsecsLO.append( (  m0, m12, 10, 0, 1 ) )
+else:
+    fXsecName = xsecFileName(options.model,"LO")
+    fXsecLO = open(fXsecName)
+    xsecsLO = cPickle.load(fXsecLO)
+    fXsecLO.close()
 #
 # list of all M0/M12 pairs
 #
@@ -185,16 +202,8 @@ for m0 in m0s:
         # cross section
         xsLO = xsecsLO[msugraTuple]
         # yield for each b-tag bin in list
-        sigYields = {}
-        noSig = False
-        for btag in btags:
-            effMu = effsMu[btag][options.ht][options.met][msugraString]
-            effEle = effsEle[btag][options.ht][options.met][msugraString]
-            sY = options.lumi*(effEle+effMu)*xsLO
-            if sY < 0.001: noSig = True
-            sigYields[btag] = options.lumi*(effEle+effMu)*xsLO
-            print btag,effEle,effMu
-        if noSig:
+        sigYields = getSigYieldsLO(btags,options.ht,options.met,msugraString,msugraTuple,options.lumi,xsecsLO,effsMu,effsEle)
+        if zeroSignalChannel(sigYields):
             # skip points with (at least one) channel without signal
             print "No signal for ",msugraString," ",sigYields
             continue

@@ -14,10 +14,13 @@ def effFileName (channel,model):
     else:
         return channel+"_"+model+"_Efficiencies.pkl"
     
-def xsecFileName (model):
+def xsecFileName (model,order="LO"):
     assert model in modelTemplates
     if model == "msugra":
-        return "goodModelNames_10_0_1.pkl"
+        if order == "LO":
+            return "goodModelNames_10_0_1.pkl"
+        else:
+            return "tanb10.msugra_xsecs.pc"
     else:
         return "xsec"+model+".pkl"
     
@@ -29,3 +32,12 @@ def signalString (model,m0_,m12_):
 def signalTuple (model,m0_,m12_):
     assert model in modelTemplates
     return (m0_,m12_)+modelTemplates[model][1][2:]
+
+def getSigYieldsLO (btags,ht,met,msugraString,msugraTuple,lumi,xsecs,effsMu,effsEle):
+    sigYields = {}
+    xsLO = xsecs[msugraTuple]
+    for btag in btags:
+        effMu = effsMu[btag][ht][met][msugraString]
+        effEle = effsEle[btag][ht][met][msugraString]
+        sigYields[btag] = lumi*(effEle+effMu)*xsLO
+    return sigYields
