@@ -16,16 +16,12 @@ if ( $#argv < 1 )  then
   exit 1
 endif
 
-set djob = $1
-if ( djob =~ */ ) then
-  set djob = $djob:h
-endif
-
-set d = `echo $djob | sed 's:/::g'`
+set d = `echo $1 | sed 's:/::g'`
 if ( !(-d $d) ) then
   echo "Directory does not exist"
   exit 1
 endif
+
 
 set crabs = ( `ls -d $d/crab_0_*` )
 if ( $#crabs != 1 ) then
@@ -39,7 +35,7 @@ if ( !(-d $crabs/res) ) then
   exit 1
 endif
 
-set oname = `echo $djob | sed 's/job_//'`
+set oname = `echo $d | sed 's/job_//'`
 set oname = "limits_${oname}"
 
 pushd $crabs/res
