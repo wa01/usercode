@@ -70,13 +70,13 @@ ofile.write("observation "+str(obs)+"\n")
 ofile.write("bin      " + "%9d" % 1 + "%9d" % 1 + "\n")
 ofile.write("process  " + "%9s" % "susy" + "%9s" % "bkg" + "\n")
 ofile.write("process  " + "%9d" % 0 + "%9d" % 1 + "\n")
-ofile.write("rate     " + "%9.2f" % 1. + "%9.2f" % pred + "\n")
+ofile.write("rate     " + "%9.3f" % 1. + "%9.3f" % pred + "\n")
 #
 # uncertainties: luminosity, other signal systematics, background statistics
 #
 ofile.write("lumi    lnN    1.045   -     \n")
 ofile.write("sigSyst lnN    1.20    -   \n")
-ofile.write("bkgStat lnN     -   " + "%7.2f" % (1+errpred/pred) + "\n")
+ofile.write("bkgStat lnN     -   " + "%7.3f" % (1+errpred/pred) + "\n")
 if options.btag != 'binc':
     ofile.write("sigBTag lnN" + "%9.3f" % (1+abs(beffsyst[options.btag])) + "   -     \n")
 #
@@ -124,7 +124,7 @@ for lep in [ "Mu", "Ele" ]:
         err = err2
 #      print key,lep,err
     sumerr = sumerr + err*err
-ofile.write("bkgSyst lnN     -   " + "%7.2f" % (1+math.sqrt(sumerr)) + "\n")
+ofile.write("bkgSyst lnN     -   " + "%7.3f" % (1+math.sqrt(sumerr)) + "\n")
 
         
 #
@@ -149,7 +149,7 @@ if options.btag != 'binc':
             # take the average of up/down and the maximum of Mu/Ele
             errAve = (dUp+dDown)/2.
             if abs(errAve) > abs(errLep):  errLep = errAve
-        ofile.write(vari.ljust(8) + "lnN     -   " + "%7.2f" % (1+abs(errLep)) + "\n")
+        ofile.write(vari.ljust(8) + "lnN     -   " + "%7.3f" % (1+abs(errLep)) + "\n")
     
 
 ofile.close()
