@@ -5,12 +5,15 @@ from string import Template
 channelNames = [ "Ele", "Mu" ]
 modelTemplates = { "msugra": [ Template("msugra_${m0}_${m12}_10_0_1"), ( "{m0}", "{m12}", 10, 0, 1 ) ],
                    "T1tttt": [ Template("T1tttt_${m0}_${m12}_-1"), ( "{m0}", "{m12}", -1 ) ] }
-def effFileName (channel,model):
+def effFileName (channel,model,order="LO"):
     assert channel in channelNames
     assert model in modelTemplates
     if model == "msugra":
 #        return channel+"_"+model+"Efficiencies.pkl"
-        return channel+"_"+model+"_LO_efficiency.pkl"
+        if order == "LO":
+            return channel+"_"+model+"_LO_efficiency.pkl"
+        else:
+            return channel+"_"+model+"_NLO_eventsPP.pkl"
     else:
         return channel+"_"+model+"_Efficiencies.pkl"
     
@@ -40,4 +43,37 @@ def getSigYieldsLO (btags,ht,met,msugraString,msugraTuple,lumi,xsecs,effsMu,effs
         effMu = effsMu[btag][ht][met][msugraString]
         effEle = effsEle[btag][ht][met][msugraString]
         sigYields[btag] = lumi*(effEle+effMu)*xsLO
+    return sigYields
+
+def getSigYieldsNLO (btags,ht,met,msugraString,msugraTuple,lumi,xsecs,effsMu,effsEle):
+    sigYields = {}
+#    meanEffs = {}
+    for btag in btags:
+        sigYields[btag] = 0.
+#        meanEffs[btag] = [ 0, 0, 0 ]
+    for pp in xsecs[msugraTuple[1]][msugraTuple[0]]:
+        if pp == 'total':  continue
+        xsNLO = xsecs[msugraTuple[1]][msugraTuple[0]][pp]
+#        print "xs for ",pp," = ",xsNLO
+        if not ( pp in effsMu[btag][ht][met][msugraString] and \
+                 pp in effsEle[btag][ht][met][msugraString] ):
+            print "Missing process in efficiency files: ",pp
+            continue
+        for btag in btags:
+            effMu = effsMu[btag][ht][met][msugraString][pp]
+            effEle = effsEle[btag][ht][met][msugraString][pp]
+#            meanEffs[btag][0] += xsNLO
+#            meanEffs[btag][1] += xsNLO*effMu
+#            meanEffs[btag][2] += xsNLO*effEle
+            # temporary fix: using yields instead of efficiencies
+            sigYields[btag] += effEle+effMu
+#            print "contribution for ",btag,' is ',(effEle+effMu)
+#            print "contribution for ",btag,' is ',lumi*(effEle+effMu)*xsNLO
+#            sigYields[btag] += lumi*(effEle+effMu)*xsNLO
+#    for btag in btags:
+#        if meanEffs[btag][0] > 0:
+#            meanEffs[btag][1] /= meanEffs[btag][0]
+#            meanEffs[btag][2] /= meanEffs[btag][0]
+#    print meanEffs
+#    print sigYields
     return sigYields

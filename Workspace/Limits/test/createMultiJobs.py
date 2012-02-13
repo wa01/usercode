@@ -113,7 +113,9 @@ if options.btag != "":
 else:
     basename = "multibtag"
 basename = basename + "_ht" + str(options.ht) + "_met" + str(options.met)
-dirname = "/tmp/adamwo/job_" + options.model + "_" + basename
+dirname = "/tmp/adamwo/job_" + options.model
+if options.nlo:  dirname = dirname + "NLO"
+dirname = dirname + "_" + basename
 if m0range[0] <= m0range[1]:
     dirname = dirname + "_m0_" + str(m0range[0])
     if m0range[0] != m0range[1]:
@@ -132,16 +134,19 @@ elif options.algo == "Asymptotic":
     dirname = dirname + "_A"
 os.mkdir(dirname)
 #
+loString = "LO"
+if options.nlo:  loString = "NLO"
+#
 # Mu efficiencies
 #
-fEffMuName = effFileName("Mu",options.model)
+fEffMuName = effFileName("Mu",options.model,loString)
 fEffMu = open(fEffMuName,"rb")
 effsMu = cPickle.load(fEffMu)
 fEffMu.close()
 #
 # Ele efficiencies
 #
-fEffEleName = effFileName("Ele",options.model)
+fEffEleName = effFileName("Ele",options.model,loString)
 fEffEle = open(fEffEleName,"rb")
 effsEle = cPickle.load(fEffEle)
 fEffEle.close()
@@ -162,6 +167,7 @@ else:
     fXsecLO = open(fXsecName)
     xsecsLO = cPickle.load(fXsecLO)
     fXsecLO.close()
+
 #
 # list of all M0/M12 pairs
 #
@@ -199,14 +205,22 @@ for m0 in m0s:
         msugraString = signalString(options.model,m0,m12)
         # signal characterization (tuple)
         msugraTuple = signalTuple(options.model,m0,m12)
-        # cross section
-        xsLO = xsecsLO[msugraTuple]
-        # yield for each b-tag bin in list
-        sigYields = getSigYieldsLO(btags,options.ht,options.met,msugraString,msugraTuple,options.lumi,xsecsLO,effsMu,effsEle)
-        if zeroSignalChannel(sigYields):
-            # skip points with (at least one) channel without signal
-            print "No signal for ",msugraString," ",sigYields
-            continue
+        if options.nlo:
+            # yield for each b-tag bin in list
+            sigYields = getSigYieldsNLO(btags,options.ht,options.met,msugraString,msugraTuple,options.lumi,xsecsNLO,effsMu,effsEle)
+            if zeroSignalChannel(sigYields):
+                # skip points with (at least one) channel without signal
+                print "No signal for ",msugraString," ",sigYields
+                continue
+        else:
+            # cross section
+            xsLO = xsecsLO[msugraTuple]
+            # yield for each b-tag bin in list
+            sigYields = getSigYieldsLO(btags,options.ht,options.met,msugraString,msugraTuple,options.lumi,xsecsLO,effsMu,effsEle)
+            if zeroSignalChannel(sigYields):
+                # skip points with (at least one) channel without signal
+                print "No signal for ",msugraString," ",sigYields
+                continue
 
         # output (text) file name
         modelname = dirname + "/model_" + str(m0) + "_" + str(m12)

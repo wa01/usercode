@@ -160,6 +160,9 @@ PlotLimits::drawHistograms()
   string cname = name_;
   cname += "-histos.pdf";
   canvas_->SaveAs(cname.c_str());
+
+//   TCanvas* cExists = new TCanvas("cexist","cexist");
+//   hExist->Draw("zcol");
 }
 
 
