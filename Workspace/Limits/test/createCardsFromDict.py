@@ -7,7 +7,8 @@ import math
 #
 
 import re
-from sys import argv
+#from sys import argv
+import sys
 import os.path
 from optparse import OptionParser
 parser = OptionParser()
@@ -31,9 +32,24 @@ ofile.write("kmax"+"%3d" % 4 +"\n")
 # read observed and predicted background numbers
 #
 execfile("eventCounts.py")
-obs = countsObs[options.ht][options.met][options.btag]
-pred = countsPred[options.ht][options.met][options.btag]
-errpred = errorsPred[options.ht][options.met][options.btag]
+if options.btag == 'binc' or options.btag == 'b0' or options.btag == 'b1' or options.btag == 'b2':
+    obs = countsObs[options.ht][options.met][options.btag]
+    pred = countsPred[options.ht][options.met][options.btag]
+    errpred = errorsPred[options.ht][options.met][options.btag]
+elif options.btag == 'b1p':
+    obs1 = countsObs[options.ht][options.met]['b1']
+    pred1 = countsPred[options.ht][options.met]['b1']
+    errpred1 = errorsPred[options.ht][options.met]['b1']
+    obs2 = countsObs[options.ht][options.met]['b2']
+    pred2 = countsPred[options.ht][options.met]['b2']
+    errpred2 = errorsPred[options.ht][options.met]['b2']
+    obs = obs1 + obs2
+    pred = pred1 + pred2
+    errpred = math.sqrt(errpred1*errpred1+errpred2*errpred2)
+else:
+    print "Unknown b-tag bin ",options.btag
+    sys.exit(1)
+    
 
 #
 # one bin with signal and one background
