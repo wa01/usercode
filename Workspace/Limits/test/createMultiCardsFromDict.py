@@ -62,6 +62,7 @@ beff = 0.60
 dbeff = 0.06
 beffsyst = {}
 beffsyst["b0"] = -2*dbeff/(1-beff)
+beffsyst["b1p"] = 2*(1-beff)*dbeff/beff/(2-beff)
 beffsyst["b1"] = -dbeff*(2*beff-1)/beff/(1-beff)
 beffsyst["b2"] = 2*dbeff/beff
 #

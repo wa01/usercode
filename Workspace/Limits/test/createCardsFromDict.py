@@ -27,7 +27,10 @@ ofile = open(oname,"w")
 #
 ofile.write("imax"+"%3d" % 1 +"\n")
 ofile.write("jmax"+"%3d" % 1 +"\n")
-ofile.write("kmax"+"%3d" % 4 +"\n")
+if options.btag == 'binc':
+    ofile.write("kmax"+"%3d" % 4 +"\n")
+else:
+    ofile.write("kmax"+"%3d" % 7 +"\n")
 #
 # read observed and predicted background numbers
 #
@@ -50,7 +53,14 @@ else:
     print "Unknown b-tag bin ",options.btag
     sys.exit(1)
     
-
+# very simple estimate for btag correlations assuming 2 bjets and fixed eff
+beff = 0.60
+dbeff = 0.06
+beffsyst = {}
+beffsyst["b0"] = -2*dbeff/(1-beff)
+beffsyst["b1p"] = 2*(1-beff)*dbeff/beff/(2-beff)
+beffsyst["b1"] = -dbeff*(2*beff-1)/beff/(1-beff)
+beffsyst["b2"] = 2*dbeff/beff
 #
 # one bin with signal and one background
 #   signal rate just for template - it will be replaced when creating the final files
@@ -67,7 +77,8 @@ ofile.write("rate     " + "%9.2f" % 1. + "%9.2f" % pred + "\n")
 ofile.write("lumi    lnN    1.045   -     \n")
 ofile.write("sigSyst lnN    1.20    -   \n")
 ofile.write("bkgStat lnN     -   " + "%7.2f" % (1+errpred/pred) + "\n")
-
+if options.btag != 'binc':
+    ofile.write("sigBTag lnN" + "%9.3f" % (1+abs(beffsyst[options.btag])) + "   -     \n")
 #
 # background systematics from file
 #
@@ -104,21 +115,42 @@ execfile(sname)
 #sumerr = 0
 bt = options.btag
 if bt == "binc":  bt = "inc"
-for key in largestAbsDoubleRatioDeviation:
-    for lep in [ "Mu", "Ele" ]:
-        err = largestAbsDoubleRatioDeviation[key][lep][bt]
-        err2 = largestAbsSingleRatioDeviation[key][lep][bt]
-        if err2 < err:
-            print "single < double ratio for ",key,lep,options.btag,err2,err
-            err = err2
-#        print key,lep,err
-        sumerr = sumerr + err*err
-        if key != 'ScaleFrac' and err != inf and abs(err/err2-1)>0.00001:
-            print "****** different errors for ",key,err,err2
+key = 'ScaleFrac'
+for lep in [ "Mu", "Ele" ]:
+    err = largestAbsDoubleRatioDeviation[key][lep][bt]
+    err2 = largestAbsSingleRatioDeviation[key][lep][bt]
+    if err2 < err:
+        print "single < double ratio for ",key,lep,options.btag,err2,err
+        err = err2
+#      print key,lep,err
+    sumerr = sumerr + err*err
 ofile.write("bkgSyst lnN     -   " + "%7.2f" % (1+math.sqrt(sumerr)) + "\n")
 
         
-
+#
+# b-tag systs
+#
+# keys for up and down variations / source
+#
+if options.btag != 'binc':
+    btKeys = { 'beff' : [ 'btagEff3_Up_b_sf0', 'btagEff3_Down_b_sf0' ], \
+               'leff' : [ 'btagEff3_Up_l_sf0', 'btagEff3_Down_l_sf0' ] }
+    for vari in btKeys:
+        lbsyst = vari.ljust(8) + "lnN".ljust(5)
+        # keys
+        keyUp = btKeys[vari][0]
+        keyDown = btKeys[vari][1]
+        # (signed) variation / lepton channel
+        errLep = 0.
+        for lep in [ "Mu", "Ele" ]:
+            # get variations w.r.t. 1. (revert sign for down)
+            dUp = singleRatio[keyUp][lep][options.btag] - 1.
+            dDown = -(singleRatio[keyDown][lep][options.btag]-1.)
+            # take the average of up/down and the maximum of Mu/Ele
+            errAve = (dUp+dDown)/2.
+            if abs(errAve) > abs(errLep):  errLep = errAve
+        ofile.write(vari.ljust(8) + "lnN     -   " + "%7.2f" % (1+abs(errLep)) + "\n")
+    
 
 ofile.close()
 
