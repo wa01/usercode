@@ -40,8 +40,16 @@ def getSigYieldsLO (btags,ht,met,msugraString,msugraTuple,lumi,xsecs,effsMu,effs
     sigYields = {}
     xsLO = xsecs[msugraTuple]
     for btag in btags:
-        effMu = effsMu[btag][ht][met][msugraString]
-        effEle = effsEle[btag][ht][met][msugraString]
+        if btag != 'b1p':
+            effMu = effsMu[btag][ht][met][msugraString]
+            effEle = effsEle[btag][ht][met][msugraString]
+        else:
+            effMu1 = effsMu['b1'][ht][met][msugraString]
+            effEle1 = effsEle['b1'][ht][met][msugraString]
+            effMu2 = effsMu['b2'][ht][met][msugraString]
+            effEle2 = effsEle['b2'][ht][met][msugraString]
+            effMu = effMu1 + effMu2
+            effEle = effEle1 + effEle2
         sigYields[btag] = lumi*(effEle+effMu)*xsLO
     return sigYields
 
