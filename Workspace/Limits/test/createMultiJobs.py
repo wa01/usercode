@@ -133,6 +133,7 @@ if options.algo == "HybridNew":
 elif options.algo == "Asymptotic":
     dirname = dirname + "_A"
 os.mkdir(dirname)
+os.system("cp "+incards+" "+dirname)
 #
 loString = "LO"
 if options.nlo:  loString = "NLO"
@@ -221,6 +222,7 @@ for m0 in m0s:
                 # skip points with (at least one) channel without signal
                 print "No signal for ",msugraString," ",sigYields
                 continue
+        print "sigYields = ",m0," ",m12," ",sigYields
 
         # output (text) file name
         modelname = dirname + "/model_" + str(m0) + "_" + str(m12)

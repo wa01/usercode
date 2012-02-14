@@ -78,7 +78,11 @@ parser.add_option("--met", dest="met", type="int", action="store", help="MET cut
 (options, args) = parser.parse_args()
 
 btags = [ "b0", "b1", "b2" ]
-
+#
+# MC closure
+#
+errMCClosure = { 750 : { 250 : 0.072, 350 : 0.041, 450 : 0.073, 550 : 0.224 }, \
+                 1000 : { 250 : 0.056, 350 : 0.074, 450  : 0.098, 550 : 0.198 } }
 #
 # output file name
 #
@@ -192,6 +196,10 @@ for btag in btags:
         sumerr[btag] += err*err
         print key,btag,err
 
+errClos = errMCClosure[options.ht][options.met]
+print "Adding MC closure syst ",errClos
+for btag in btags:
+    sumerr[btag] += errClos*errClos
 #
 # systematics (b-tag related)
 #

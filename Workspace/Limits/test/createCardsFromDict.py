@@ -73,7 +73,12 @@ parser.add_option("--ht", dest="ht", type="int", action="store", help="HT cut")
 parser.add_option("--met", dest="met", type="int", action="store", help="MET cut")
 parser.add_option("--btag", dest="btag", default="binc", type="string", action="store", help="btag bin name")
 (options, args) = parser.parse_args()
-
+#
+# MC closure
+#
+errMCClosure = { 750 : { 250 : 0.072, 350 : 0.041, 450 : 0.073, 550 : 0.224 }, \
+                 1000 : { 250 : 0.056, 350 : 0.074, 450  : 0.098, 550 : 0.198 } }
+#
 #
 # output file name
 #
@@ -146,13 +151,15 @@ for key in largestAbsDoubleRatioDeviation:
     print "Adding syst ",bt,key,err
 #ofile.write("bkgSyst lnN     -   " + "%7.2f" % (1+math.sqrt(sumerr)) + "\n")
 
+errClos = errMCClosure[options.ht][options.met]
+print "Adding MC closure syst ",errClos
+sumerr += errClos*errClos
 #
 # b-tag related
 #
 sname = "systematics_BT_htSig-" + str(options.ht) + "_metSig-" + str(options.met) + ".py"
 execfile(sname)
 
-#sumerr = 0
 bt = options.btag
 if bt == "binc":  bt = "inc"
 key = 'ScaleFrac'
