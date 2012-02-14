@@ -104,6 +104,7 @@ for key in largestAbsDoubleRatioDeviation:
             err = err2
 #        print key,lep,err
         sumerr = sumerr + err*err
+#        print "Adding syst ",bt,key,lep,err
 #ofile.write("bkgSyst lnN     -   " + "%7.2f" % (1+math.sqrt(sumerr)) + "\n")
 
 #
@@ -124,8 +125,9 @@ for lep in [ "Mu", "Ele" ]:
         err = err2
 #      print key,lep,err
     sumerr = sumerr + err*err
+#    print "Adding BT syst ",bt,key,lep,err
 ofile.write("bkgSyst lnN     -   " + "%7.3f" % (1+math.sqrt(sumerr)) + "\n")
-
+print "total syst = ",sumerr
         
 #
 # b-tag systs
@@ -149,6 +151,7 @@ if options.btag != 'binc':
             # take the average of up/down and the maximum of Mu/Ele
             errAve = (dUp+dDown)/2.
             if abs(errAve) > abs(errLep):  errLep = errAve
+#            print "Adding BT syst ",bt,vari,lep,errAve,errLep
         ofile.write(vari.ljust(8) + "lnN     -   " + "%7.3f" % (1+abs(errLep)) + "\n")
     
 
