@@ -9,6 +9,64 @@ import re
 # writes Higgs combination program compatible cards files
 #   for multi-channel analysis
 #
+leptons = [ 'Mu', 'Ele' ]
+def sqr (val):
+    return val*val
+def getCountsLep (countDict,lep,btag):
+    result = 0
+    bt = btag    
+    if bt == 'binc' or bt == 'b0' or bt == 'b1' or bt == 'b2':
+        result += countDict[options.ht][options.met][bt][lep]
+    elif bt == 'b1p':
+        for bt1 in [ 'b1', 'b2' ]:
+            result += countDict[options.ht][options.met][bt1][lep]
+    else:
+        print "Unknown b-tag bin ",btag
+        sys.exit(1)
+    return result
+def getCounts (countDict,btag):
+    result = 0
+    bt = btag
+    for lep in leptons:
+        result += getCountsLep(countDict,lep,btag)
+    return result
+def getErrors (errorDict,btag):
+    result = 0.
+    bt = btag    
+    if bt == 'binc' or bt == 'b0' or bt == 'b1' or bt == 'b2':
+        for lep in leptons:  result += sqr(errorDict[options.ht][options.met][bt][lep])
+    elif bt == 'b1p':
+        for bt1 in [ 'b1', 'b2' ]:
+            for lep in leptons:  result += sqr(errorDict[options.ht][options.met][bt1][lep])
+    else:
+        print "Unknown b-tag bin ",btag
+        sys.exit(1)
+    return math.sqrt(result)
+def sumLepErrors (key,bt,predLep):
+    sumPred = 0
+    sumPredErr = 0
+    for lep in leptons:
+        err = largestAbsDoubleRatioDeviation[key][lep][bt]
+        err2 = largestAbsSingleRatioDeviation[key][lep][bt]
+        if err2 < err:
+            print "single < double ratio for ",key,lep,btag,err2,err
+            err = err2
+        sumPred += predLep[lep]
+        sumPredErr += predLep[lep]*err
+    return sumPredErr/sumPred
+def sumBTErrors (keyUp,keyDown,bt,predLep):
+    # (signed) variation / lepton channel
+    sumPred = 0.
+    sumPredErr = 0.
+    for lep in leptons:
+        # get variations w.r.t. 1. (revert sign for down)
+        dUp = singleRatio[keyUp][lep][bt] - 1.
+        dDown = -(singleRatio[keyDown][lep][bt]-1.)
+        # take the average of up/down and the maximum of Mu/Ele
+        errAve = (dUp+dDown)/2.
+        sumPred += predLep[lep]
+        sumPredErr += predLep[lep]*errAve
+    return sumPredErr/sumPred
 
 #from sys import argv
 import os.path
@@ -40,11 +98,14 @@ ofile.write("kmax *\n")
 execfile("eventCounts.py")
 obs = {}
 pred = {}
+predLep = {}
 errpred = {}
 for btag in btags:
-    obs[btag] = countsObs[options.ht][options.met][btag]
-    pred[btag] = countsPred[options.ht][options.met][btag]
-    errpred[btag] = errorsPred[options.ht][options.met][btag]
+    obs[btag] = getCounts(countsObs,btag)
+    pred[btag] = getCounts(countsPred,btag)
+    predLep[btag] = {}
+    for lep in leptons:  predLep[btag][lep] = getCountsLep(countsPred,lep,btag)
+    errpred[btag] = getErrors(errorsPred,btag)
 #
 # observations
 #
@@ -77,7 +138,7 @@ for btag in btags:
     lbin = lbin + btag.rjust(10) + btag.rjust(10)
     lproc1 = lproc1 + "susy".rjust(10) + "bkg".rjust(10)
     lproc2 = lproc2 + "%10d" % 0 + "%10d" % 1
-    lrate = lrate + "%10.2f" % 1. + "%10.2f" % pred[btag]
+    lrate = lrate + "%10.3f" % 1. + "%10.3f" % pred[btag]
 ofile.write(lbin+"\n")
 ofile.write(lproc1+"\n")
 ofile.write(lproc2+"\n")
@@ -127,18 +188,9 @@ for btag in btags:
     if btag == 'b1' or btag == 'b2':  bt = 'b1p'
     sumerr[btag] = 0
     for key in largestAbsDoubleRatioDeviation:
-        for lep in [ "Mu", "Ele" ]:
-            print key,lep,"err"
-            err = largestAbsDoubleRatioDeviation[key][lep][bt]
-            print key,lep,"err2"
-            err2 = largestAbsSingleRatioDeviation[key][lep][bt]
-            if err2 < err:
-                print "single < double ratio for ",key,lep,bt,err2,err
-                err = err2
-            print key,lep,err
-            sumerr[btag] += err*err
-#    lbkgsyst = lbkgsyst + "-".rjust(10) + "%10.2f" % (1+math.sqrt(sumerr))
-#ofile.write(lbkgsyst+"\n")
+        err = sumLepErrors(key,bt,predLep[btag])
+        sumerr[btag] += err*err
+        print key,btag,err
 
 #
 # systematics (b-tag related)
@@ -150,15 +202,9 @@ execfile(sname)
 #
 for btag in btags:
     key = 'ScaleFrac'
-    for lep in [ "Mu", "Ele" ]:
-        err = largestAbsDoubleRatioDeviation[key][lep][btag]
-        err2 = largestAbsSingleRatioDeviation[key][lep][btag]
-        if err2 < err:
-            print "single < double ratio for ",key,lep,btag,err2,err
-            err = err2
-#        print key,lep,err
-        sumerr[btag] = sumerr[btag] + err*err
-    lbkgsyst = lbkgsyst + "-".rjust(10) + "%10.2f" % (1+math.sqrt(sumerr[btag]))
+    err = sumLepErrors(key,btag,predLep[btag])
+    sumerr[btag] += err*err
+    lbkgsyst = lbkgsyst + "-".rjust(10) + "%10.3f" % (1+math.sqrt(sumerr[btag]))
 ofile.write(lbkgsyst+"\n")
 #
 # b-tag systs
@@ -174,15 +220,8 @@ for vari in btKeys:
         keyUp = btKeys[vari][0]
         keyDown = btKeys[vari][1]
         # (signed) variation / lepton channel
-        errLep = 0.
-        for lep in [ "Mu", "Ele" ]:
-            # get variations w.r.t. 1. (revert sign for down)
-            dUp = singleRatio[keyUp][lep][btag] - 1.
-            dDown = -(singleRatio[keyDown][lep][btag]-1.)
-            # take the average of up/down and the maximum of Mu/Ele
-            errAve = (dUp+dDown)/2.
-            if abs(errAve) > abs(errLep):  errLep = errAve
-        lbsyst = lbsyst + "-".rjust(10) + "%10.2f" % (1+errLep)
+        errLep = sumBTErrors(keyUp,keyDown,btag,predLep[btag])
+        lbsyst = lbsyst + "-".rjust(10) + "%10.3f" % (1+errLep)
     ofile.write(lbsyst+"\n")
     
 
