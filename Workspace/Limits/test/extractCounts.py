@@ -6,7 +6,7 @@ import math
 #
 # result dictionaries
 #
-errPred = { 1 : {}, -1 : {} }
+errPred = { 'Mu' : { 1 : {}, -1 : {} }, 'Ele' : { 1 : {}, -1 : {} } }
 countsPred = {}
 countsObs = {}
 errorsPredSign = {}
@@ -20,16 +20,18 @@ def storeHtMet ():
     global ht,met,errPred,errorsPredSign
     if ht < 0 or met < 0:  return
     print "converting for ",ht,met
-    for sign in errPred:
-        for key in errPred[sign]:
-            if not key in errorsPredSign[ht][met]:  errorsPredSign[ht][met][key] = {}
-            errorsPredSign[ht][met][key][sign] = math.sqrt(errPred[sign][key])
+    for lep in errPred:
+        for sign in errPred[lep]:
+            for btag in errPred[lep][sign]:
+                if not btag in errorsPredSign[ht][met]:  errorsPredSign[ht][met][btag] = {}
+                if not lep in errorsPredSign[ht][met][btag]:  errorsPredSign[ht][met][btag][lep] = {}
+                errorsPredSign[ht][met][btag][lep][sign] = math.sqrt(errPred[lep][sign][btag])
     ht = -1
     met = -1
-    errPred = { 1 : {}, -1 : {} }
+    errPred = { 'Mu' : { 1 : {}, -1 : {} }, 'Ele' : { 1 : {}, -1 : {} } }
 #
 def findHtMet (line):
-    global ht,met,countsObs,countsPred,countsPredSign
+    global ht,met,countsObs,countsPred,errorsPredSign
     ht = -1
     met = -1
     for p in line.split("$"):
@@ -132,6 +134,14 @@ for line in f:
         # remove multirow environment for sum of +-
         parts[8] = re.sub(r".*{","",parts[8])
         parts[8] = re.sub(r"[^0-9]+$","",parts[8])
+        # lepton type
+        if parts[0].find("\mu") != -1:
+            lep = "Mu"
+        elif parts[0].find("\Pe") != -1:
+            lep = "Ele"
+        else:
+            print "Unknown lepton channel ",parts[0]
+            lep = "Unknown"
         # extract predictions
         for i in btagPred:
             # skip empty cells in inclusive column (only sum of +-)
@@ -139,27 +149,32 @@ for line in f:
             # split into value and errors
             vals = parts[i].split("{")
             if not btagPred[i] in countsPred[ht][met]:
-                countsPred[ht][met][btagPred[i]] = 0
-                errPred[1][btagPred[i]] = 0
-                errPred[-1][btagPred[i]] = 0
+                countsPred[ht][met][btagPred[i]] = {}
+            if not lep in countsPred[ht][met][btagPred[i]]:
+                countsPred[ht][met][btagPred[i]][lep] = 0.
+            if not btagPred[i] in errPred[lep][1]:
+                errPred[lep][1][btagPred[i]] = 0
+                errPred[lep][-1][btagPred[i]] = 0
             # add prediction to count in HT/MET/btag bin
-            countsPred[ht][met][btagPred[i]] = countsPred[ht][met][btagPred[i]] + float(vals[0])
+            countsPred[ht][met][btagPred[i]][lep] += float(vals[0])
             # add average error to variance in HT/MET/btag bin
             errP = float(vals[1])
             errM = float(vals[2])
             if errP < 0 and errM > 0:
                 errP = float(vals[2])
                 errM = float(vals[1])
-            errPred[1][btagPred[i]] += errP*errP
-            errPred[-1][btagPred[i]] += errM*errM
+            errPred[lep][1][btagPred[i]] += errP*errP
+            errPred[lep][-1][btagPred[i]] += errM*errM
         # extract observed count
         for i in btagObs:
             # skip empty cells in inclusive column (only sum of +-)
             if i > 6 and parts[0].find("+") < 0: continue
             if not btagObs[i] in countsObs[ht][met]:
-                countsObs[ht][met][btagObs[i]] = 0
+                countsObs[ht][met][btagObs[i]] = {}
+            if not lep in countsObs[ht][met][btagObs[i]]:
+                countsObs[ht][met][btagObs[i]][lep] = 0
             # add observation to count in HT/MET/btag bin
-            countsObs[ht][met][btagObs[i]] = countsObs[ht][met][btagObs[i]] + int(parts[i])
+            countsObs[ht][met][btagObs[i]][lep] += int(parts[i])
             
 # close input file
 f.close()
@@ -171,7 +186,9 @@ for ht in errorsPredSign:
     for met in errorsPredSign[ht]:
         errorsPred[ht][met] = {}
         for btag in errorsPredSign[ht][met]:
-            errorsPred[ht][met][btag] = (errorsPredSign[ht][met][btag][1]+errorsPredSign[ht][met][btag][-1])/2.
+            errorsPred[ht][met][btag] = {}
+            for lep in errorsPredSign[ht][met][btag]:
+                errorsPred[ht][met][btag][lep] = (errorsPredSign[ht][met][btag][lep][1]+errorsPredSign[ht][met][btag][lep][-1])/2.
 # print result
 print "countsPred = "+str(countsPred)
 print "errorsPred = "+str(errorsPred)
@@ -195,24 +212,40 @@ for ht in countsObs:
                ( not btagPred[btag] in countsPred[ht][met] ) or \
                ( not btagPred[btag] in errorsPred[ht][met] ):
                 print "No btag=",btagPred[btag]," in a dictionary for HT=",ht,", MET=",met
+            for lep in errPred:
+                if ( not lep in countsObs[ht][met][btagPred[btag]] ) or \
+                   ( not lep in countsPred[ht][met][btagPred[btag]] ) or \
+                   ( not lep in errorsPred[ht][met][btagPred[btag]] ):
+                    print "No lep=",lep," in a dictionary for HT=",ht,", MET=",met," btag=",btagPred[btag]
+                
+                
+for lep in errPred:
+    for ht in countsObs:
+        for met in countsObs[ht]:
+            sumObs = 0
+            sumPred = 0
+            sumErr = 0
+            for key in btagPred:
+                btag = btagPred[key]
+                if btag != 'binc':
+                    sumObs = sumObs + countsObs[ht][met][btag][lep]
+                    sumPred = sumPred + countsPred[ht][met][btag][lep]
+                    sumErr = sumErr + errorsPred[ht][met][btag][lep]*errorsPred[ht][met][btag][lep]
+            if sumObs != countsObs[ht][met]['binc'][lep]:
+                print "Error in observed sums for HT=",ht," MET=",met," : ",sumObs,countsObs[ht][met]['binc'][lep]
+            if abs(sumPred-countsPred[ht][met]['binc'][lep])>0.01*len(btagPred.keys()):
+                print "Error in predicted sums for HT=",ht," MET=",met," lep=",lep," : ",sumPred,countsPred[ht][met]['binc'][lep]
+            sumErr = math.sqrt(sumErr)
+            if abs(sumErr/errorsPred[ht][met]['binc'][lep]-1)>0.15:
+                print "Error in predicted errs for HT=",ht," MET=",met," lep=",lep," : ",sumErr,errorsPred[ht][met]['binc'][lep]
+        
 
 for ht in countsObs:
     for met in countsObs[ht]:
-        sumObs = 0
-        sumPred = 0
-        sumErr = 0
-        for key in btagPred:
-            btag = btagPred[key]
-            if btag != 'binc':
-                sumObs = sumObs + countsObs[ht][met][btag]
-                sumPred = sumPred + countsPred[ht][met][btag]
-                sumErr = sumErr + errorsPred[ht][met][btag]*errorsPred[ht][met][btag]
-        if sumObs != countsObs[ht][met]['binc']:
-            print "Error in observed sums for HT=",ht," MET=",met," : ",sumObs,countsObs[ht][met]['binc']
-        if abs(sumPred-countsPred[ht][met]['binc'])>0.01*len(btagPred.keys()):
-            print "Error in predicted sums for HT=",ht," MET=",met," : ",sumPred,countsPred[ht][met]['binc']
-        sumErr = math.sqrt(sumErr)
-        if abs(sumErr/errorsPred[ht][met]['binc']-1)>0.15:
-            print "Error in predicted sums for HT=",ht," MET=",met," : ",sumErr,errorsPred[ht][met]['binc']
-        
-                
+        print "            ht = ",ht,"         met = ",met
+        for lep in errPred:
+            out = lep.ljust(5)
+            for btag in [ 'b0', 'b1', 'b2', 'binc' ]:
+                out = out + "%5.2f" % countsPred[ht][met][btag][lep] + "%5.2f" % errorsPred[ht][met][btag][lep] + "%5d" % countsObs[ht][met][btag][lep] + " | "
+            print out
+    

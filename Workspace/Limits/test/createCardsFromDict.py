@@ -1,14 +1,71 @@
 #!/usr/bin/env python
 import cPickle
 import math
-
+import sys
 #
 # writes Higgs combination program compatible cards files
 #
+leptons = [ 'Mu', 'Ele' ]
+def sqr (val):
+    return val*val
+def getCountsLep (countDict,lep):
+    result = 0
+    bt = options.btag    
+    if bt == 'binc' or bt == 'b0' or bt == 'b1' or bt == 'b2':
+        result += countDict[options.ht][options.met][bt][lep]
+    elif bt == 'b1p':
+        for bt1 in [ 'b1', 'b2' ]:
+            result += countDict[options.ht][options.met][bt1][lep]
+    else:
+        print "Unknown b-tag bin ",options.btag
+        sys.exit(1)
+    return result
+def getCounts (countDict):
+    result = 0
+    bt = options.btag
+    for lep in leptons:
+        result += getCountsLep(countDict,lep)
+    return result
+def getErrors (errorDict):
+    result = 0.
+    bt = options.btag    
+    if bt == 'binc' or bt == 'b0' or bt == 'b1' or bt == 'b2':
+        for lep in leptons:  result += sqr(errorDict[options.ht][options.met][bt][lep])
+    elif bt == 'b1p':
+        for bt1 in [ 'b1', 'b2' ]:
+            for lep in leptons:  result += sqr(errorDict[options.ht][options.met][bt1][lep])
+    else:
+        print "Unknown b-tag bin ",options.btag
+        sys.exit(1)
+    return math.sqrt(result)
+def sumLepErrors (key,bt,predLep):
+    sumPred = 0
+    sumPredErr = 0
+    for lep in leptons:
+        err = largestAbsDoubleRatioDeviation[key][lep][bt]
+        err2 = largestAbsSingleRatioDeviation[key][lep][bt]
+        if err2 < err:
+            print "single < double ratio for ",key,lep,options.btag,err2,err
+            err = err2
+        sumPred += predLep[lep]
+        sumPredErr += predLep[lep]*err
+    return sumPredErr/sumPred
+def sumBTErrors (keyUp,keyDown,bt,predLep):
+    # (signed) variation / lepton channel
+    sumPred = 0.
+    sumPredErr = 0.
+    for lep in leptons:
+        # get variations w.r.t. 1. (revert sign for down)
+        dUp = singleRatio[keyUp][lep][options.btag] - 1.
+        dDown = -(singleRatio[keyDown][lep][options.btag]-1.)
+        # take the average of up/down and the maximum of Mu/Ele
+        errAve = (dUp+dDown)/2.
+        sumPred += predLep[lep]
+        sumPredErr += predLep[lep]*errAve
+    return sumPredErr/sumPred
 
 import re
 #from sys import argv
-import sys
 import os.path
 from optparse import OptionParser
 parser = OptionParser()
@@ -35,23 +92,11 @@ else:
 # read observed and predicted background numbers
 #
 execfile("eventCounts.py")
-if options.btag == 'binc' or options.btag == 'b0' or options.btag == 'b1' or options.btag == 'b2':
-    obs = countsObs[options.ht][options.met][options.btag]
-    pred = countsPred[options.ht][options.met][options.btag]
-    errpred = errorsPred[options.ht][options.met][options.btag]
-elif options.btag == 'b1p':
-    obs1 = countsObs[options.ht][options.met]['b1']
-    pred1 = countsPred[options.ht][options.met]['b1']
-    errpred1 = errorsPred[options.ht][options.met]['b1']
-    obs2 = countsObs[options.ht][options.met]['b2']
-    pred2 = countsPred[options.ht][options.met]['b2']
-    errpred2 = errorsPred[options.ht][options.met]['b2']
-    obs = obs1 + obs2
-    pred = pred1 + pred2
-    errpred = math.sqrt(errpred1*errpred1+errpred2*errpred2)
-else:
-    print "Unknown b-tag bin ",options.btag
-    sys.exit(1)
+obs = getCounts(countsObs)
+pred = getCounts(countsPred)
+predLep = {}
+for lep in leptons:  predLep[lep] = getCountsLep(countsPred,lep)
+errpred = getErrors(errorsPred)
     
 # very simple estimate for btag correlations assuming 2 bjets and fixed eff
 beff = 0.60
@@ -96,15 +141,9 @@ if bt == "binc":
 elif bt != "b0":
     bt = "b1p"
 for key in largestAbsDoubleRatioDeviation:
-    for lep in [ "Mu", "Ele" ]:
-        err = largestAbsDoubleRatioDeviation[key][lep][bt]
-        err2 = largestAbsSingleRatioDeviation[key][lep][bt]
-        if err2 < err:
-            print "single < double ratio for ",key,lep,options.btag,err2,err
-            err = err2
-#        print key,lep,err
-        sumerr = sumerr + err*err
-#        print "Adding syst ",bt,key,lep,err
+    err = sumLepErrors(key,bt,predLep)
+    sumerr = sumerr + err*err
+    print "Adding syst ",bt,key,err
 #ofile.write("bkgSyst lnN     -   " + "%7.2f" % (1+math.sqrt(sumerr)) + "\n")
 
 #
@@ -117,17 +156,11 @@ execfile(sname)
 bt = options.btag
 if bt == "binc":  bt = "inc"
 key = 'ScaleFrac'
-for lep in [ "Mu", "Ele" ]:
-    err = largestAbsDoubleRatioDeviation[key][lep][bt]
-    err2 = largestAbsSingleRatioDeviation[key][lep][bt]
-    if err2 < err:
-        print "single < double ratio for ",key,lep,options.btag,err2,err
-        err = err2
-#      print key,lep,err
-    sumerr = sumerr + err*err
-#    print "Adding BT syst ",bt,key,lep,err
+err = sumLepErrors(key,bt,predLep)
+sumerr = sumerr + err*err
+print "Adding BT syst ",bt,key,err
 ofile.write("bkgSyst lnN     -   " + "%7.3f" % (1+math.sqrt(sumerr)) + "\n")
-print "total syst = ",sumerr
+print "total syst = ",math.sqrt(sumerr)
         
 #
 # b-tag systs
@@ -143,15 +176,8 @@ if options.btag != 'binc':
         keyUp = btKeys[vari][0]
         keyDown = btKeys[vari][1]
         # (signed) variation / lepton channel
-        errLep = 0.
-        for lep in [ "Mu", "Ele" ]:
-            # get variations w.r.t. 1. (revert sign for down)
-            dUp = singleRatio[keyUp][lep][options.btag] - 1.
-            dDown = -(singleRatio[keyDown][lep][options.btag]-1.)
-            # take the average of up/down and the maximum of Mu/Ele
-            errAve = (dUp+dDown)/2.
-            if abs(errAve) > abs(errLep):  errLep = errAve
-#            print "Adding BT syst ",bt,vari,lep,errAve,errLep
+        errLep = sumBTErrors(keyUp,keyDown,options.btag,predLep)
+        print "Adding BT syst ",options.btag,vari,errLep
         ofile.write(vari.ljust(8) + "lnN     -   " + "%7.3f" % (1+abs(errLep)) + "\n")
     
 
