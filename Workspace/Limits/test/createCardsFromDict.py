@@ -56,10 +56,14 @@ def sumBTErrors (keyUp,keyDown,bt,predLep):
     sumPredErr = 0.
     for lep in leptons:
         # get variations w.r.t. 1. (revert sign for down)
-        dUp = singleRatio[keyUp][lep][bt] - 1.
-        dDown = -(singleRatio[keyDown][lep][bt]-1.)
+        dUp1 = singleRatio[keyUp][lep][bt] - 1.
+        dUp2 = doubleRatio[keyUp][lep][bt] - 1.
+        dUp = dUp1 if abs(dUp1) < abs(dUp2) else dUp2
+        dDown1 = singleRatio[keyDown][lep][bt] - 1.
+        dDown2 = doubleRatio[keyDown][lep][bt] - 1.
+        dDown = dDown1 if abs(dDown1) < abs(dDown2) else dDown2
         # take the average of up/down and the maximum of Mu/Ele
-        errAve = (dUp+dDown)/2.
+        errAve = (dUp-dDown)/2.
         sumPred += predLep[lep]
         sumPredErr += predLep[lep]*errAve
     return sumPredErr/sumPred
