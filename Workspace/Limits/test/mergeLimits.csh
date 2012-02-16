@@ -76,6 +76,7 @@ while ( $ijob <= $njobs )
     endif
     popd
     rm -r outputToy/
+    if ( $#files1 == 0 )  continue
 
     set files2 = ( $files1 )
     if ( -e ${oname}.root ) then

@@ -10,6 +10,9 @@
 #include <map>
 #include <algorithm>
 #include <set>
+#include <cmath>
+
+using namespace std;
 
 void PlotLimits::Loop()
 {
@@ -109,9 +112,9 @@ void PlotLimits::Loop()
       float m0 = iSeed/10000;
       float m12 = iSeed%10000;
 
+      hExist->Fill(m0,m12);
       // observed
       if ( quantileExpected<0.) {
-	hExist->Fill(m0,m12);
 	hObs->Fill(m0,m12,limit);
       }
       // -2 sigma
@@ -261,7 +264,15 @@ PlotLimits::getContours (TH2* histo)
 	// keep a clone of the graph
 	TGraph* curv = (TGraph*)contLevel->At(j)->Clone();
 	cout << "Found graph with " << curv->GetN() << " points" << endl;
-// 	cout << "Found graph" << endl;
+// 	{
+// 	  double x,y;
+// 	  cout << "First / last point = ";
+// 	  curv->GetPoint(0,x,y);
+// 	  cout << x << "," << y << " / ";
+// 	  curv->GetPoint(curv->GetN()-1,x,y);
+// 	  cout << x << "," << y << endl;
+// 	}
+// // 	cout << "Found graph" << endl;
 //  	curv->SetLineColor(4);
 // 	curv->Draw();
         // only use graphs with at least 1 point and passing "quality" cuts
@@ -354,7 +365,13 @@ PlotLimits::acceptGraph (TGraph* graph, TH2* histo)
     xMap[ix].push_back(iy);
     yMap[iy].push_back(ix);
   }
-
+//   if ( graph->GetN()>100 ) {
+//     for ( MinMaxMap::iterator ix=xMap.begin(); ix!=xMap.end(); ++ix ) {
+//       cout << ix->first << " :";
+//       for ( size_t i=0; i<ix->second.size(); ++i )  cout << " " << ix->second[i];
+//       cout << endl;
+//     }
+//   }
   //
   // get maximum spread in each column
   // 
@@ -375,6 +392,7 @@ PlotLimits::acceptGraph (TGraph* graph, TH2* histo)
     sort(xbins.begin(),xbins.end());
     if ( (xbins.back()-xbins.front())>dxMax )  dxMax = xbins.back() - xbins.front();
   }
+//   if ( graph->GetN()>100 )  cout << "dxMax / dyMax = " << dxMax << " " << dyMax << endl;
   //
   // require a maximum spread of >1 bin both in x and y
   //   (excludes 1 bin "islands" or parts of single rows / columns

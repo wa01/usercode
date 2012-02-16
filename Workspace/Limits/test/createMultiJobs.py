@@ -93,6 +93,7 @@ if options.algo == "HybridNew":
     combopt = combopt + " --frequentist --testStat LHC"
     if options.exp > 0:
         combopt = combopt + " --expectedFromGrid " + str(options.exp)
+    combopt = combopt + " --fork 0"
 elif options.algo == "Asymptotic":
     pass
 else:
@@ -134,6 +135,9 @@ elif options.algo == "Asymptotic":
     dirname = dirname + "_A"
 os.mkdir(dirname)
 os.system("cp "+incards+" "+dirname)
+fc = open(dirname+"/args.txt","w")
+fc.write(str(sys.argv)+"\n")
+fc.close()
 #
 loString = "LO"
 if options.nlo:  loString = "NLO"
