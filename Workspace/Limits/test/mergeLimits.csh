@@ -62,6 +62,8 @@ while ( $ijob <= $njobs )
     set odir = $tgz:r
     pushd outputToy
     set files1 = ( )
+    echo "outputToy_${ijob}_*_*.tgz"
+    ls
     ls higgs*.root >& /dev/null
     if ( $status == 0 ) then
       set jobfiles = ( higgs*.root )
@@ -76,21 +78,22 @@ while ( $ijob <= $njobs )
     endif
     popd
     rm -r outputToy/
-    if ( $#files1 == 0 )  continue
 
-    set files2 = ( $files1 )
-    if ( -e ${oname}.root ) then
-      set files2 = ( ${oname}.root $files2 )
+    if ( $#files1 > 0 ) then
+      set files2 = ( $files1 )
+      if ( -e ${oname}.root ) then
+        set files2 = ( ${oname}.root $files2 )
+      endif
+      hadd ${oname}_tmp.root $files2
+      if ( $status != 0 ) then
+        exit 1
+      endif
+      mv -f ${oname}_tmp.root ${oname}.root
+      rm $files1
     endif
-    hadd ${oname}_tmp.root $files2
-    if ( $status != 0 ) then
-      exit 1
-    endif
-    mv -f ${oname}_tmp.root ${oname}.root
-    rm $files1
-   endif
+  endif
 
-   @ ijob = $ijob + 1
+  @ ijob = $ijob + 1
 end
 
 popd
