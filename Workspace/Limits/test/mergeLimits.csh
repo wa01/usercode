@@ -37,6 +37,10 @@ endif
 
 set oname = `echo $d | sed 's/job_//'`
 set oname = "limits_${oname}"
+if ( -e ${oname}.root ) then
+  echo "${oname}.root exists"
+  exit 1
+endif
 
 pushd $crabs/res
 
