@@ -136,7 +136,9 @@ elif options.algo == "Asymptotic":
 os.mkdir(dirname)
 os.system("cp "+incards+" "+dirname)
 fc = open(dirname+"/args.txt","w")
-fc.write(str(sys.argv)+"\n")
+larg = ""
+for a in sys.argv:  larg = larg + a + " "
+fc.write(larg+"\n")
 fc.close()
 #
 loString = "LO"
