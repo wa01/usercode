@@ -32,7 +32,7 @@ public:
   //   runs where CLs is stored, 1.0 for all other cases
   //   where the limit on the signal strength is stored)
   //
-  PlotLimits(TFile* file, float level=0.05);
+  PlotLimits(TFile* file, float level=0.05, float relmax=5.);
   virtual ~PlotLimits();
   // 
   // loop over the tree and filling of histograms
@@ -98,6 +98,7 @@ private:
   TCanvas* canvas_;
 
   double level_;
+  double relmax_;
 
   TH2* hExist;
   TH2* hObs;
@@ -121,8 +122,8 @@ private:
 #endif
 
 #ifdef PlotLimits_cxx
-PlotLimits::PlotLimits(TFile* file, float level) : level_(level)
-{
+PlotLimits::PlotLimits(TFile* file, float level, float relmax) : 
+  level_(level), relmax_(relmax) {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
 

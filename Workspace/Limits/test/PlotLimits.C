@@ -176,7 +176,7 @@ PlotLimits::drawHistogram (TH2* histogram, TGraph** graph)
 
   double levels[1] = { level_ };
 
-  histogram->SetMaximum(5.*level_);
+  histogram->SetMaximum(relmax_*level_);
   histogram->Draw("zcol");
   //
   // need to draw and update the pad in order to have access
@@ -306,6 +306,11 @@ PlotLimits::getContours (TH2* histo)
     double x,y;
     // loop over points
     for ( unsigned j=0; j<result[i]->GetN(); ++j ) {
+      int ibx = xaxis->FindBin(xvals[j]);
+      int iby = yaxis->FindBin(yvals[j]);
+      if ( hExist->GetBinContent(ibx,iby)<1.e-6 || 
+	   (iby>1&&hExist->GetBinContent(ibx,iby-1)<1.e-6) ||
+	   (iby<hc->GetYaxis()->GetNbins()&&hExist->GetBinContent(ibx,iby+1)<1.e-6) ) continue;
       int ibin = xaxis->FindBin(xvals[j]);
       BestPointMap::iterator it = bestPointMap.find(ibin);
       // take lowest point in each column
@@ -333,8 +338,9 @@ PlotLimits::getContours (TH2* histo)
     //  (most probably a missing job)
 //     if ( hc->GetBinContent(ibx,iby)<1.e-6 || 
 // 	 (iby>1&&hc->GetBinContent(ibx,iby-1)<1.e-6) ) continue;
-    if ( hExist->GetBinContent(ibx,iby)<1.e-6 || 
-	 (iby>1&&hExist->GetBinContent(ibx,iby-1)<1.e-6) ) continue;
+//     if ( hExist->GetBinContent(ibx,iby)<1.e-6 || 
+// 	 (iby>1&&hExist->GetBinContent(ibx,iby-1)<1.e-6) ||
+// 	 (iby<hc->GetYaxis()->GetNbins()&&hExist->GetBinContent(ibx,iby+1)<1.e-6) ) continue;
     combGraph->SetPoint(nCombGraph++,it->second.first,it->second.second);
   }
   combGraph->SetLineColor(2);
