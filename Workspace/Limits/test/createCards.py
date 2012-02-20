@@ -130,7 +130,9 @@ def createCards (filename,btag,ht,met,sigYield):
     #print "Combination of", ", ".join(args)
     print "imax %d number of bins" % len(bins)
     print "jmax %d number of processes minus 1" % (len(signals) + len(backgrounds) - 1)
-    print "kmax %d number of nuisance parameters" % (len(systlines) + len(paramSysts))
+    nsys = len(systlines) + len(paramSysts)
+    if btag != 'inc':  nsys -= 1
+    print "kmax %d number of nuisance parameters" % nsys
     print "-" * 80
 
     if shapeLines:
