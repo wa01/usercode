@@ -94,7 +94,7 @@ ofile = open(oname,"w")
 ofile.write("imax"+"%3d" % 1 +"\n")
 ofile.write("jmax"+"%3d" % 1 +"\n")
 if options.btag == 'binc':
-    ofile.write("kmax"+"%3d" % 4 +"\n")
+    ofile.write("kmax"+"%3d" % 6 +"\n")
 else:
     ofile.write("kmax"+"%3d" % 7 +"\n")
 #
@@ -178,19 +178,19 @@ print "total syst = ",math.sqrt(sumerr)
 #
 # keys for up and down variations / source
 #
-if options.btag != 'binc':
-    btKeys = { 'beff' : [ 'btagEff3_Up_b_sf0', 'btagEff3_Down_b_sf0' ], \
-               'leff' : [ 'btagEff3_Up_l_sf0', 'btagEff3_Down_l_sf0' ] }
-    for vari in btKeys:
-        lbsyst = vari.ljust(8) + "lnN".ljust(5)
-        # keys
-        keyUp = btKeys[vari][0]
-        keyDown = btKeys[vari][1]
-        # (signed) variation / lepton channel
-        errLep = sumBTErrors(keyUp,keyDown,options.btag,predLep)
-        print "Adding BT syst ",options.btag,vari,errLep
-        ofile.write(vari.ljust(8) + "lnN     -   " + "%7.3f" % (1+abs(errLep)) + "\n")
-    
+btKeys = { 'beff' : [ 'btagEff3_Up_b_sf0', 'btagEff3_Down_b_sf0' ], \
+           'leff' : [ 'btagEff3_Up_l_sf0', 'btagEff3_Down_l_sf0' ] }
+for vari in btKeys:
+    lbsyst = vari.ljust(10) + "lnN".ljust(5)
+    bt = options.btag
+    if bt == 'binc':  bt = 'inc'
+    # keys
+    keyUp = btKeys[vari][0]
+    keyDown = btKeys[vari][1]
+    # (signed) variation / lepton channel
+    errLep = sumBTErrors(keyUp,keyDown,bt,predLep)
+    lbsyst = lbsyst + "-".rjust(10) + "%10.3f" % (1+errLep)
+    ofile.write(lbsyst+"\n")
 
 ofile.close()
 
