@@ -24,6 +24,7 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 class PlotLimits {
 public:
@@ -54,9 +55,9 @@ private:
   virtual Long64_t LoadTree(Long64_t entry);
   virtual void     Init(TTree *tree);
   virtual Bool_t   Notify();
-  void drawHistogram (TH2* histogram, TGraph** graph = 0);
-  std::vector<TGraph*> getContours (const char* name);
-  std::vector<TGraph*> getContours (TH2* histogram);
+  void drawHistogram (std::pair<TH2*,TH2*> histos, TGraph** graph = 0);
+//   std::vector<TGraph*> getContours (const char* name);
+  std::vector<TGraph*> getContours (TH2* histogram, TH2* hexist);
   void saveCanvas () {
     if ( canvas_ ) {
       std::string cname = name_;
@@ -100,13 +101,12 @@ private:
   double level_;
   double relmax_;
 
-  TH2* hExist;
-  TH2* hObs;
-  TH2* hExpMinus2;
-  TH2* hExpMinus1;
-  TH2* hExpMedian;
-  TH2* hExpPlus1;
-  TH2* hExpPlus2;
+  std::pair<TH2*,TH2*> hObs;
+  std::pair<TH2*,TH2*> hExpMinus2;
+  std::pair<TH2*,TH2*> hExpMinus1;
+  std::pair<TH2*,TH2*> hExpMedian;
+  std::pair<TH2*,TH2*> hExpPlus1;
+  std::pair<TH2*,TH2*> hExpPlus2;
 
   TGraph* gObs;
   TGraph* gExpMinus2;
@@ -137,13 +137,18 @@ PlotLimits::PlotLimits(TFile* file, float level, float relmax) :
   //
   // histogram pointers (histograms will be created in Loop)
   //
-  hExist = 0;
-  hObs = 0;
-  hExpMinus2 = 0;
-  hExpMinus1 = 0;
-  hExpMedian = 0;
-  hExpPlus1 = 0;
-  hExpPlus2 = 0;
+  hObs.first = 0;
+  hExpMinus2.first = 0;
+  hExpMinus1.first = 0;
+  hExpMedian.first = 0;
+  hExpPlus1.first = 0;
+  hExpPlus2.first = 0;
+  hObs.second = 0;
+  hExpMinus2.second = 0;
+  hExpMinus1.second = 0;
+  hExpMedian.second = 0;
+  hExpPlus1.second = 0;
+  hExpPlus2.second = 0;
   //
   // graphs holding the contours
   //
