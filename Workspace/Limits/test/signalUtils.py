@@ -5,17 +5,20 @@ from string import Template
 channelNames = [ "Ele", "Mu" ]
 modelTemplates = { "msugra": [ Template("msugra_${m0}_${m12}_10_0_1"), ( "{m0}", "{m12}", 10, 0, 1 ) ],
                    "T1tttt": [ Template("T1tttt_${m0}_${m12}_-1"), ( "{m0}", "{m12}", -1 ) ] }
-def effFileName (channel,model,order="LO"):
+def effFileName (channel,model,order="LO",var=""):
     assert channel in channelNames
     assert model in modelTemplates
+    name = channel + "_"
     if model == "msugra":
 #        return channel+"_"+model+"Efficiencies.pkl"
         if order == "LO":
-            return channel+"_"+model+"_LO_efficiency.pkl"
+            return name+model+"_LO_efficiency.pkl"
         else:
-            return channel+"_"+model+"_NLO_eventsPP.pkl"
+            if var != "":  name += var + "_"
+            print name+model+"_NLO_eventsPP.pkl"
+            return name+model+"_NLO_eventsPP.pkl"
     else:
-        return channel+"_"+model+"_Efficiencies.pkl"
+        return name+model+"_Efficiencies.pkl"
     
 def xsecFileName (model,order="LO"):
     assert model in modelTemplates

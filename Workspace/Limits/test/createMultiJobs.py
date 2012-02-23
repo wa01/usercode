@@ -62,6 +62,7 @@ parser.add_option("--single", dest="single", default=False, action="store_true",
 parser.add_option("--exp", dest="exp", default=-1, type="float", action="store", help="quantile for expected limit")
 parser.add_option("-M", "--model", dest="model", default="msugra", type="string", action="store", help="signal model")
 parser.add_option("--nlo", dest="nlo", default=False, action="store_true", help="use NLO")
+parser.add_option("--nloVariation", dest="nloVar", default="", type="choice", action="store", choices=["", "0", "-", "+"], help="NLO variation")
 (options, args) = parser.parse_args()
 #options.bin = True # fake that is a binary output, so that we parse shape lines
 
@@ -89,7 +90,7 @@ if options.algo == "HybridNew":
     if not options.single:
         combopt = "-H Asymptotic " + combopt
     else:
-        combopt = combopt + " --singlePoint 1.00"
+        combopt = combopt + " --singlePoint 1.00 --clsAcc 0 -T 500 -i 10 --saveToys --saveHybridResult -n Toys "
     combopt = combopt + " --frequentist --testStat LHC"
     if options.exp > 0:
         combopt = combopt + " --expectedFromGrid " + str(options.exp)
@@ -142,18 +143,21 @@ fc.write(larg+"\n")
 fc.close()
 #
 loString = "LO"
-if options.nlo:  loString = "NLO"
+loVar = ""
+if options.nlo:
+    loString = "NLO"
+    loVar = options.nloVar
 #
 # Mu efficiencies
 #
-fEffMuName = effFileName("Mu",options.model,loString)
+fEffMuName = effFileName("Mu",options.model,loString,loVar)
 fEffMu = open(fEffMuName,"rb")
 effsMu = cPickle.load(fEffMu)
 fEffMu.close()
 #
 # Ele efficiencies
 #
-fEffEleName = effFileName("Ele",options.model,loString)
+fEffEleName = effFileName("Ele",options.model,loString,loVar)
 fEffEle = open(fEffEleName,"rb")
 effsEle = cPickle.load(fEffEle)
 fEffEle.close()
@@ -302,6 +306,17 @@ for line in fcfgtmp:
     for repl in replacements:
         line = line.replace(repl,replacements[repl])
     fcrab.write(line)
+    if line.find("return_data") != -1:
+        return_data = 0
+        fcfgtmp.write("copy_data = 1\n")
+        fcfgtmp.write("publish_data = 0\n")
+        fcfgtmp.write("storage_element=srm-cms.cern.ch\n")
+        suffix = loString
+        if loVar == "-":  loVar = "m"
+        if loVar == "+":  loVar = "p"
+        fcfgtmp.write("user_remote_dir=user/a/adamwo/CrabOutput/msugra"+loString+loVar+"_multi\n")
+        fcfgtmp.write("storage_path=/srm/managerv2?SFN=/castor/cern.ch/\n")
+
 fcfgtmp.close()
 fcrab.close()
 #
