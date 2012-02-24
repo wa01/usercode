@@ -45,7 +45,6 @@ foreach file ( $files )
       echo "Wrong format of filename : $file"
       exit 1
     endif
-    if ( $parts[2] == 198 )  break
     if ( $imax == 0 )  @ imax = $parts[2]
     if ( $parts[2] == $icur )  continue
     @ icur = $parts[2]
