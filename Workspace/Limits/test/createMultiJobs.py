@@ -3,6 +3,7 @@ import cPickle
 import re
 import sys
 import os
+import subprocess
 
 def which(program):
 #    import os
@@ -40,6 +41,29 @@ def zeroSignalChannel (yields):
     for btag in yields:
         if yields[btag] < 0.001: return True
     return False
+
+
+def checkProcess (processes):
+    result = {}
+    for name in processes:
+        p = processes[name]
+        p.poll()
+        if p.returncode == None:
+            result[name] = p
+        elif p.returncode != 0:
+            print "job with pid ",p.pid," returned code ",p.returncode
+        else:
+            print "job with pid ",p.pid," terminated"
+            os.remove(name)
+    return result
+
+def waitProcess (processes,all=False):
+    for name in processes:
+        p = processes[name]
+        p.wait()
+        if not all:
+            break
+    return checkProcess(processes)
 
 from signalUtils import *
 
@@ -116,7 +140,11 @@ else:
     basename = "multibtag"
 basename = basename + "_ht" + str(options.ht) + "_met" + str(options.met)
 dirname = "/tmp/adamwo/job_" + options.model
-if options.nlo:  dirname = dirname + "NLO"
+if options.nlo:
+    dirname = dirname + "NLO"
+    if options.nloVar == '0':  dirname = dirname + "0"
+    elif options.nloVar == '-':  dirname = dirname + "m"
+    elif options.nloVar == '+':  dirname = dirname + "p"
 dirname = dirname + "_" + basename
 if m0range[0] <= m0range[1]:
     dirname = dirname + "_m0_" + str(m0range[0])
@@ -197,6 +225,7 @@ from createCards import createMultiCards
 idx = 0
 massname = dirname + "/m0m12.lis"
 fmass = open(massname,"w")
+processes = {}
 for m0 in m0s:
 
 #    if options.m0 > 0 and m0 != options.m0:  continue
@@ -248,12 +277,23 @@ for m0 in m0s:
         sys.stdout = save_stdout
         dcfile.close()
 
-        # conversion to root workspace
-        if not options.text:
-            wsname = modelname + ".root"
-            wscmd = "text2workspace.py " + dcname + " -m " + str(m0+m12/10000.) + " -o " + wsname
-            os.system(wscmd)
-            os.remove(dcname)
+        # asynchronous conversion to root workspace
+        processes = checkProcess(processes)
+        print "Currently ",len(processes.keys())," text2workspace commands running"
+        if len(processes.keys()) > 5:
+            print "Waiting for a text2workspace command to finish"
+            processes = waitProcess(processes)
+            print "Continuing"
+        wsname = modelname + ".root"
+        wscmd = [ "text2workspace.py", dcname , " -m ", str(m0+m12/10000.), " -o ", wsname ]
+        processes[dcname] = subprocess.Popen(wscmd)
+            
+#        # conversion to root workspace
+#        if not options.text:
+#            wsname = modelname + ".root"
+#            wscmd = "text2workspace.py " + dcname + " -m " + str(m0+m12/10000.) + " -o " + wsname
+#            os.system(wscmd)
+#            os.remove(dcname)
 
         # mass count and entry in mass list for CRAB jobs
         nmass = nmass + 1
@@ -273,7 +313,8 @@ for m0 in m0s:
         idx = idx + 1
 
 fmass.close()
-
+# waiting for all text2workspace commands to finish
+waitProcess(processes,True)
 #
 # bash script for executing job
 #
@@ -308,14 +349,14 @@ for line in fcfgtmp:
     fcrab.write(line)
     if line.find("return_data") != -1:
         return_data = 0
-        fcfgtmp.write("copy_data = 1\n")
-        fcfgtmp.write("publish_data = 0\n")
-        fcfgtmp.write("storage_element=srm-cms.cern.ch\n")
-        suffix = loString
-        if loVar == "-":  loVar = "m"
-        if loVar == "+":  loVar = "p"
-        fcfgtmp.write("user_remote_dir=user/a/adamwo/CrabOutput/msugra"+loString+loVar+"_multi\n")
-        fcfgtmp.write("storage_path=/srm/managerv2?SFN=/castor/cern.ch/\n")
+        fcrab.write("copy_data = 1\n")
+        fcrab.write("publish_data = 0\n")
+        fcrab.write("storage_element=srm-cms.cern.ch\n")
+        castor = dirname
+        ijob = castor.find("job_")
+        if ijob != -1:  castor = castor[(ijob+4):] 
+        fcrab.write("user_remote_dir=user/a/adamwo/CrabOutput/"+castor+"\n")
+        fcrab.write("storage_path=/srm/managerv2?SFN=/castor/cern.ch/\n")
 
 fcfgtmp.close()
 fcrab.close()
