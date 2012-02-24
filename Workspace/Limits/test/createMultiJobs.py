@@ -278,15 +278,16 @@ for m0 in m0s:
         dcfile.close()
 
         # asynchronous conversion to root workspace
-        processes = checkProcess(processes)
-        print "Currently ",len(processes.keys())," text2workspace commands running"
-        if len(processes.keys()) > 5:
-            print "Waiting for a text2workspace command to finish"
-            processes = waitProcess(processes)
-            print "Continuing"
-        wsname = modelname + ".root"
-        wscmd = [ "text2workspace.py", dcname , " -m ", str(m0+m12/10000.), " -o ", wsname ]
-        processes[dcname] = subprocess.Popen(wscmd)
+        if not options.text:
+            processes = checkProcess(processes)
+            print "Currently ",len(processes.keys())," text2workspace commands running"
+            if len(processes.keys()) > 5:
+                print "Waiting for a text2workspace command to finish"
+                processes = waitProcess(processes)
+                print "Continuing"
+            wsname = modelname + ".root"
+            wscmd = [ "text2workspace.py", dcname , " -m ", str(m0+m12/10000.), " -o ", wsname ]
+            processes[dcname] = subprocess.Popen(wscmd)
             
 #        # conversion to root workspace
 #        if not options.text:
@@ -314,7 +315,8 @@ for m0 in m0s:
 
 fmass.close()
 # waiting for all text2workspace commands to finish
-waitProcess(processes,True)
+if not options.text:
+    waitProcess(processes,True)
 #
 # bash script for executing job
 #
