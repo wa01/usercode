@@ -16,7 +16,8 @@ if ( ! ( -d $jobdir ) ) then
 endif
 
 set limargs = ( ' ' '--expectedFromGrid=0.16' '--expectedFromGrid=0.50' '--expectedFromGrid=0.84'  '--expectedFromGrid=0.025' '--expectedFromGrid=0.975' )
-set ofile = /tmp/adamwo/${jobdir}_comb.root
+set ofile = `echo $jobdir | sed 's/job_/limits_/'`
+set ofile = /tmp/adamwo/${ofile}_comb.root
 if ( -e $ofile ) then
   echo "Output file $ofile exists"
   exit 1
