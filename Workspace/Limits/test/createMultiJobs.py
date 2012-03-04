@@ -106,7 +106,7 @@ else:
         incards = options.btag
     else:
         incards = "multibtag"
-    incards = incards+"-ht"+str(options.ht)+"-met"+str(options.met)+".txt"
+    incards = "Backgrounds/"+incards+"-ht"+str(options.ht)+"-met"+str(options.met)+".txt"
 
 # options for "combine"
 combopt = "-M "+options.algo

@@ -86,7 +86,7 @@ errMCClosure = { 750 : { 250 : 0.072, 350 : 0.041, 450 : 0.073, 550 : 0.224 }, \
 #
 # output file name
 #
-oname = options.btag + "-ht" + str(options.ht) + "-met" + str(options.met) + ".txt"
+oname = "Backgrounds/" + options.btag + "-ht" + str(options.ht) + "-met" + str(options.met) + ".txt"
 ofile = open(oname,"w")
 #
 # numbers of channels and nuisance parameters
@@ -140,7 +140,7 @@ inf = float('inf')
 #
 # systematics for inclusive, 0, >=1
 #
-sname = "systematics_htSig-" + str(options.ht) + "_metSig-" + str(options.met) + ".py"
+sname = "Systematics/systematics_htSig-" + str(options.ht) + "_metSig-" + str(options.met) + ".py"
 execfile(sname)
 
 sumerr = 0
