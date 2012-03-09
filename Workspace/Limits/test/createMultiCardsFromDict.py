@@ -78,10 +78,14 @@ from optparse import OptionParser
 parser = OptionParser()
 parser.add_option("--ht", dest="ht", type="int", action="store", help="HT cut")
 parser.add_option("--met", dest="met", type="int", action="store", help="MET cut")
-#parser.add_option("--btag", dest="btag", default="binc", type="string", action="store")
+parser.add_option("--btag", dest="btag", default="", type="string", action="store")
 (options, args) = parser.parse_args()
 
+btagname = "multibtag"
 btags = [ "b0", "b1", "b2" ]
+if options.btag != "":
+    btagname = options.btag
+    btags = [ options.btag ]
 #
 # MC closure
 #
@@ -90,7 +94,7 @@ errMCClosure = { 750 : { 250 : 0.072, 350 : 0.041, 450 : 0.073, 550 : 0.224 }, \
 #
 # output file name
 #
-oname = "Backgrounds/multibtag-ht" + str(options.ht) + "-met" + str(options.met) + ".txt"
+oname = "Backgrounds/" + btagname + "-ht" + str(options.ht) + "-met" + str(options.met) + ".txt"
 ofile = open(oname,"w")
 #
 # numbers of channels and nuisance parameters
@@ -159,7 +163,8 @@ lumiSyst = 1.045
 sigSyst  = 1.20
 llumi = "lumi".ljust(10) + "lnN".ljust(5)
 lsigsyst = "sigSyst".ljust(10) + "lnN".ljust(5)
-lsigbtag = "sigBTag".ljust(10) + "lnN".ljust(5)
+if options.btag != 'binc':
+    lsigbtag = "sigBTag".ljust(10) + "lnN".ljust(5)
 lbkgstats = {}
 for btag in btags:
     # background statistics (uncorrelated)
@@ -170,7 +175,8 @@ for btag in btags:
     # global signal systematics (correlated in all signal channels)
     lsigsyst = lsigsyst + "%10.3f" % sigSyst + "-".rjust(10)
     # btag (signal)
-    lsigbtag = lsigbtag + "%10.3f" % (1+beffsyst[btag]) + "-".rjust(10)
+    if options.btag != 'binc':
+        lsigbtag = lsigbtag + "%10.3f" % (1+beffsyst[btag]) + "-".rjust(10)
     for btag1 in btags:
         lbkgstats[btag1] = lbkgstats[btag1] + "-".rjust(10)
         if btag1 == btag:
@@ -179,7 +185,8 @@ for btag in btags:
             lbkgstats[btag1] = lbkgstats[btag1] + "-".rjust(10)
 ofile.write(llumi+"\n")
 ofile.write(lsigsyst+"\n")
-ofile.write(lsigbtag+"\n")
+if options.btag != 'binc':
+    ofile.write(lsigbtag+"\n")
 for btag in btags:  ofile.write(lbkgstats[btag]+"\n")
 #
 # systematics (non-b related)
@@ -193,7 +200,10 @@ lbkgsyst = "bkgSyst".ljust(10) + "lnN".ljust(5)
 for btag in btags:
     # use 'b1p' for 'b1' and 'b2'
     bt = btag
-    if btag == 'b1' or btag == 'b2':  bt = 'b1p'
+    if bt == 'binc':
+        bt = 'inc'
+    elif btag == 'b1' or btag == 'b2':
+        bt = 'b1p'
     sumerr[btag] = 0
     for key in largestAbsDoubleRatioDeviation:
         err = sumLepErrors(key,bt,predLep[btag])
@@ -207,14 +217,16 @@ for btag in btags:
 #
 # systematics (b-tag related)
 #
-sname = "systematics_BT_htSig-" + str(options.ht) + "_metSig-" + str(options.met) + ".py"
+sname = "Systematics/systematics_BT_htSig-" + str(options.ht) + "_metSig-" + str(options.met) + ".py"
 execfile(sname)
 #
 # W/tt ratio
 #
 for btag in btags:
+    bt = btag
+    if bt == 'binc':  bt = 'inc'
     key = 'ScaleFrac'
-    err = sumLepErrors(key,btag,predLep[btag])
+    err = sumLepErrors(key,bt,predLep[btag])
     sumerr[btag] += err*err
     lbkgsyst = lbkgsyst + "-".rjust(10) + "%10.3f" % (1+math.sqrt(sumerr[btag]))
 ofile.write(lbkgsyst+"\n")
@@ -228,11 +240,13 @@ btKeys = { 'beff' : [ 'btagEff3_Up_b_sf0', 'btagEff3_Down_b_sf0' ], \
 for vari in btKeys:
     lbsyst = vari.ljust(10) + "lnN".ljust(5)
     for btag in btags:
+        bt = btag
+        if bt == 'binc':  bt = 'inc'
         # keys
         keyUp = btKeys[vari][0]
         keyDown = btKeys[vari][1]
         # (signed) variation / lepton channel
-        errLep = sumBTErrors(keyUp,keyDown,btag,predLep[btag])
+        errLep = sumBTErrors(keyUp,keyDown,bt,predLep[btag])
         lbsyst = lbsyst + "-".rjust(10) + "%10.3f" % (1+errLep)
     ofile.write(lbsyst+"\n")
     
