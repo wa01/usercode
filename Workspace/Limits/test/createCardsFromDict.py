@@ -161,7 +161,7 @@ sumerr += errClos*errClos
 #
 # b-tag related
 #
-sname = "systematics_BT_htSig-" + str(options.ht) + "_metSig-" + str(options.met) + ".py"
+sname = "Systematics/systematics_BT_htSig-" + str(options.ht) + "_metSig-" + str(options.met) + ".py"
 execfile(sname)
 
 bt = options.btag
