@@ -1,7 +1,7 @@
 #! /bin/tcsh -f
 #
-if ( $#argv != 1 ) then
-  echo "Missing or too many arguments"
+if ( $#argv < 1 ) then
+  echo "Missing argument"
   exit 1
 endif
 if ( $?CMSSW_RELEASE_BASE == 0 ) then
@@ -23,14 +23,52 @@ if ( -e $ofile ) then
   exit 1
 endif
 
+set files = ( )
+
+if ( $?localDir )  unset localDir
 set castorDir = `echo $jobdir | sed 's/job_//'`
 set castorDir = "${CASTOR_HOME}/CrabOutput/${castorDir}"
 nsls $castorDir >& /dev/null
-if ( $status != 0 ) then
-  echo "No such CASTOR directory: $castorDir"
+if ( $status == 0 ) then
+#  echo "No such CASTOR directory: $castorDir"
+#  exit 1
+#endif
+  set files = ( `nsls $castorDir | grep -E 'outputToy.*\.tgz' | sort -t'_' -r -n -k2,2 -k3,3` )
+else
+  echo "No such CASTOR directory: $castorDir - trying job area"
+  ls $jobdir/crab_0_* >& /dev/null
+  if ( $status != 0 ) then
+    echo "No crab directory in $jobdir"
+    exit 1
+  endif
+  if ( $#argv < 2 ) then
+    set crabs = `ls -d $jobdir/crab_0_*`
+  else
+    set crabs = $2
+  endif
+  if ( $#crabs != 1 ) then
+    echo "More than one crab directory in $jobdir"
+    exit 1
+  endif
+  if ( !( -d $crabs ) ) then
+    echo "No such directory $crabs"
+    exit 1
+  endif
+  pushd $crabs/res
+  set localDir = $PWD
+  ls outputToy*.tgz >& /dev/null
+  if ( $status == 0 ) then
+    set files = ( `ls outputToy*.tgz` )
+  endif
+  popd
+endif
+
+if ( $#files == 0 ) then
+  echo "No output files"
   exit 1
 endif
-set files = ( `nsls $castorDir | grep -E 'outputToy.*\.tgz' | sort -t'_' -r -n -k2,2 -k3,3` )
+#echo $files
+#exit 0
 
 set curdir = $PWD
 set tmpdir = /tmp/adamwo/mergeSinglePoint_$$
@@ -52,7 +90,11 @@ foreach file ( $files )
     @ ntot = $ntot + 1
     echo $file
 
-    rfcp $castorDir/$file .
+    if ( $?localDir ) then
+      cp $localDir/$file .
+    else
+     rfcp $castorDir/$file .
+    endif
     tar -zxf $file
     if ( $status != 0 ) then
       echo "failed to unpack output file $file"
