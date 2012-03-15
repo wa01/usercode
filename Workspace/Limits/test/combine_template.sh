@@ -63,7 +63,7 @@ done
 ls
 echo "job number: seed #$i with $n toys"
 mv higgs*.root outputToy/
-mv *.txt outputToy/
+cp *.txt outputToy/
 mv *.log outputToy/
 echo "pack the results"
 tar cvfz outputToy.tgz outputToy/
