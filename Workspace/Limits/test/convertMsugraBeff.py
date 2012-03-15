@@ -37,9 +37,11 @@ def getVar (dic,signal,btags,mode):
             up += dic[lep][signal][strup][btag][0]
             down += dic[lep][signal][strdown][btag][0]
             if mode == 'b':
-                s1 += dic[lep][signal]['Norm_sf1'][btag][0]*dic[lep][signal]['BDelta/(2Norm_sf1)'][btags[0]][0]
+                s1 += dic[lep][signal]['Norm_sf1'][btag][0]* \
+                      dic[lep][signal]['BDelta/(2Norm_sf1)'][btags[0]][0]
             else:
-                s1 += dic[lep][signal]['Norm_sf1'][btag][0]*dic[lep][signal]['LDelta/(2Norm_sf1)'][btags[0]][0]
+                s1 += dic[lep][signal]['Norm_sf1'][btag][0]* \
+                      dic[lep][signal]['LDelta/(2Norm_sf1)'][btags[0]][0]
     var = (up-down)/2./norm_sf1
     if len(btags) == 1:
         if abs(var-s1/norm_sf1) > 0.0001:
@@ -68,9 +70,9 @@ btagLabels = { 'b0' : [ '0' ], 'b1' : [ '1' ], 'b1p' : [ '1' , '>=2' ],  'b2' : 
 #
 effDict = {}
 for ht in hts:
-    if not ht in effDict:  effDict[ht] = {}
+#    if not ht in effDict:  effDict[ht] = {}
     for met in mets:
-        if not met in effDict[ht]:  effDict[ht][met] = {}
+#        if not met in effDict[ht]:  effDict[ht][met] = {}
         inDict = { 'Muon' : {}, 'Electron' : {} }
         for lepton in inDict:
             ifname = template.substitute(lepton=lepton,ht=str(ht),met=str(met))
@@ -89,7 +91,7 @@ for ht in hts:
                 # translate to standard string
                 msugraString = signal.replace("signal_","msugra_")
                 msugraString += "_10_0_1"
-                if not msugraString in effDict[ht][met]: effDict[ht][met][msugraString] = {}
+#                if not msugraString in effDict[ht][met]: effDict[ht][met][msugraString] = {}
 #                    btags = nbtags[label][signal]['originalMC'].keys()
 #                    print lep,ht,met,msugraString
                 # btag bins (output / input notation)
@@ -98,12 +100,17 @@ for ht in hts:
                     sfFactor = getFactor(inDict,signal,btagsIn)
                     # skip empty bins
                     if sfFactor == None:  continue
+                    if not btagOut in effDict:  effDict[btagOut] = {}
+                    if not ht in effDict[btagOut]: effDict[btagOut][ht] = {}
+                    if not met in effDict[btagOut][ht]: effDict[btagOut][ht][met] = {}
+                    if not msugraString in effDict[btagOut][ht][met]:
+                        effDict[btagOut][ht][met][msugraString] = {}
                     # add correction factor and variations to dictionary
-                    if not btagOut in effDict[ht][met][msugraString]:
-                        effDict[ht][met][msugraString][btagOut] = {}
-                    effDict[ht][met][msugraString][btagOut]['sfFactor'] = sfFactor
-                    effDict[ht][met][msugraString][btagOut]['relVarB'] = getVar(inDict,signal,btagsIn,'b')
-                    effDict[ht][met][msugraString][btagOut]['relVarL'] = getVar(inDict,signal,btagsIn,'l')
+#                    if not btagOut in effDict[ht][met][msugraString]:
+#                        effDict[btagOut][ht][met][msugraString] = {}
+                    effDict[btagOut][ht][met][msugraString]['sfFactor'] = sfFactor
+                    effDict[btagOut][ht][met][msugraString]['relVarB'] = getVar(inDict,signal,btagsIn,'b')
+                    effDict[btagOut][ht][met][msugraString]['relVarL'] = getVar(inDict,signal,btagsIn,'l')
 #                print effDict
 #                sys.exit(0)
 #
