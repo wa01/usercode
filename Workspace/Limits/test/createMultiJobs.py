@@ -182,6 +182,14 @@ fEffMuName = effFileName("Mu",options.model,loString,loVar)
 fEffMu = open(fEffMuName,"rb")
 effsMu = cPickle.load(fEffMu)
 fEffMu.close()
+fEffRatioMuName = ratioFileName("Mu",options.model,loString,loVar)
+fEffRatioMu = open(fEffRatioMuName,"rb")
+effRatiosMu = cPickle.load(fEffRatioMu)
+fEffRatioMu.close()
+fEffRatioMuName = effFileName("Mu",options.model,loString,loVar).replace("events","efficiency")
+fEffRatioMu = open(fEffRatioMuName,"rb")
+effRatiosMu = cPickle.load(fEffRatioMu)
+fEffRatioMu.close()
 #
 # Ele efficiencies
 #
@@ -189,6 +197,14 @@ fEffEleName = effFileName("Ele",options.model,loString,loVar)
 fEffEle = open(fEffEleName,"rb")
 effsEle = cPickle.load(fEffEle)
 fEffEle.close()
+fEffRatioEleName = ratioFileName("Ele",options.model,loString,loVar)
+fEffRatioEle = open(fEffRatioEleName,"rb")
+effRatiosEle = cPickle.load(fEffRatioEle)
+fEffRatioEle.close()
+fEffRatioEleName = effFileName("Ele",options.model,loString,loVar).replace("events","efficiency")
+fEffRatioEle = open(fEffRatioEleName,"rb")
+effRatiosEle = cPickle.load(fEffRatioEle)
+fEffRatioEle.close()
 #
 # cross sections
 #
@@ -242,12 +258,14 @@ for m0 in m0s:
         if m12range[1] >= m12range[0] and ( m12 < m12range[0] or m12 > m12range[1] ): continue
 
         # signal characterization (string)
-        msugraString = signalString(options.model,m0,m12)
+        msugraString = buildSignalString(options.model,m0,m12)
         # signal characterization (tuple)
-        msugraTuple = signalTuple(options.model,m0,m12)
+        msugraTuple = buildSignalTuple(options.model,m0,m12)
         if options.nlo:
             # yield for each b-tag bin in list
             sigYields = getSigYieldsNLO(btags,options.ht,options.met,msugraString,msugraTuple,options.lumi,xsecsNLO,effsMu,effsEle)
+#            sigYields = getSmoothedSigYieldsNLOtmp(btags,options.ht,options.met,msugraString,msugraTuple,options.lumi,\
+#                                                effRatiosMu,effsMu,effRatiosEle,effsEle)
             if zeroSignalChannel(sigYields):
                 # skip points with (at least one) channel without signal
                 print "No signal for ",msugraString," ",sigYields
