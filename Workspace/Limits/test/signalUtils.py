@@ -5,7 +5,24 @@ from string import Template
 channelNames = [ "Ele", "Mu" ]
 modelTemplates = { "msugra": [ Template("msugra_${m0}_${m12}_10_0_1"), ( "{m0}", "{m12}", 10, 0, 1 ) ],
                    "T1tttt": [ Template("T1tttt_${m0}_${m12}_-1"), ( "{m0}", "{m12}", -1 ) ] }
-def effFileName (channel,model,order="LO",var=""):
+def effFileName (channel,model,order="LO",var="",smoothed=False):
+    assert channel in channelNames
+    assert model in modelTemplates
+    name = channel + "_"
+    if model == "msugra":
+#        return channel+"_"+model+"Efficiencies"
+        if order == "LO":
+            name = name + model + "_LO_efficiency"
+        else:
+            if var != "":  name += var + "_"
+            print name+model+"_NLO_events"
+            name = name + model + "_NLO_events"
+    else:
+        name = name + model + "_Efficiencies"
+    if smoothed:  name += "-smoothed"
+    return name+".pkl"
+    
+def ratioFileName (channel,model,order="LO",var=""):
     assert channel in channelNames
     assert model in modelTemplates
     name = channel + "_"
@@ -15,8 +32,8 @@ def effFileName (channel,model,order="LO",var=""):
             return name+model+"_LO_efficiency.pkl"
         else:
             if var != "":  name += var + "_"
-            print name+model+"_NLO_eventsPP.pkl"
-            return name+model+"_NLO_eventsPP.pkl"
+            print name+model+"_NLO_efficiency-EffRatio.pkl"
+            return name+model+"_NLO_efficiency-EffRatio.pkl"
     else:
         return name+model+"_Efficiencies.pkl"
     
@@ -31,13 +48,22 @@ def xsecFileName (model,order="LO"):
         return "xsec"+model+".pkl"
     
     
-def signalString (model,m0_,m12_):
+def buildSignalString (model,m0_,m12_):
     assert model in modelTemplates
     return modelTemplates[model][0].substitute(m0=str(m0_),m12=str(m12_))
 
-def signalTuple (model,m0_,m12_):
+def buildSignalTuple (model,m0_,m12_):
     assert model in modelTemplates
     return (m0_,m12_)+modelTemplates[model][1][2:]
+
+def getFromSignalString (sigString,field):
+    parts = sigString.split('_')
+    assert parts[0] in modelTemplates
+    partsT = modelTemplates[parts[0]][0].template.split('_')
+    assert len(parts) == len(partsT)
+    for i, p in enumerate(partsT):
+        if p == "${"+field+"}":  return parts[i]
+    return None
 
 def getSigYieldsLO (btags,ht,met,msugraString,msugraTuple,lumi,xsecs,effsMu,effsEle):
     sigYields = {}
@@ -56,35 +82,52 @@ def getSigYieldsLO (btags,ht,met,msugraString,msugraTuple,lumi,xsecs,effsMu,effs
         sigYields[btag] = lumi*(effEle+effMu)*xsLO
     return sigYields
 
-def getSigYieldsNLO (btags,ht,met,msugraString,msugraTuple,lumi,xsecs,effsMu,effsEle):
+def getSigYieldsNLO (btags,ht,met,msugraString,evtsMu,evtsEle):
     sigYields = {}
-#    meanEffs = {}
+    for btag in btags:
+        if btag == 'b1p':  continue
+        sigYields[btag] = 0.
+        evtMu = None
+        if msugraString in evtsMu[btag][ht][met]:
+            evtMu = evtsMu[btag][ht][met][msugraString]
+        evtEle = None
+        if msugraString in evtsEle[btag][ht][met]:
+            evtEle = evtsEle[btag][ht][met][msugraString]
+        # temporary fix: using yields instead of efficiencies
+        if evtMu != None and evtEle != None:
+            sigYields[btag] = evtMu + evtEle
+    if 'b1p' in btags:
+        sigYields['b1p'] = sigYields['b1'] + sigYields['b2']
+    return sigYields
+
+def getSmoothedSigYieldsNLO (btags,ht,met,msugraString,msugraTuple,lumi,ratiosMu,yieldsMu,ratiosEle,yieldsEle):
+    sigYields = {}
     for btag in btags:
         sigYields[btag] = 0.
-#        meanEffs[btag] = [ 0, 0, 0 ]
-    for pp in xsecs[msugraTuple[1]][msugraTuple[0]]:
-        if pp == 'total':  continue
-        xsNLO = xsecs[msugraTuple[1]][msugraTuple[0]][pp]
-#        print "xs for ",pp," = ",xsNLO
-        if not ( pp in effsMu[btag][ht][met][msugraString] and \
-                 pp in effsEle[btag][ht][met][msugraString] ):
-            print "Missing process in efficiency files: ",pp
-            continue
-        for btag in btags:
-            effMu = effsMu[btag][ht][met][msugraString][pp]
-            effEle = effsEle[btag][ht][met][msugraString][pp]
-#            meanEffs[btag][0] += xsNLO
-#            meanEffs[btag][1] += xsNLO*effMu
-#            meanEffs[btag][2] += xsNLO*effEle
-            # temporary fix: using yields instead of efficiencies
-            sigYields[btag] += effEle+effMu
-#            print "contribution for ",btag,' is ',(effEle+effMu)
-#            print "contribution for ",btag,' is ',lumi*(effEle+effMu)*xsNLO
-#            sigYields[btag] += lumi*(effEle+effMu)*xsNLO
-#    for btag in btags:
-#        if meanEffs[btag][0] > 0:
-#            meanEffs[btag][1] /= meanEffs[btag][0]
-#            meanEffs[btag][2] /= meanEffs[btag][0]
-#    print meanEffs
-#    print sigYields
+        # temporary fix: using yields instead of efficiencies
+        yMu = None
+        if msugraString in ratiosMu[btag][ht][met] and msugraString in yieldsMu[btag][ht][met]:
+            yMu = ratiosMu[btag][ht][met][msugraString]*yieldsMu[btag][ht][met][msugraString]
+            sigYields[btag] += yMu
+        yEle = None
+        if msugraString in ratiosEle[btag][ht][met] and msugraString in yieldsMu[btag][ht][met]:
+            yEle = ratiosEle[btag][ht][met][msugraString]*yieldsEle[btag][ht][met][msugraString]
+            sigYields[btag] += yEle
+        if yMu == None or yEle == None:
+            print btag,ht,met,msugraString,yMu,yEle
+    return sigYields
+
+def getSmoothedSigYieldsNLOtmp (btags,ht,met,msugraString,msugraTuple,lumi,effMu,yieldsMu,effEle,yieldsEle):
+    sigYields = {}
+    btagEffs = { 'b0' : 0.001, 'b1' : 0.0015, 'b2' : 0.002 }
+    for btag in btags:
+        sigYields[btag] = 0.
+        # temporary fix: using yields instead of efficiencies
+        if msugraString in effMu[btag][ht][met] and effMu[btag][ht][met][msugraString] > 0:
+            print btagEffs[btag],effMu[btag][ht][met][msugraString],yieldsMu[btag][ht][met][msugraString]
+            yMu = btagEffs[btag]/effMu[btag][ht][met][msugraString]*yieldsMu[btag][ht][met][msugraString]
+            sigYields[btag] += yMu
+        if msugraString in effEle[btag][ht][met] and effEle[btag][ht][met][msugraString] > 0:
+            yEle = btagEffs[btag]/effEle[btag][ht][met][msugraString]*yieldsEle[btag][ht][met][msugraString]
+            sigYields[btag] += yEle
     return sigYields
