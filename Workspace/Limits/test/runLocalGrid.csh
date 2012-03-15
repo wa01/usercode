@@ -61,8 +61,9 @@ if ( obs<=0 || ex<=0 )  exit 1;
 if ( ex>obs )  obs = ex;
 rmax = 5 * obs;
 dr = rmax / 20.;
-for ( i=0; i<20; ++i )  printf("%6.2f",(i+1)*dr);
-printf("\n");
+line = "";
+for ( i=0; i<20; ++i )  line = line " " (i+1)*dr;
+print line;
 }
 EOF
 set res = ( `awk -f tmp.awk asymptotic.log` )
