@@ -2,6 +2,8 @@
 #include "TMatrixD.h"
 #include "TVectorD.h"
 #include "TCanvas.h"
+#include "TFile.h"
+#include "TKey.h"
 
 #include <iostream>
 
@@ -10,6 +12,38 @@ using namespace std;
 //
 // Smoothing of efficiency in msugra plane
 //
+
+TH2* findJesHisto (TFile* file) {
+  TH2* result(0);
+  TIter itKey(file->GetListOfKeys());
+  TObject* obj;
+  TKey* key;
+  TCanvas* cnv(0);
+  while ( (key=(TKey*)itKey.Next()) ) {
+    obj = key->ReadObj();
+    if ( obj->IsA()==TCanvas::Class() ) {
+      if ( cnv ) {
+	cout << "Found multiple canvases" << endl;
+	return result;
+      }
+      cnv = (TCanvas*)obj;
+    }
+  }
+
+  if ( cnv == 0 ) {
+    cout << "No canvas" << endl;
+    return result;
+  }
+
+  TIter itC(cnv->GetListOfPrimitives());
+  while ( (obj=(TObject*)itC.Next()) ) {
+    if ( obj->InheritsFrom(TH2::Class()) ) {
+      result = (TH2*)obj;
+      break;
+    }
+  }
+  return result;
+}
 
 //
 // fill missing bins in histogram h fitting a plane to the 
@@ -83,7 +117,7 @@ void clearBins (TH2* histo, TH2* refHisto) {
 	if ( jx<1 || jx>nbx )  continue;
 	for ( int jy=iy-1; jy<iy+2; ++jy ) {
 	  if ( jy<1 || jy>nby )  continue;
-	  if ( refHisto->GetBinContent(jx,jy)<1.e-10 )  ++nempty;
+	  if ( fabs(refHisto->GetBinContent(jx,jy))<1.e-10 )  ++nempty;
 	}
       }
       // clear bin if >1 empty neighbour
@@ -96,41 +130,61 @@ void clearBins (TH2* histo, TH2* refHisto) {
 // perform filling of (isolated) empty bins and smoothing
 //   on an efficiency histogram in the msugra plane
 //
-TH1* doAll (TH2* hRaw) {
+TH2* doSmooth (TH2* hRaw, const char* algo = "k3a", int nTimes = 2, bool ratio = true, bool draw = false) {
   // fill isolated empty bins
   TH2* hFilled = fillMissing(hRaw);
-  TCanvas* c = new TCanvas("cFilled","cFilled");
-  hFilled->Draw("ZCOL");
+  TCanvas* c(0);
+  if ( draw ) {
+    c = new TCanvas("cFilled","cFilled");
+    hFilled->Draw("ZCOL");
+  }
   // smooth histogram (2 steps, 3x3)
   TH2* hSmooth = (TH2*)hFilled->Clone("hSmooth");
   hSmooth->SetTitle("hSmooth");
-  hSmooth->Smooth(1,"k3a");
-  hSmooth->Smooth(1,"k3a");
+  for ( int i=0; i<nTimes; ++i )  hSmooth->Smooth(1,algo);
   clearBins(hSmooth,hFilled);
-  c = new TCanvas("cSmooth","cSmooth");
-  hSmooth->Draw("ZCOL");
+  if ( draw ) {
+    c = new TCanvas("cSmooth","cSmooth");
+    hSmooth->Draw("ZCOL");
+  }
   // relative difference smoothed/raw (cross check)
-  TH2* hRelDiff = (TH2*)hFilled->Clone("hRelDiff");
-  hRelDiff->SetTitle("hRelDiff");
-  hRelDiff->Add(hSmooth,-1);
-  hRelDiff->Divide(hSmooth);
-  hRelDiff->SetMinimum(-0.15);
-  hRelDiff->SetMaximum(0.15);
-  hRelDiff->Smooth();
-  hRelDiff->Smooth();
-  c = new TCanvas("cRelDiff","cRelDiff");
-  hRelDiff->Draw("ZCOL");
+  if ( draw ) {
+    TH2* hRelDiff = (TH2*)hFilled->Clone("hRelDiff");
+    hRelDiff->SetTitle("hRelDiff");
+    hRelDiff->Add(hSmooth,-1);
+    hRelDiff->Divide(hSmooth);
+    hRelDiff->SetMinimum(-0.15);
+    hRelDiff->SetMaximum(0.15);
+    hRelDiff->Smooth();
+    hRelDiff->Smooth();
+    c = new TCanvas("cRelDiff","cRelDiff");
+    hRelDiff->Draw("ZCOL");
+  }
   // ratio smoothed / raw
-  TH2* hRatio = (TH2*)hSmooth->Clone("hRatio");
-  hRatio->SetTitle("hRatio");
-  hRatio->Divide(hFilled);
-  hRatio->SetMinimum(0.5);
-  hRatio->SetMaximum(1.5);
+  TH2* hRatio(0);
+  if ( draw || ratio ) {
+    hRatio = (TH2*)hSmooth->Clone("hRatio");
+    hRatio->SetTitle("hRatio");
+    hRatio->Divide(hFilled);
+    hRatio->SetMinimum(0.5);
+    hRatio->SetMaximum(1.5);
 //   hRatio->Smooth();
 //   hRatio->Smooth();
-  c = new TCanvas("cRatio","cRatio");
-  hRatio->Draw("ZCOL");
+    if ( draw ) {
+      c = new TCanvas("cRatio","cRatio");
+      hRatio->Draw("ZCOL");
+    }
+  }
 
-  return hRatio;
+  return ratio ? hRatio : hSmooth;
 }
 
+TH2* doEff (TH2* hRaw, bool ratio = true, bool draw = false) {
+  return doSmooth(hRaw,"k3a",2,ratio,draw);
+}
+
+TH2* doJES (TFile* file, bool ratio = true, bool draw = false) {
+  TH2* hRaw = findJesHisto(file);
+  if ( hRaw == 0 )  return hRaw;
+  return doSmooth(hRaw,"",2,ratio,draw);
+}
