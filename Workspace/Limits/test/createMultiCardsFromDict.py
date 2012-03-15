@@ -46,6 +46,20 @@ def sumLepErrors (key,bt,predLep):
     sumPred = 0
     sumPredErr = 0
     for lep in leptons:
+        err = doubleRatio[key][lep][bt] - 1
+        err2 = singleRatio[key][lep][bt] - 1
+        if abs(err2) < abs(err):
+            print "single < double ratio for ",key,lep,btag,err2,err
+            err = err2
+        sumPred += predLep[lep]
+        sumPredErr += predLep[lep]*err
+        print "JES correction ",key,lep,btag,err
+    print "JES correction ",key,btag,sumPredErr/sumPred
+    return sumPredErr/sumPred
+def sumAbsLepErrors (key,bt,predLep):
+    sumPred = 0
+    sumPredErr = 0
+    for lep in leptons:
         err = largestAbsDoubleRatioDeviation[key][lep][bt]
         err2 = largestAbsSingleRatioDeviation[key][lep][bt]
         if err2 < err:
@@ -161,14 +175,14 @@ ofile.write("#\n")
 #
 lumiSyst = 1.045
 sigSyst  = 1.20
-llumi = "lumi".ljust(10) + "lnN".ljust(5)
-lsigsyst = "sigSyst".ljust(10) + "lnN".ljust(5)
+llumi = "lumi".ljust(15) + "lnN".ljust(5)
+lsigsyst = "sigSyst".ljust(15) + "lnN".ljust(5)
 if options.btag != 'binc':
-    lsigbtag = "sigBTag".ljust(10) + "lnN".ljust(5)
+    lsigbtag = "sigBTag".ljust(15) + "lnN".ljust(5)
 lbkgstats = {}
 for btag in btags:
     # background statistics (uncorrelated)
-    lbkgstats[btag] = (btag+"Stat").ljust(10) + "lnN".ljust(5)
+    lbkgstats[btag] = (btag+"Stat").ljust(15) + "lnN".ljust(5)
 for btag in btags:
     # luminosity (correlated in all signal channels)
     llumi = llumi + "%10.3f" % lumiSyst + "-".rjust(10)
@@ -196,7 +210,9 @@ sname = "Systematics/systematics_htSig-" + str(options.ht) + "_metSig-" + str(op
 execfile(sname)
 
 sumerr = {}
-lbkgsyst = "bkgSyst".ljust(10) + "lnN".ljust(5)
+jeserr = {}
+lbkgsyst = "bkgSyst".ljust(15) + "lnN".ljust(5)
+lbkgjes = "bkgSystJES".ljust(15) + "lnN".ljust(5)
 for btag in btags:
     # use 'b1p' for 'b1' and 'b2'
     bt = btag
@@ -206,14 +222,35 @@ for btag in btags:
         bt = 'b1p'
     sumerr[btag] = 0
     for key in largestAbsDoubleRatioDeviation:
-        err = sumLepErrors(key,bt,predLep[btag])
+        if key == 'JES':  continue
+        err = sumAbsLepErrors(key,bt,predLep[btag])
         sumerr[btag] += err*err
         print key,btag,err
-
+    jeserr[btag] = 0
+    jeserrpm = []
+    for key in [ 'pfRA4TupelizerJESMinus', 'pfRA4TupelizerJESPlus' ]:
+        jeserrpm.append(sumLepErrors(key,bt,predLep[btag]))
+    if abs(jeserrpm[0]) > abs(jeserrpm[1]):
+        jeserr[btag] = jeserrpm[0]
+    else:
+        jeserr[btag] = jeserrpm[1]
+    print "JES correction ",btag,jeserr[btag]
+        
+#
+# add non-closure to other errors
+#
 errClos = errMCClosure[options.ht][options.met]
 print "Adding MC closure syst ",errClos
 for btag in btags:
     sumerr[btag] += errClos*errClos
+#
+# write JES errors
+#
+for btag in btags:
+    bt = btag
+    if bt == 'binc':  bt = 'inc'
+    lbkgjes = lbkgjes + "-".rjust(10) + "%10.3f" % (1+jeserr[btag])
+ofile.write(lbkgjes+"\n")
 #
 # systematics (b-tag related)
 #
@@ -226,7 +263,7 @@ for btag in btags:
     bt = btag
     if bt == 'binc':  bt = 'inc'
     key = 'ScaleFrac'
-    err = sumLepErrors(key,bt,predLep[btag])
+    err = sumAbsLepErrors(key,bt,predLep[btag])
     sumerr[btag] += err*err
     lbkgsyst = lbkgsyst + "-".rjust(10) + "%10.3f" % (1+math.sqrt(sumerr[btag]))
 ofile.write(lbkgsyst+"\n")
@@ -238,7 +275,7 @@ ofile.write(lbkgsyst+"\n")
 btKeys = { 'beff' : [ 'btagEff3_Up_b_sf0', 'btagEff3_Down_b_sf0' ], \
            'leff' : [ 'btagEff3_Up_l_sf0', 'btagEff3_Down_l_sf0' ] }
 for vari in btKeys:
-    lbsyst = vari.ljust(10) + "lnN".ljust(5)
+    lbsyst = vari.ljust(15) + "lnN".ljust(5)
     for btag in btags:
         bt = btag
         if bt == 'binc':  bt = 'inc'
