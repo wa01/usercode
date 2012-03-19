@@ -25,7 +25,7 @@ def getRange (rangeString):
     result = ( int(parts[0]), int(parts[1]) )
     return result
 
-def addSignalTuplesFromEff (effDict,model,btags,hts,mets,sigTuples):
+def mergeSignalTuplesFromEff (effDict,model,btags,hts,mets,sigTuples):
     for btag in btags:
         if not btag in effDict:  continue
         for ht in hts:
@@ -139,8 +139,8 @@ if options.nlo:
 #    for m12 in xsecsNLO:
 #        for m0 in xsecsNLO[m12]:
 #            xsecsLO.append( (  m0, m12, 10, 0, 1 ) )
-    addSignalTuplesFromEff(effsMu,options.model,btags,hts,mets,xsecsLO)
-    addSignalTuplesFromEff(effsEle,options.model,btags,hts,mets,xsecsLO)
+    mergeSignalTuplesFromEff(effsMu,options.model,btags,hts,mets,xsecsLO)
+    mergeSignalTuplesFromEff(effsEle,options.model,btags,hts,mets,xsecsLO)
 else:
     fXsecName = xsecFileName(options.model,"LO")
     fXsecLO = open(fXsecName)
