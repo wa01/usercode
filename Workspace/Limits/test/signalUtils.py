@@ -62,7 +62,7 @@ def getFromSignalString (sigString,field):
     partsT = modelTemplates[parts[0]][0].template.split('_')
     assert len(parts) == len(partsT)
     for i, p in enumerate(partsT):
-        if p == "${"+field+"}":  return parts[i]
+        if p == "${"+field+"}":  return int(parts[i])
     return None
 
 def getSigYieldsLO (btags,ht,met,msugraString,msugraTuple,lumi,xsecs,effsMu,effsEle):
@@ -86,7 +86,7 @@ def getSigYieldsNLO (btags,ht,met,msugraString,evtsMu,evtsEle):
     sigYields = {}
     for btag in btags:
         if btag == 'b1p':  continue
-        sigYields[btag] = 0.
+        sigYields[btag] = None
         evtMu = None
         if msugraString in evtsMu[btag][ht][met]:
             evtMu = evtsMu[btag][ht][met][msugraString]
@@ -97,7 +97,12 @@ def getSigYieldsNLO (btags,ht,met,msugraString,evtsMu,evtsEle):
         if evtMu != None and evtEle != None:
             sigYields[btag] = evtMu + evtEle
     if 'b1p' in btags:
-        sigYields['b1p'] = sigYields['b1'] + sigYields['b2']
+        if sigYields['b1'] != None and sigYields['b2'] != None:
+            sigYields['b1p'] = sigYields['b1'] + sigYields['b2']
+        else:
+            sigYields['b1p'] = None
+            #    for btag in sigYields:
+            #       if sigYields[btag] == None:  sigYields[btag] = 0.
     return sigYields
 
 def getSmoothedSigYieldsNLO (btags,ht,met,msugraString,msugraTuple,lumi,ratiosMu,yieldsMu,ratiosEle,yieldsEle):
