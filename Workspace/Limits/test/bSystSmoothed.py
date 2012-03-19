@@ -35,7 +35,7 @@ filename = sys.argv[1]
 mydic = pickle.load(file(filename))
 
 from ROOT import gROOT
-gROOT.ProcessLine(".L EfficiencyUtils.C+")
+gROOT.ProcessLine(".L SmoothingUtils.C+")
 
 # output dictionary
 newdic = {}

@@ -10,11 +10,19 @@
 using namespace std;
 
 //
-// Smoothing of efficiency in msugra plane
+// Smoothing of distributions in the msugra plane
 //
 
+//
+// extract histogram with JES signal systematics from
+//   a canvas in a root file
+//
 TH2* findJesHisto (TFile* file) {
+  // result == 0 : failure
   TH2* result(0);
+  //
+  // find TCanvas in TFile
+  //
   TIter itKey(file->GetListOfKeys());
   TObject* obj;
   TKey* key;
@@ -29,17 +37,21 @@ TH2* findJesHisto (TFile* file) {
       cnv = (TCanvas*)obj;
     }
   }
-
   if ( cnv == 0 ) {
     cout << "No canvas" << endl;
     return result;
   }
-
+  //
+  // find TH2 in TCanvas
+  //
   TIter itC(cnv->GetListOfPrimitives());
   while ( (obj=(TObject*)itC.Next()) ) {
     if ( obj->InheritsFrom(TH2::Class()) ) {
+      if ( result ) {
+	cout << "Found multiple histograms" << endl;
+	return (TH2*)0;
+      }
       result = (TH2*)obj;
-      break;
     }
   }
   return result;
@@ -47,7 +59,8 @@ TH2* findJesHisto (TFile* file) {
 
 //
 // fill missing bins in histogram h fitting a plane to the 
-//   surrounding bins (minimum number nmin of non-empty bins) 
+//   surrounding bins 
+//   nmin: minimum number of non-empty neighbours
 //
 TH2* fillMissing (TH2* h, int nmin=5) {
   TH2* hNew = h;
@@ -56,7 +69,9 @@ TH2* fillMissing (TH2* h, int nmin=5) {
 
   TMatrixD mat(3,3);
   TVectorD cvec(3);
+  //
   // loop over histogram (excluding a 1-bin wide margin)
+  //
   for ( int ix=2; ix<nbx; ++ix ) {
     for ( int iy=2; iy<nby; ++iy ) {
       // check only empty bins
@@ -85,7 +100,8 @@ TH2* fillMissing (TH2* h, int nmin=5) {
       }
       // don't change empty bin if <nmin non-empty neighbours
       if ( nn<nmin ) continue;
-//       cout << "x / y = " << h->GetXaxis()->GetBinCenter(ix) << " " << h->GetYaxis()->GetBinCenter(iy) << endl;
+//       cout << "x / y = " << h->GetXaxis()->GetBinCenter(ix) << " " 
+//                          << h->GetYaxis()->GetBinCenter(iy) << endl;
       // 
       // linear 2D fit to neighbours (in units of bin number): 
       //   par(0)*(x-ix)+par(1)*(y-iy)+par(2)
@@ -101,11 +117,11 @@ TH2* fillMissing (TH2* h, int nmin=5) {
   return hNew;
 }
 //
-// clear bins with more than 1 empty neighbour
+// clear bins with more than nmax empty neighbours
 //   (remove artefacts of smoothing at the edges of
 //    the physical region)
 //
-void clearBins (TH2* histo, TH2* refHisto) {
+void clearBins (TH2* histo, TH2* refHisto, int nmax = 1) {
   int nbx = refHisto->GetNbinsX();
   int nby = refHisto->GetNbinsY();
   // loop over bins
@@ -120,8 +136,8 @@ void clearBins (TH2* histo, TH2* refHisto) {
 	  if ( fabs(refHisto->GetBinContent(jx,jy))<1.e-10 )  ++nempty;
 	}
       }
-      // clear bin if >1 empty neighbour
-      if ( nempty>1 )  histo->SetBinContent(ix,iy,0.);
+      // clear bin if > nmax empty neighbours
+      if ( nempty>nmax )  histo->SetBinContent(ix,iy,0.);
     }
   }
 }
@@ -129,25 +145,37 @@ void clearBins (TH2* histo, TH2* refHisto) {
 //
 // perform filling of (isolated) empty bins and smoothing
 //   on an efficiency histogram in the msugra plane
+//   algo:   name of smoothing algorithm
+//   nTimes: # of times the algorithm is applied
+//   ratio:  if true return ratio smoothed / raw; else smoothed
 //
 TH2* doSmooth (TH2* hRaw, const char* algo = "k3a", int nTimes = 2, bool ratio = true, bool draw = false) {
+  //
   // fill isolated empty bins
+  //
   TH2* hFilled = fillMissing(hRaw);
+
   TCanvas* c(0);
   if ( draw ) {
     c = new TCanvas("cFilled","cFilled");
     hFilled->Draw("ZCOL");
   }
-  // smooth histogram (2 steps, 3x3)
+  //
+  // smooth histogram 
+  //
   TH2* hSmooth = (TH2*)hFilled->Clone("hSmooth");
   hSmooth->SetTitle("hSmooth");
+  // (first parameter in Smooth is dummy)
   for ( int i=0; i<nTimes; ++i )  hSmooth->Smooth(1,algo);
+  // remove artefacts on edges of the filled region
   clearBins(hSmooth,hFilled);
   if ( draw ) {
     c = new TCanvas("cSmooth","cSmooth");
     hSmooth->Draw("ZCOL");
   }
+  //
   // relative difference smoothed/raw (cross check)
+  //
   if ( draw ) {
     TH2* hRelDiff = (TH2*)hFilled->Clone("hRelDiff");
     hRelDiff->SetTitle("hRelDiff");
@@ -160,7 +188,9 @@ TH2* doSmooth (TH2* hRaw, const char* algo = "k3a", int nTimes = 2, bool ratio =
     c = new TCanvas("cRelDiff","cRelDiff");
     hRelDiff->Draw("ZCOL");
   }
+  //
   // ratio smoothed / raw
+  //
   TH2* hRatio(0);
   if ( draw || ratio ) {
     hRatio = (TH2*)hSmooth->Clone("hRatio");
@@ -178,11 +208,15 @@ TH2* doSmooth (TH2* hRaw, const char* algo = "k3a", int nTimes = 2, bool ratio =
 
   return ratio ? hRatio : hSmooth;
 }
-
+//
+// default settings for smoothing efficiency histograms
+//
 TH2* doEff (TH2* hRaw, bool ratio = true, bool draw = false) {
   return doSmooth(hRaw,"k3a",2,ratio,draw);
 }
-
+//
+// default settings for smoothing JES signal systematics
+//
 TH2* doJES (TFile* file, bool ratio = true, bool draw = false) {
   TH2* hRaw = findJesHisto(file);
   if ( hRaw == 0 )  return hRaw;

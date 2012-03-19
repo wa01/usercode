@@ -4,7 +4,7 @@ import math
 import sys
 #
 # read efficiencies from dictionary, smooth using
-#   the EfficiencyUtils.C macro and write ratios
+#   the SmoothingUtils.C macros and write ratios
 #   to new dictionary. If 2 arguments: rescale
 #   event counts in 2nd file with ratios
 #
@@ -34,15 +34,18 @@ def findRange (ms):
 # create dictionary with ratio of smoothed / raw efficiencies
 #   argument: dictionary with raw efficiencies
 #
+# dictionary with efficiencies
 fnameEff = sys.argv[1]
 effdic = cPickle.load(file(fnameEff))
-
+# dictionary with yields
 fnameEvt = None
 if len(sys.argv) > 2:
   fnameEvt = sys.argv[2]
-
+#
+# load macros
+#
 from ROOT import gROOT
-gROOT.ProcessLine(".L EfficiencyUtils.C+")
+gROOT.ProcessLine(".L SmoothingUtils.C+")
 
 # output dictionary
 allRatios = {}
@@ -114,12 +117,12 @@ for btag in effdic:
       if len(processes) == 0:  processes.add( None )
       rawHistos = []
       ratioHistos = []
+      # loop over processes
       for p in processes:
         # create histogram
         hname = "hraw"
         if p != None:  hname += p
         hRaw = ROOT.TH2F(hname,hname,nb0,fm0Min,fm0Max,nb12,fm12Min,fm12Max)
-        #  print "h","h",nb0,fm0Min,fm0Max,nb12,fm12Min,fm12Max
         #  fill histogram with valid points (add entries / process to output dictionary, if necessary)
         for msugra in effdic[btag][ht][met]:
           parts = msugra.split('_')
