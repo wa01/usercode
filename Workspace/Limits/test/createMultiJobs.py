@@ -36,12 +36,20 @@ def getRange (rangeString):
     result = ( int(parts[0]), int(parts[1]) )
     return result
 
-def zeroSignalChannel (yields):
-    noSig = False
-    for btag in yields:
-        if yields[btag] < 0.001: return True
-    return False
+def getSig (btags,ht,met,msugra,key,bdict):
+    result = {}
+    for btag in btags:
+        if btag in bdict[ht][met][msugra]:
+            result[btag] = bdict[ht][met][msugra][btag][key]
+        else:
+            result[btag] = None
+    return result
 
+def getBkg (btags,ht,met,key,bdict):
+    result = {}
+    for btag in btags:
+        result[btag] = bdict[btag][ht][met][key]
+    return result
 
 def checkProcess (processes):
     result = {}
@@ -72,11 +80,9 @@ parser = OptionParser()
 parser.add_option("--btag", dest="btag", default="", type="string", action="store", help="btag bin (default = all)")
 parser.add_option("--ht", dest="ht", type="int", action="store", help="HT cut")
 parser.add_option("--met", dest="met", type="int", action="store", help="MET cut")
-parser.add_option("--lumi", dest="lumi", default=4700., type="float", action="store", help="luminosity (pb-1)")
+#parser.add_option("--lumi", dest="lumi", default=4700., type="float", action="store", help="luminosity (pb-1)")
 parser.add_option("--regroupM0", dest="regroupM0", default=1, type="int", action="store", help="step size in M0")
 parser.add_option("--regroupM12", dest="regroupM12", default=1, type="int", action="store", help="step size in M12")
-#parser.add_option("--m0", dest="m0", default=-1, type="int", action="store", help="")
-#parser.add_option("--m12", dest="m12", default=-1, type="int", action="store", help="")
 parser.add_option("--m0s", dest="m0s", default="999,0", type="string", action="store", help="range for M0")
 parser.add_option("--m12s", dest="m12s", default="999,0", type="string", action="store", help="range for M12")
 parser.add_option("-t", "--text", dest="text", default=False, action="store_true", help="keep output in text format")
@@ -85,8 +91,8 @@ parser.add_option("-a", "--algo", dest="algo", default="HybridNew", type="string
 parser.add_option("--single", dest="single", default=False, action="store_true", help="single point evaluation (for HybridNew)")
 parser.add_option("--exp", dest="exp", default=-1, type="float", action="store", help="quantile for expected limit")
 parser.add_option("-M", "--model", dest="model", default="msugra", type="string", action="store", help="signal model")
-parser.add_option("--nlo", dest="nlo", default=False, action="store_true", help="use NLO")
-parser.add_option("--nloVariation", dest="nloVar", default="", type="choice", action="store", choices=["", "0", "-", "+"], help="NLO variation")
+parser.add_option("--lo", dest="lo", default=False, action="store_true", help="use LO")
+parser.add_option("--nloVariation", dest="nloVar", default="0", type="choice", action="store", choices=["", "0", "-", "+"], help="NLO variation")
 (options, args) = parser.parse_args()
 #options.bin = True # fake that is a binary output, so that we parse shape lines
 
@@ -96,17 +102,15 @@ if options.btag != "":
     btags = [ options.btag ]
     if options.btag == "binc":  btags = [ "inc"]
 
-#if len(args) == 0:
-#    sys.exit(1)
-# template card file
-if len(args) > 0:
-    incards = args[0]
-else:
-    if options.btag != "":
-        incards = options.btag
-    else:
-        incards = "multibtag"
-    incards = "Backgrounds/"+incards+"-ht"+str(options.ht)+"-met"+str(options.met)+".txt"
+bkgDict = cPickle.load(file("backgrounds.pkl"))
+sigName = "sig_"+options.model
+if not options.lo:
+    sigName += "NLO"
+if not options.lo and options.nloVar != "":
+    sigName += options.nloVar
+sigName += ".pkl"
+sigDict = cPickle.load(file(sigName))
+
 
 # options for "combine"
 combopt = "-M "+options.algo
@@ -114,7 +118,7 @@ if options.algo == "HybridNew":
     if not options.single:
         combopt = "-H Asymptotic " + combopt
     else:
-        combopt = combopt + " --singlePoint 1.00 --clsAcc 0 -T 500 -i 10 --saveToys --saveHybridResult -n Toys "
+        combopt = combopt + " --singlePoint 1.00 --clsAcc 0 -T 500 -i 25 --saveToys --saveHybridResult -n Toys "
     combopt = combopt + " --frequentist --testStat LHC"
     if options.exp > 0:
         combopt = combopt + " --expectedFromGrid " + str(options.exp)
@@ -140,7 +144,7 @@ else:
     basename = "multibtag"
 basename = basename + "_ht" + str(options.ht) + "_met" + str(options.met)
 dirname = "/tmp/adamwo/job_" + options.model
-if options.nlo:
+if not options.lo:
     dirname = dirname + "NLO"
     if options.nloVar == '0':  dirname = dirname + "0"
     elif options.nloVar == '-':  dirname = dirname + "m"
@@ -163,7 +167,7 @@ if options.algo == "HybridNew":
 elif options.algo == "Asymptotic":
     dirname = dirname + "_A"
 os.mkdir(dirname)
-os.system("cp "+incards+" "+dirname)
+#os.system("cp "+incards+" "+dirname)
 fc = open(dirname+"/args.txt","w")
 larg = ""
 for a in sys.argv:  larg = larg + a + " "
@@ -172,68 +176,18 @@ fc.close()
 #
 loString = "LO"
 loVar = ""
-if options.nlo:
+if not options.lo:
     loString = "NLO"
     loVar = options.nloVar
-#
-# Mu efficiencies
-#
-fEffMuName = effFileName("Mu",options.model,loString,loVar)
-fEffMu = open(fEffMuName,"rb")
-effsMu = cPickle.load(fEffMu)
-fEffMu.close()
-fEffRatioMuName = ratioFileName("Mu",options.model,loString,loVar)
-fEffRatioMu = open(fEffRatioMuName,"rb")
-effRatiosMu = cPickle.load(fEffRatioMu)
-fEffRatioMu.close()
-fEffRatioMuName = effFileName("Mu",options.model,loString,loVar).replace("events","efficiency")
-fEffRatioMu = open(fEffRatioMuName,"rb")
-effRatiosMu = cPickle.load(fEffRatioMu)
-fEffRatioMu.close()
-#
-# Ele efficiencies
-#
-fEffEleName = effFileName("Ele",options.model,loString,loVar)
-fEffEle = open(fEffEleName,"rb")
-effsEle = cPickle.load(fEffEle)
-fEffEle.close()
-fEffRatioEleName = ratioFileName("Ele",options.model,loString,loVar)
-fEffRatioEle = open(fEffRatioEleName,"rb")
-effRatiosEle = cPickle.load(fEffRatioEle)
-fEffRatioEle.close()
-fEffRatioEleName = effFileName("Ele",options.model,loString,loVar).replace("events","efficiency")
-fEffRatioEle = open(fEffRatioEleName,"rb")
-effRatiosEle = cPickle.load(fEffRatioEle)
-fEffRatioEle.close()
-#
-# cross sections
-#
-if options.nlo:
-    fXsecName = xsecFileName(options.model,"NLO")
-    fXsecNLO = open(fXsecName)
-    xsecsNLO = cPickle.load(fXsecNLO)
-    fXsecNLO.close()
-    xsecsLO = []
-    for m12 in xsecsNLO:
-        for m0 in xsecsNLO[m12]:
-            xsecsLO.append( (  m0, m12, 10, 0, 1 ) )
-else:
-    fXsecName = xsecFileName(options.model,"LO")
-    fXsecLO = open(fXsecName)
-    xsecsLO = cPickle.load(fXsecLO)
-    fXsecLO.close()
 
 #
 # list of all M0/M12 pairs
 #
 from getM0M12 import *
-m0m12s = getM0M12a(effsMu,effsEle,xsecsLO,"binc",options.ht,options.met,options.regroupM0,options.regroupM12)
+m0m12s = getM0M12c(sigDict[options.ht][options.met].keys(),m0range,m12range,options.regroupM0,options.regroupM12)
 
 m0s = m0m12s.keys()
 m0s.sort()
-
-from createCards import createCards
-from createCards import createMultiCards
 
 #
 # loop on mass combinations
@@ -244,55 +198,133 @@ fmass = open(massname,"w")
 processes = {}
 for m0 in m0s:
 
-#    if options.m0 > 0 and m0 != options.m0:  continue
-    # M0 within range?
-    if m0range[1] >= m0range[0] and ( m0 < m0range[0] or m0 > m0range[1] ): continue
-
-#    idx = idx + 1
     nmass = 0
     lmass = ""
     for m12 in m0m12s[m0]:
-
-#        if options.m12 > 0 and m12 != options.m12:  continue
-        # M12 within range?
-        if m12range[1] >= m12range[0] and ( m12 < m12range[0] or m12 > m12range[1] ): continue
 
         # signal characterization (string)
         msugraString = buildSignalString(options.model,m0,m12)
         # signal characterization (tuple)
         msugraTuple = buildSignalTuple(options.model,m0,m12)
-        if options.nlo:
-            # yield for each b-tag bin in list
-            sigYields = getSigYieldsNLO(btags,options.ht,options.met,msugraString,msugraTuple,options.lumi,xsecsNLO,effsMu,effsEle)
-#            sigYields = getSmoothedSigYieldsNLOtmp(btags,options.ht,options.met,msugraString,msugraTuple,options.lumi,\
-#                                                effRatiosMu,effsMu,effRatiosEle,effsEle)
-            if zeroSignalChannel(sigYields):
-                # skip points with (at least one) channel without signal
-                print "No signal for ",msugraString," ",sigYields
-                continue
-        else:
-            # cross section
-            xsLO = xsecsLO[msugraTuple]
-            # yield for each b-tag bin in list
-            sigYields = getSigYieldsLO(btags,options.ht,options.met,msugraString,msugraTuple,options.lumi,xsecsLO,effsMu,effsEle)
-            if zeroSignalChannel(sigYields):
-                # skip points with (at least one) channel without signal
-                print "No signal for ",msugraString," ",sigYields
-                continue
-        print "sigYields = ",m0," ",m12," ",sigYields
+
+        sigEvts = getSig(btags,options.ht,options.met,msugraString,'yield',sigDict)
+        sigSyst = getSig(btags,options.ht,options.met,msugraString,'sigSystOther',sigDict)
+        sigJES = getSig(btags,options.ht,options.met,msugraString,'sigSystJES',sigDict)
+        if options.btag != 'binc':
+            sigBeff = getSig(btags,options.ht,options.met,msugraString,'beff',sigDict)
+            sigLeff = getSig(btags,options.ht,options.met,msugraString,'leff',sigDict)
+
+        obsEvts = getBkg(btags,options.ht,options.met,'obs',bkgDict)
+        predEvts = getBkg(btags,options.ht,options.met,'pred',bkgDict)
+        bkgStats = getBkg(btags,options.ht,options.met,'stats',bkgDict)
+        bkgSyst = getBkg(btags,options.ht,options.met,'systOther',bkgDict)
+        if options.btag != 'binc':
+            bkgBeff = getBkg(btags,options.ht,options.met,'systbeff',bkgDict)
+            bkgLeff = getBkg(btags,options.ht,options.met,'systleff',bkgDict)
+        bkgJES = getBkg(btags,options.ht,options.met,'systJES',bkgDict)
+
+        btagsFiltered = []
+        for btag in btags:
+            if sigEvts[btag] != None and sigEvts[btag] > 0.001:  btagsFiltered.append(btag)
+        nc = len(btagsFiltered)
+        if nc == 0:
+            print "No signals for ",msugraString
+            continue
 
         # output (text) file name
         modelname = dirname + "/model_" + str(m0) + "_" + str(m12)
         dcname = modelname + ".txt"
         dcfile = open(dcname,"w")
-        save_stdout = sys.stdout
-        sys.stdout = dcfile
-        # creation of the final cards file (with signal yields)
-        if len(btags) == 1:
-            createCards(incards,btags[0],options.ht,options.met,sigYields[btags[0]])
-        else:
-            createMultiCards(incards,options.ht,options.met,sigYields)
-        sys.stdout = save_stdout
+
+        line = "imax".ljust(10) + str(nc)
+        dcfile.write(line+"\n")
+        dcfile.write("jmax".ljust(10)+"*\n")
+        dcfile.write("kmax".ljust(10)+"*\n")
+
+        dcfile.write("-"*(20+22*nc)+"\n")
+
+        line = "bin".ljust(20)
+        for btag in btagsFiltered:
+            line += btag.rjust(22)
+        dcfile.write(line+"\n")
+        line = "observation".ljust(20)
+        for btag in btagsFiltered:
+            line += "%22d" % obsEvts[btag]
+        dcfile.write(line+"\n")
+
+        dcfile.write("-"*(20+22*nc)+"\n")
+
+        line = "bin".ljust(20)
+        for btag in btagsFiltered:
+            line += btag.rjust(12) + btag.rjust(10)
+        dcfile.write(line+"\n")
+
+        line = "process".ljust(20)
+        for btag in btagsFiltered:
+            line += "sig".rjust(12) + "bkg".rjust(10)
+        dcfile.write(line+"\n")
+
+        line = "process".ljust(20)
+        for btag in btagsFiltered:
+            line += "0".rjust(12) + "1".rjust(10)
+        dcfile.write(line+"\n")
+
+        line = "rate".ljust(20)
+        for btag in btagsFiltered:
+            line += "%12.3f" % sigEvts[btag]
+            line += "%10.3f" % predEvts[btag]
+        dcfile.write(line+"\n")
+        
+        dcfile.write("-"*(20+22*nc)+"\n")
+
+        for btag in btagsFiltered:
+            line = (btag+"Stat").ljust(15) + "lnN".ljust(5)
+            for btag1 in btagsFiltered:
+                line += "-".rjust(12)
+                if btag1 == btag:
+                    line += "%10.3f" % (bkgStats[btag]+1)
+                else:
+                    line += "-".rjust(10)
+            dcfile.write(line+"\n")
+
+        line = "bkgSyst".ljust(15) + "lnN".ljust(5)
+        for btag in btagsFiltered:
+            line += "-".rjust(12)
+            line += "%10.3f" % (bkgSyst[btag]+1)
+        dcfile.write(line+"\n")
+
+        line = "JES".ljust(15) + "lnN".ljust(5)
+        for btag in btagsFiltered:
+            line += "%12.3f" % (sigJES[btag]+1)
+            line += "%10.3f" % (bkgJES[btag]+1)
+        dcfile.write(line+"\n")
+
+        if options.btag != 'binc':
+
+            line = "beff".ljust(15) + "lnN".ljust(5)
+            for btag in btagsFiltered:
+                line += "%12.3f" % (sigBeff[btag]+1)
+                line += "%10.3f" % (bkgBeff[btag]+1)          
+            dcfile.write(line+"\n")
+
+            line = "leff".ljust(15) + "lnN".ljust(5)
+            for btag in btagsFiltered:
+                line += "%12.3f" % (sigLeff[btag]+1)
+                line += "%10.3f" % (bkgLeff[btag]+1)
+            dcfile.write(line+"\n")
+
+        line = "sigSyst".ljust(15) + "lnN".ljust(5)
+        for btag in btagsFiltered:
+            line += "%12.3f" % (sigSyst[btag]+1)
+            line += "-".rjust(10)
+        dcfile.write(line+"\n")
+
+        line = "lumi".ljust(15) + "lnN".ljust(5)
+        for btag in btagsFiltered:
+            line += "%12.3f" % 1.045
+            line += "-".rjust(10)
+        dcfile.write(line+"\n")
+
         dcfile.close()
 
         # asynchronous conversion to root workspace
@@ -384,7 +416,7 @@ fcrab.close()
 # link to executable
 #
 combine = which("combine")
-if combine != "None":
+if combine != None:
     os.system("ln -s "+combine+" "+dirname+"/combine")
 
 
