@@ -4,6 +4,7 @@
 #include <TStyle.h>
 #include <TCanvas.h>
 #include "TGraph.h"
+#include "TMarker.h"
 
 #include <iostream>
 #include <vector>
@@ -11,8 +12,10 @@
 #include <algorithm>
 #include <set>
 #include <cmath>
+#include <string>
 
 using namespace std;
+
 
 void PlotLimits::Loop()
 {
@@ -187,6 +190,7 @@ PlotLimits::drawHistograms()
 
 //   TCanvas* cExists = new TCanvas("cexist","cexist");
 //   hExist->Draw("zcol");
+
 }
 
 
@@ -218,37 +222,19 @@ PlotLimits::drawHistogram (std::pair<TH2*,TH2*> histos, TGraph** graph)
   if ( graph && !contours.empty() )  *graph = contours.back();
   cout << "Nr. of points = " << (*graph)->GetN() << endl;
 
-//   TSeqCollection* coll = (TSeqCollection*)gROOT->GetListOfSpecials();
-//   cout << "Collection size = " << coll->GetSize() << endl;
-//   TIter it(coll);
-//   TObject* obj;
-//   while ( (obj=it.Next()) ) {
-//     if ( obj->InheritsFrom(TNamed::Class()) ) {
-//       TNamed* named = (TNamed*)obj;
-//       cout << "  special: " << named->GetName() << endl;
+//   TH1* hc1 = new TH1F("hc1","hc1",hc->GetNbinsX(),hc->GetXaxis()->GetXmin(),hc->GetXaxis()->GetXmax());
+//   double* xc1 = (**graph).GetX();
+//   double* yc1 = (**graph).GetY();
+//   for ( unsigned int i=0; i<(**graph).GetN(); ++i ) {
+//     int ibin = hc1->FindBin(xc1[i]);
+//     if ( hc1->GetBinContent(ibin) > 1.e-10 ) {
+//       cout << "Two points for bin " << ibin << "????" << endl;
+//       continue;
 //     }
+//     hc1->SetBinContent(ibin,yc1[i]);
 //   }
-
-//   TObjArray* conts = (TObjArray*)gROOT->GetListOfSpecials()->FindObject("contours");
-//   if ( conts ) {
-//     for(int i = 0; i < conts->GetSize(); i++){
-//       TList* contLevel = (TList*)conts->At(i);
-//       for(int j = 0; j < contLevel->GetSize(); j++){
-// 	TGraph* curv = (TGraph*)contLevel->At(j);
-// 	curv->SetLineWidth(3);
-//       }
-//     }
-//   }
+//   hc1->Draw("same");
 }
-
-
-
-// vector<TGraph*>
-// PlotLimits::getContours (const char* name)
-// {
-//   TH2* histo = getHistogram(name);
-//   if ( histo )  getContours(histo);
-// }
 
 
 vector<TGraph*>
@@ -445,4 +431,54 @@ PlotLimits::saveContours ()
   delete f;
 
   curDir->cd();
+}
+
+void PlotLimits::drawSlices (float m0) {
+  if ( m0 < 0. )  return;
+
+  int ibx = hObs.first->GetXaxis()->FindBin(m0);
+  if ( ibx<1 || ibx>hObs.first->GetNbinsX() )  return;
+
+  TCanvas* c = new TCanvas("cSlice","cSlice",1000,1000);
+  c->Divide(2,3);
+  c->cd(1);
+  drawSlice(hExpMinus2.first,gExpMinus2,ibx,m0);
+  c->cd(2);
+  drawSlice(hExpMinus1.first,gExpMinus1,ibx,m0);
+  c->cd(3);
+  drawSlice(hObs.first,gObs,ibx,m0);
+  c->cd(4);
+  drawSlice(hExpMedian.first,gExpMedian,ibx,m0);
+  c->cd(5);
+  drawSlice(hExpPlus1.first,gExpPlus1,ibx,m0);
+  c->cd(6);
+  drawSlice(hExpPlus2.first,gExpPlus2,ibx,m0);
+}
+
+void PlotLimits::drawSlice (TH2* histo, TGraph* graph, int ibx, float m0) {
+  string hName(histo->GetName());
+  TH1* histo1D = histo->ProjectionY((hName+"py").c_str(),ibx,ibx);
+  gPad->SetLogy(1); gPad->SetGridx(1); gPad->SetGridy(1);
+  histo1D->SetMinimum(0.0001); 
+  histo1D->SetMarkerStyle(20);
+  histo1D->SetLineWidth(2);
+  histo1D->Draw("PL");
+
+  int np = graph->GetN();
+  if ( np > 1 ) {
+    double* xg = graph->GetX();
+    double* yg = graph->GetY();
+    double x0 = xg[0];
+    for ( int i=1; i<np; ++i ) {
+      double x1 = xg[i];
+      if ( m0>=x0 && m0<=x1 ) {
+	double y = (yg[i]*(m0-x0)-yg[i-1]*(m0-x1))/(x1-x0);
+	TMarker* marker = new TMarker(y,0.05,29);
+	marker->SetMarkerColor(2);
+	marker->Draw();
+	break;
+      }
+      x0 = x1;
+    }
+  }
 }

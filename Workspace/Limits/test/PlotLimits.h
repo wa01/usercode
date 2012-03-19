@@ -48,6 +48,11 @@ public:
   // saving contours to file (for use with limit plot program)
   //
   void saveContours();
+  //
+  // draw slice through histograms
+  //
+  void drawSlices (float m0 = -1.);
+  void drawSlice (TH2* histogram, TGraph* graph, int ibin, float m0);
 
 private:
   virtual Int_t    Cut(Long64_t entry);
