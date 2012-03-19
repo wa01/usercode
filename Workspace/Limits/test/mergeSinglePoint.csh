@@ -29,7 +29,7 @@ if ( $?localDir )  unset localDir
 set castorDir = `echo $jobdir | sed 's/job_//'`
 set castorDir = "${CASTOR_HOME}/CrabOutput/${castorDir}"
 nsls $castorDir >& /dev/null
-if ( $status == 0 ) then
+if ( ( $status == 0 ) && ( $#argv == 1 ) ) then
 #  echo "No such CASTOR directory: $castorDir"
 #  exit 1
 #endif
