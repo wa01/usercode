@@ -74,6 +74,8 @@ def getM0M12c (sigTuples, rangeM0, rangeM12, regroupM0=1, regroupM12=1 ):
 
 def getM0M12b (sigTuples, rangeM0, rangeM12, regroupM0=1, regroupM12=1 ):
 
+    from signalUtils import getFromSignalString
+
     if len(sigTuples) == 0:  return []
     isString = ( type(sigTuples[0]) == str )
 
@@ -91,9 +93,9 @@ def getM0M12b (sigTuples, rangeM0, rangeM12, regroupM0=1, regroupM12=1 ):
             m0 = tup[0]
             m12 = tup[1]
         if noRangeM0 or ( m0 >= rangeM0[0] and m0 <= rangeM0[1] ):
-            if m0 in m0s:  m0s.append(m0)
+            if not m0 in m0s:  m0s.append(m0)
         if noRangeM12 or ( m12 >= rangeM12[0] and m12 <= rangeM12[1] ):
-            if m12 in m12s:  m12s.append(m12)
+            if not m12 in m12s:  m12s.append(m12)
     
     m0s.sort()
     if regroupM0 > 1:
