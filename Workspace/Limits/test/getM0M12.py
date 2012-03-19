@@ -65,7 +65,9 @@ def getM0M12c (sigTuples, rangeM0, rangeM12, regroupM0=1, regroupM12=1 ):
                 result[m0].append(m12)
 
     nacc = 0
-    for m0 in result:  nacc += len(result[m0])
+    for m0 in result:
+        nacc += len(result[m0])
+        result[m0].sort()
     print "Kept number of combinations = ",nacc
 
     return result
