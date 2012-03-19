@@ -48,7 +48,7 @@ parser = OptionParser()
 parser.add_option("--m0s", dest="m0s", default="999,0", type="string", action="store", help="range for M0")
 parser.add_option("--m12s", dest="m12s", default="999,0", type="string", action="store", help="range for M12")
 parser.add_option("-M", "--model", dest="model", default="msugra", type="string", action="store", help="signal model")
-parser.add_option("--nlo", dest="nlo", default=True, action="store_true", help="use NLO")
+parser.add_option("--lo", dest="lo", default=False, action="store_true", help="use LO")
 parser.add_option("--nloVariation", dest="nloVar", default="0", type="choice", action="store", choices=["", "0", "-", "+"], help="NLO variation")
 (options, args) = parser.parse_args()
 #options.bin = True # fake that is a binary output, so that we parse shape lines
@@ -70,7 +70,7 @@ cwd = os.getcwd()
 #
 #basename = "ht" + str(ht) + "_met" + str(met)
 oname = "sig_" + options.model
-if options.nlo:
+if not options.lo:
     oname = oname + "NLO"
     if options.nloVar == '0':  oname = oname + "0"
     elif options.nloVar == '-':  oname = oname + "m"
@@ -92,7 +92,7 @@ fout = open(oname,"wb")
 #
 loString = "LO"
 loVar = ""
-if options.nlo:
+if not options.lo:
     loString = "NLO"
     loVar = options.nloVar
 #
@@ -130,7 +130,7 @@ if options.model == 'msugra':
 #
 # cross sections
 #
-if options.nlo:
+if not options.lo:
     fXsecName = xsecFileName(options.model,"NLO")
     fXsecNLO = open(fXsecName)
     xsecsNLO = cPickle.load(fXsecNLO)
@@ -153,6 +153,7 @@ else:
 from getM0M12 import *
 #m0m12s = getM0M12a(effsMu,effsEle,xsecsLO,"binc",hts[0],mets[0],1,1)
 sigTuples = getM0M12b(xsecsLO,m0range,m12range,1,1)
+print sigTuples
 
 sigDict = {}
 for ht in hts:
@@ -173,7 +174,7 @@ for ht in hts:
 
             # signal characterization (string / tuple)
             msugraString = buildSignalString(options.model,m0,m12)
-            if options.nlo:
+            if not options.lo:
                 # yield for each b-tag bin in list
                 sigYields = getSigYieldsNLO(btags,ht,met,msugraString,effsMu,effsEle)
                 #sigYields = getSmoothedSigYieldsNLO(btags,ht,met,msugraString,msugraTuple,1.,\
@@ -188,7 +189,10 @@ for ht in hts:
             else:
                 continue
             for btag in btags:
-                if sigYields[btag] == None or sigYields[btag] < 0.001:  continue
+                if sigYields[btag] == None:  continue
+#                if sigYields[btag] == None or sigYields[btag] < 0.001:
+#                    print "empty signal for ",ht,met,m0,m12,btag," !!!"
+#                    continue
                 if btag != 'inc':
                     corrFactor = beffSysts[btag][ht][met][msugraString]['sfFactor']
                     sigYields[btag] *= corrFactor

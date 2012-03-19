@@ -3,7 +3,7 @@
 #
 # extract result lines from log files in hnGrid*.tgz
 #
-set nlog = "exp50.log"
+set nlog = "exp16.log"
 
 foreach f ( $* )
 
