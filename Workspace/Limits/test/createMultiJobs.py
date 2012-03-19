@@ -62,7 +62,7 @@ def checkProcess (processes):
             print "job with pid ",p.pid," returned code ",p.returncode
         else:
             print "job with pid ",p.pid," terminated"
-            os.remove(name)
+#            os.remove(name)
     return result
 
 def waitProcess (processes,all=False):
@@ -419,15 +419,13 @@ combine = which("combine")
 if combine != None:
     os.system("ln -s "+combine+" "+dirname+"/combine")
 
-
 #if not ( options.m0 > 0 and options.m12 > 0 ):
 #
 # tar file of all models
 #
 if not ( m0range[0] == m0range[1] and m12range[0] == m12range[1] ):
-    if options.text:
-        os.system("cd "+dirname+"; tar -cf models.tar model_*.txt")
-        os.system("rm "+dirname+"/model_*.txt")
-    else:
+    os.system("cd "+dirname+"; tar -zcf modelsText.tgz model_*.txt")
+    os.system("rm "+dirname+"/model_*.txt")
+    if not options.text:
         os.system("cd "+dirname+"; tar -cf models.tar model_*.root")
         os.system("rm "+dirname+"/model_*.root")
