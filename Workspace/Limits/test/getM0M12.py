@@ -8,7 +8,72 @@ def numM0M12 (m0m12Dict):
         res = res + len(m0m12Dict[m0])
     return res
 
+def getM0M12c (sigTuples, rangeM0, rangeM12, regroupM0=1, regroupM12=1 ):
+
+    from signalUtils import getFromSignalString
+
+    if len(sigTuples) == 0:  return []
+    isString = ( type(sigTuples[0]) == str )
+
+    noRangeM0 = rangeM0[1] < rangeM0[0] 
+    noRangeM12 = rangeM12[1] < rangeM12[0] 
+#    if regroupM0 <= 1 and regroupM12 <= 1 and noRangeM0 and noRangeM12:  return sigTuples
+
+    m0s = []
+    m12s = []
+    for tup in sigTuples:
+        if isString:
+            m0 = getFromSignalString(tup,"m0")
+            m12 = getFromSignalString(tup,"m12")
+        else:
+            m0 = tup[0]
+            m12 = tup[1]
+        if noRangeM0 or ( m0 >= rangeM0[0] and m0 <= rangeM0[1] ):
+            if not m0 in m0s:  m0s.append(m0)
+        if noRangeM12 or ( m12 >= rangeM12[0] and m12 <= rangeM12[1] ):
+            if not m12 in m12s:  m12s.append(m12)
+
+    m0s.sort()
+    if regroupM0 > 1:
+        m0sToKeep = []
+        for i in range(0,len(m0s),regroupM0):
+            m0sToKeep.append(m0s[i])
+    else:
+        m0sToKeep = m0s
+
+    m12s.sort()
+    if regroupM12 > 1:
+        m12sToKeep = []
+        for i in range(0,len(m12s),regroupM12):
+            m12sToKeep.append(m12s[i])
+    else:
+        m12sToKeep = m12s
+
+    print "Total number of combinations = ",len(sigTuples)
+
+    result = {}
+    for tup in sigTuples:
+        if isString:
+            m0 = getFromSignalString(tup,"m0")
+            m12 = getFromSignalString(tup,"m12")
+        else:
+            m0 = tup[0]
+            m12 = tup[1]
+        if m0 in m0sToKeep:
+            if m12 in m12sToKeep:
+                if not m0 in result:  result[m0] = []
+                result[m0].append(m12)
+
+    nacc = 0
+    for m0 in result:  nacc += len(result[m0])
+    print "Kept number of combinations = ",nacc
+
+    return result
+
 def getM0M12b (sigTuples, rangeM0, rangeM12, regroupM0=1, regroupM12=1 ):
+
+    if len(sigTuples) == 0:  return []
+    isString = ( type(sigTuples[0]) == str )
 
     noRangeM0 = rangeM0[1] < rangeM0[0] 
     noRangeM12 = rangeM12[1] < rangeM12[0] 
@@ -17,10 +82,14 @@ def getM0M12b (sigTuples, rangeM0, rangeM12, regroupM0=1, regroupM12=1 ):
     m0s = []
     m12s = []
     for tup in sigTuples:
-        m0 = tup[0]
+        if isString:
+            m0 = getFromSignalString(tup,"m0")
+            m12 = getFromSignalString(tup,"m12")
+        else:
+            m0 = tup[0]
+            m12 = tup[1]
         if noRangeM0 or ( m0 >= rangeM0[0] and m0 <= rangeM0[1] ):
             if m0 in m0s:  m0s.append(m0)
-        m12 = tup[1]
         if noRangeM12 or ( m12 >= rangeM12[0] and m12 <= rangeM12[1] ):
             if m12 in m12s:  m12s.append(m12)
     
@@ -44,8 +113,14 @@ def getM0M12b (sigTuples, rangeM0, rangeM12, regroupM0=1, regroupM12=1 ):
 
     result = []
     for tup in sigTuples:
-        if tup[0] in m0sToKeep:
-            if tup[1] in m12sToKeep:
+        if isString:
+            m0 = getFromSignalString(tup,"m0")
+            m12 = getFromSignalString(tup,"m12")
+        else:
+            m0 = tup[0]
+            m12 = tup[1]
+        if m0 in m0sToKeep:
+            if m12 in m12sToKeep:
                 result.append(tup)
 
     print "Kept number of combinations = ",len(result)
