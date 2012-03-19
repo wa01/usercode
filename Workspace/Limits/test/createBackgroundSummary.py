@@ -86,9 +86,9 @@ def sumBTErrors (keyUp,keyDown,bt,predLep):
 import os.path
 from optparse import OptionParser
 parser = OptionParser()
-parser.add_option("--ht", dest="ht", type="int", action="store", help="HT cut")
-parser.add_option("--met", dest="met", type="int", action="store", help="MET cut")
-parser.add_option("--btag", dest="btag", default="", type="string", action="store")
+#parser.add_option("--ht", dest="ht", type="int", action="store", help="HT cut")
+#parser.add_option("--met", dest="met", type="int", action="store", help="MET cut")
+#parser.add_option("--btag", dest="btag", default="", type="string", action="store")
 (options, args) = parser.parse_args()
 
 btags = [ "binc", "b0", "b1", "b1p", "b2" ]
@@ -117,20 +117,22 @@ execfile("eventCounts.py")
 
 
 for btag in btags:
-    bkgDict[btag] = {}
+    btagD = btag
+    if btagD == 'binc':  btagD = 'inc'
+    bkgDict[btagD] = {}
     for ht in hts:
-        bkgDict[btag][ht] = {}
+        bkgDict[btagD][ht] = {}
         for met in mets:
-            bkgDict[btag][ht][met] = {}
-            bkgDict[btag][ht][met]['obs'] = getCounts(countsObs,btag)
+            bkgDict[btagD][ht][met] = {}
+            bkgDict[btagD][ht][met]['obs'] = getCounts(countsObs,btag)
             pred = getCounts(countsPred,btag)
-            bkgDict[btag][ht][met]['pred'] = pred
+            bkgDict[btagD][ht][met]['pred'] = pred
             predLep = {}
             for lep in leptons:  predLep[lep] = getCountsLep(countsPred,lep,btag)
             errpred = getErrors(errorsPred,btag)
 
             # background statistics (uncorrelated)
-            bkgDict[btag][ht][met]['stats'] = errpred/pred
+            bkgDict[btagD][ht][met]['stats'] = errpred/pred
             #
             # systematics (non-b related)
             #
@@ -160,7 +162,7 @@ for btag in btags:
             else:
                 jeserr = jeserrpm[1]
             print "JES correction ",btag,jeserr
-            bkgDict[btag][ht][met]['systJES'] = jeserr
+            bkgDict[btagD][ht][met]['systJES'] = jeserr
             #
             # add non-closure to other errors
             #
@@ -181,7 +183,7 @@ for btag in btags:
             key = 'ScaleFrac'
             err = sumAbsLepErrors(key,bt,predLep)
             sumerr += err*err
-            bkgDict[btag][ht][met]['systOther'] = math.sqrt(sumerr)
+            bkgDict[btagD][ht][met]['systOther'] = math.sqrt(sumerr)
             #
             # b-tag systs
             #
@@ -195,7 +197,7 @@ for btag in btags:
                 keyDown = btKeys[vari][1]
                 # (signed) variation / lepton channel
                 errLep = sumBTErrors(keyUp,keyDown,bt,predLep)
-                bkgDict[btag][ht][met]['syst'+vari] = errLep
+                bkgDict[btagD][ht][met]['syst'+vari] = errLep
     
 
 print bkgDict
