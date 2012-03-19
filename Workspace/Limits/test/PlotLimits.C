@@ -93,19 +93,27 @@ void PlotLimits::Loop()
 	<< nb0 << " " << fm0min << " " << fm0max << endl;
    cout << "m12 " << " " << dm12 << " " << m12min << " " << m12max << " ; "
 	<< nb0 << " " << fm12min << " " << fm12max << endl;
-   hObs.first = new TH2F("hObs","hObs",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hExpMinus2.first = new TH2F("hExpMinus2","hExpMinus2",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hExpMinus1.first = new TH2F("hExpMinus1","hExpMinus1",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hExpMedian.first = new TH2F("hExpMedian","hExpMedian",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hExpPlus1.first = new TH2F("hExpPlus1","hExpPlus1",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hExpPlus2.first = new TH2F("hExpPlus2","hExpPlus2",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hObs.second = new TH2F("hObsExist","hObsExist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hExpMinus2.second = new TH2F("hExpMinus2Exist","hExpMinus2Exist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hExpMinus1.second = new TH2F("hExpMinus1Exist","hExpMinus1Exist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hExpMedian.second = new TH2F("hExpMedianExist","hExpMedianExist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hExpPlus1.second = new TH2F("hExpPlus1Exist","hExpPlus1Exist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
-   hExpPlus2.second = new TH2F("hExpPlus2Exist","hExpPlus2Exist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
 
+   hObs.hExist = new TH2F("hObsExist","hObsExist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpMinus2.hExist = new TH2F("hExpMinus2Exist","hExpMinus2Exist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpMinus1.hExist = new TH2F("hExpMinus1Exist","hExpMinus1Exist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpMedian.hExist = new TH2F("hExpMedianExist","hExpMedianExist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpPlus1.hExist = new TH2F("hExpPlus1Exist","hExpPlus1Exist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpPlus2.hExist = new TH2F("hExpPlus2Exist","hExpPlus2Exist",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+
+   hObs.hLimit = new TH2F("hObs","hObs",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpMinus2.hLimit = new TH2F("hExpMinus2","hExpMinus2",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpMinus1.hLimit = new TH2F("hExpMinus1","hExpMinus1",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpMedian.hLimit = new TH2F("hExpMedian","hExpMedian",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpPlus1.hLimit = new TH2F("hExpPlus1","hExpPlus1",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpPlus2.hLimit = new TH2F("hExpPlus2","hExpPlus2",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+
+   hObs.hLimitErr = new TH2F("hObsErr","hObsErr",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpMinus2.hLimitErr = new TH2F("hExpMinus2Err","hExpMinus2Err",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpMinus1.hLimitErr = new TH2F("hExpMinus1Err","hExpMinus1Err",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpMedian.hLimitErr = new TH2F("hExpMedianErr","hExpMedianErr",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpPlus1.hLimitErr = new TH2F("hExpPlus1Err","hExpPlus1Err",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
+   hExpPlus2.hLimitErr = new TH2F("hExpPlus2Err","hExpPlus2Err",nb0,fm0min,fm0max,nb12,fm12min,fm12max);
    //
    // second loop: filling of histograms
    //
@@ -120,46 +128,54 @@ void PlotLimits::Loop()
       float m0 = iSeed/10000;
       float m12 = iSeed%10000;
 
-      TH2* hLim(0);
-      TH2* hExist(0);
+      LimitHistograms* histos;
+//       TH2* hLim(0);
+//       TH2* hExist(0);
       // observed
       if ( quantileExpected<0.) {
-	hLim = hObs.first;
-	hExist = hObs.second;
+	histos = &hObs;
+// 	hLim = hObs.hLimit;
+// 	hExist = hObs.hExist;
       }
       // -2 sigma
       else if ( fabs(quantileExpected-0.025)<0.001 ) {
-	hLim = hExpMinus2.first;
-	hExist = hExpMinus2.second;
+	histos = &hExpMinus2;
+// 	hLim = hExpMinus2.hLimit;
+// 	hExist = hExpMinus2.hExist;
       }
       // -1 sigma
       else if ( fabs(quantileExpected-0.16)<0.01 ) {
-	hLim = hExpMinus1.first;
-	hExist = hExpMinus1.second;
+	histos = &hExpMinus1;
+// 	hLim = hExpMinus1.hLimit;
+// 	hExist = hExpMinus1.hExist;
       }
       // median
       else if ( fabs(quantileExpected-0.50)<0.01 ) {
-	hLim = hExpMedian.first;
-	hExist = hExpMedian.second;
+	histos = &hExpMedian;
+// 	hLim = hExpMedian.hLimit;
+// 	hExist = hExpMedian.hExist;
       }
       // +1 sigma
       else if ( fabs(quantileExpected-0.84)<0.01 ) {
-	hLim = hExpPlus1.first;
-	hExist = hExpPlus1.second;
+	histos = &hExpPlus1;
+// 	hLim = hExpPlus1.hLimit;
+// 	hExist = hExpPlus1.hExist;
       }
       // +2 sigma
       else if ( fabs(quantileExpected-0.975)<0.001 ) {
-	hLim = hExpPlus2.first;
-	hExist = hExpPlus2.second;
+	histos = &hExpPlus2;
+// 	hLim = hExpPlus2.hLimit;
+// 	hExist = hExpPlus2.hExist;
       }
-      if ( hExist ) {
-	int ibin = hExist->FindBin(m0,m12);
-	if ( hExist->GetBinContent(ibin) > 0.5 ) {
+      if ( histos->hExist ) {
+	int ibin = histos->hExist->FindBin(m0,m12);
+	if ( histos->hExist->GetBinContent(ibin) > 0.5 ) {
 	  std::cout << "***** Duplicate entry for " << m0 << " "
-		    << m12 << " " << hExist->GetTitle() << std::endl;
+		    << m12 << " " << histos->hExist->GetTitle() << std::endl;
 	}
-	hLim->Fill(m0,m12,limit);
-	hExist->Fill(m0,m12);
+	histos->hLimit->Fill(m0,m12,limit);
+	histos->hLimitErr->Fill(m0,m12,limitErr);
+	histos->hExist->Fill(m0,m12);
       }
    }
 }
@@ -195,19 +211,19 @@ PlotLimits::drawHistograms()
 
 
 void 
-PlotLimits::drawHistogram (std::pair<TH2*,TH2*> histos, TGraph** graph)
+PlotLimits::drawHistogram (LimitHistograms histos, TGraph** graph)
 {
-  if ( histos.first->GetEntries()==0 )  return;
+  if ( histos.hLimit->GetEntries()==0 )  return;
 
   double levels[1] = { level_ };
 
-  histos.first->SetMaximum(relmax_*level_);
-  histos.first->Draw("zcol");
+  histos.hLimit->SetMaximum(relmax_*level_);
+  histos.hLimit->Draw("zcol");
   //
   // need to draw and update the pad in order to have access
   //   to the contour lines ...
   //
-  TH2* hc = (TH2*)histos.first->Clone();
+  TH2* hc = (TH2*)histos.hLimit->Clone();
   hc->SetContour(1,levels);
   hc->Draw("cont3 list same");
   gPad->Update();
@@ -215,7 +231,7 @@ PlotLimits::drawHistogram (std::pair<TH2*,TH2*> histos, TGraph** graph)
   // extract contour lines
   //
   TVirtualPad* curPad = gPad;
-  vector<TGraph*> contours = getContours(histos.first,histos.second);
+  vector<TGraph*> contours = getContours(histos.hLimit,histos.hExist);
   curPad->cd();
 //   cout << "nr. contours = " << contours.size();
   for ( unsigned int i=0; i<contours.size(); ++i )  contours[i]->Draw();
@@ -436,33 +452,39 @@ PlotLimits::saveContours ()
 void PlotLimits::drawSlices (float m0) {
   if ( m0 < 0. )  return;
 
-  int ibx = hObs.first->GetXaxis()->FindBin(m0);
-  if ( ibx<1 || ibx>hObs.first->GetNbinsX() )  return;
+  int ibx = hObs.hLimit->GetXaxis()->FindBin(m0);
+  if ( ibx<1 || ibx>hObs.hLimit->GetNbinsX() )  return;
 
   TCanvas* c = new TCanvas("cSlice","cSlice",1000,1000);
   c->Divide(2,3);
   c->cd(1);
-  drawSlice(hExpMinus2.first,gExpMinus2,ibx,m0);
+  drawSlice(hExpMinus2,gExpMinus2,ibx,m0);
   c->cd(2);
-  drawSlice(hExpMinus1.first,gExpMinus1,ibx,m0);
+  drawSlice(hExpMinus1,gExpMinus1,ibx,m0);
   c->cd(3);
-  drawSlice(hObs.first,gObs,ibx,m0);
+  drawSlice(hObs,gObs,ibx,m0);
   c->cd(4);
-  drawSlice(hExpMedian.first,gExpMedian,ibx,m0);
+  drawSlice(hExpMedian,gExpMedian,ibx,m0);
   c->cd(5);
-  drawSlice(hExpPlus1.first,gExpPlus1,ibx,m0);
+  drawSlice(hExpPlus1,gExpPlus1,ibx,m0);
   c->cd(6);
-  drawSlice(hExpPlus2.first,gExpPlus2,ibx,m0);
+  drawSlice(hExpPlus2,gExpPlus2,ibx,m0);
 }
 
-void PlotLimits::drawSlice (TH2* histo, TGraph* graph, int ibx, float m0) {
-  string hName(histo->GetName());
-  TH1* histo1D = histo->ProjectionY((hName+"py").c_str(),ibx,ibx);
+void PlotLimits::drawSlice (LimitHistograms& histos, TGraph* graph, int ibx, float m0) {
+  string hName(histos.hLimit->GetName());
+  TH1* histo1D = histos.hLimit->ProjectionY((hName+"py").c_str(),ibx,ibx);
+  hName = histos.hLimitErr->GetName();
+  TH1* histoErr1D = histos.hLimitErr->ProjectionY((hName+"py").c_str(),ibx,ibx);
+  for ( int i=1; i<=histo1D->GetNbinsX(); ++i ) {
+    histo1D->SetBinError(i,histoErr1D->GetBinContent(i));
+  }
   gPad->SetLogy(1); gPad->SetGridx(1); gPad->SetGridy(1);
   histo1D->SetMinimum(0.0001); 
   histo1D->SetMarkerStyle(20);
   histo1D->SetLineWidth(2);
-  histo1D->Draw("PL");
+  histo1D->Draw("HIST L");
+  histo1D->Draw("EX0 same");
 
   int np = graph->GetN();
   if ( np > 1 ) {

@@ -26,6 +26,13 @@
 #include <vector>
 #include <algorithm>
 
+struct LimitHistograms {
+  LimitHistograms () : hExist(0), hLimit(0), hLimitErr(0) {}
+  TH2* hExist;
+  TH2* hLimit;
+  TH2* hLimitErr;
+};
+
 class PlotLimits {
 public:
   //
@@ -52,7 +59,7 @@ public:
   // draw slice through histograms
   //
   void drawSlices (float m0 = -1.);
-  void drawSlice (TH2* histogram, TGraph* graph, int ibin, float m0);
+  void drawSlice (LimitHistograms& histograms, TGraph* graph, int ibin, float m0);
 
 private:
   virtual Int_t    Cut(Long64_t entry);
@@ -60,7 +67,7 @@ private:
   virtual Long64_t LoadTree(Long64_t entry);
   virtual void     Init(TTree *tree);
   virtual Bool_t   Notify();
-  void drawHistogram (std::pair<TH2*,TH2*> histos, TGraph** graph = 0);
+  void drawHistogram (LimitHistograms histos, TGraph** graph = 0);
 //   std::vector<TGraph*> getContours (const char* name);
   std::vector<TGraph*> getContours (TH2* histogram, TH2* hexist);
   void saveCanvas () {
@@ -106,12 +113,12 @@ private:
   double level_;
   double relmax_;
 
-  std::pair<TH2*,TH2*> hObs;
-  std::pair<TH2*,TH2*> hExpMinus2;
-  std::pair<TH2*,TH2*> hExpMinus1;
-  std::pair<TH2*,TH2*> hExpMedian;
-  std::pair<TH2*,TH2*> hExpPlus1;
-  std::pair<TH2*,TH2*> hExpPlus2;
+  LimitHistograms hObs;
+  LimitHistograms hExpMinus2;
+  LimitHistograms hExpMinus1;
+  LimitHistograms hExpMedian;
+  LimitHistograms hExpPlus1;
+  LimitHistograms hExpPlus2;
 
   TGraph* gObs;
   TGraph* gExpMinus2;
@@ -142,18 +149,18 @@ PlotLimits::PlotLimits(TFile* file, float level, float relmax) :
   //
   // histogram pointers (histograms will be created in Loop)
   //
-  hObs.first = 0;
-  hExpMinus2.first = 0;
-  hExpMinus1.first = 0;
-  hExpMedian.first = 0;
-  hExpPlus1.first = 0;
-  hExpPlus2.first = 0;
-  hObs.second = 0;
-  hExpMinus2.second = 0;
-  hExpMinus1.second = 0;
-  hExpMedian.second = 0;
-  hExpPlus1.second = 0;
-  hExpPlus2.second = 0;
+//   hObs.hLimit = 0;
+//   hExpMinus2.hLimit = 0;
+//   hExpMinus1.hLimit = 0;
+//   hExpMedian.hLimit = 0;
+//   hExpPlus1.hLimit = 0;
+//   hExpPlus2.hLimit = 0;
+//   hObs.hExist = 0;
+//   hExpMinus2.hExist = 0;
+//   hExpMinus1.hExist = 0;
+//   hExpMedian.hExist = 0;
+//   hExpPlus1.hExist = 0;
+//   hExpPlus2.hExist = 0;
   //
   // graphs holding the contours
   //
