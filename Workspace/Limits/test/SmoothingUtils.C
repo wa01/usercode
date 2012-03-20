@@ -62,20 +62,22 @@ TH2* findJesHisto (TFile* file) {
 //   surrounding bins 
 //   nmin: minimum number of non-empty neighbours
 //
-TH2* fillMissing (TH2* h, int nmin=5) {
-  TH2* hNew = h;
+TH2* fillMissing (TH2* h, int nmin=5, int nmin2=14) {
+//   TH2* hNew = h;
+  TH2* hNew = (TH2*)h->Clone("hFilled");
+  hNew->SetTitle("hFilled");
   int nbx = h->GetNbinsX();
-  int nby = h->GetNbinsX();
+  int nby = h->GetNbinsY();
 
   TMatrixD mat(3,3);
   TVectorD cvec(3);
   //
   // loop over histogram (excluding a 1-bin wide margin)
   //
-  for ( int ix=2; ix<nbx; ++ix ) {
-    for ( int iy=2; iy<nby; ++iy ) {
+  for ( int ix=1; ix<=nbx; ++ix ) {
+    for ( int iy=1; iy<=nby; ++iy ) {
       // check only empty bins
-      if ( h->GetBinContent(ix,iy)>1.e-10 )  continue;
+      if ( fabs(h->GetBinContent(ix,iy))>1.e-10 )  continue;
       // clear matrix and vector used for fit
       int nn(0);
       for ( int i=0; i<3; ++i ) {
@@ -87,6 +89,8 @@ TH2* fillMissing (TH2* h, int nmin=5) {
 	for ( int jy=-1; jy<2; ++jy ) {
 	  // skip the central bin (the one to be filled)
 	  if ( jx==0 && jy==0 )  continue;
+	  if ( (ix+jx)<1 || (ix+jx)>nbx )  continue;
+	  if ( (iy+jy)<1 || (iy+jy)>nby )  continue;
 	  // skip empty neighbours
 	  double z =  h->GetBinContent(ix+jx,iy+jy);
 	  if ( z<1.e-10 )  continue;
@@ -98,8 +102,29 @@ TH2* fillMissing (TH2* h, int nmin=5) {
 	  cvec(0)  += jx*z;  cvec(1)  += jy*z;  cvec(2)  += z;
 	}
       }
-      // don't change empty bin if <nmin non-empty neighbours
-      if ( nn<nmin ) continue;
+      // if < nmin neighbours in delta_i==1: try to add delta_i==2
+      if ( nn<nmin ) {
+	// loop over neighbours
+	for ( int jx=-2; jx<3; ++jx ) {
+	  for ( int jy=-2; jy<3; ++jy ) {
+	    // skip the central bin (the one to be filled)
+	    if ( abs(jx)<2 && abs(jy)<2 )  continue;
+	    if ( (ix+jx)<1 || (ix+jx)>nbx )  continue;
+	    if ( (iy+jy)<1 || (iy+jy)>nby )  continue;
+	    // skip empty neighbours
+	    double z =  h->GetBinContent(ix+jx,iy+jy);
+	    if ( z<1.e-10 )  continue;
+	    // update matrix and vector
+	    ++nn;
+	    mat(0,0) += jx*jx; mat(0,1) += jx*jy; mat(0,2) += jx;
+	    mat(1,0) += jx*jy; mat(1,1) += jy*jy; mat(1,2) += jy;
+	    mat(2,0) += jx;    mat(2,1) += jy;    mat(2,2) += 1;
+	    cvec(0)  += jx*z;  cvec(1)  += jy*z;  cvec(2)  += z;
+	  }
+	}
+	// drop bin if <nmin2 in 5x5 area
+	if ( nn<nmin2 ) continue;
+      }
 //       cout << "x / y = " << h->GetXaxis()->GetBinCenter(ix) << " " 
 //                          << h->GetYaxis()->GetBinCenter(iy) << endl;
       // 
@@ -168,7 +193,7 @@ TH2* doSmooth (TH2* hRaw, const char* algo = "k3a", int nTimes = 2, bool ratio =
   // (first parameter in Smooth is dummy)
   for ( int i=0; i<nTimes; ++i )  hSmooth->Smooth(1,algo);
   // remove artefacts on edges of the filled region
-  clearBins(hSmooth,hFilled);
+  clearBins(hSmooth,hFilled,2);
   if ( draw ) {
     c = new TCanvas("cSmooth","cSmooth");
     hSmooth->Draw("ZCOL");
