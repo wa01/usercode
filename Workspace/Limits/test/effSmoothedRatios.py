@@ -124,8 +124,10 @@ for btag in effdic:
         if p != None:  hname += p
         hRaw = ROOT.TH2F(hname,hname,nb0,fm0Min,fm0Max,nb12,fm12Min,fm12Max)
         #  fill histogram with valid points (add entries / process to output dictionary, if necessary)
+        msugraStrings = {}
         for msugra in effdic[btag][ht][met]:
           parts = msugra.split('_')
+          m0m12 = ( int(parts[1]), int(parts[2]) )
           v = None
           if p == None:
             v = effdic[btag][ht][met][msugra]
@@ -134,6 +136,7 @@ for btag in effdic:
             allRatios[btag][ht][met][msugra][p] = {}
           if not v == None and not math.isnan(v):
             hRaw.Fill(float(parts[1]),float(parts[2]),v)
+          msugraStrings[m0m12] = msugra
         #
         # create histogram with ratios and fill bin contents into dictionary
         #
@@ -146,7 +149,8 @@ for btag in effdic:
             if abs(ratio) < 0.000001:  continue
             m0 = int(hRatio.GetXaxis().GetBinCenter(ix)+0.5)
             m12 = int(hRatio.GetYaxis().GetBinCenter(iy)+0.5)
-            msugra = 'msugra_'+str(m0)+'_'+str(m12)+'_10_0_1'
+#            msugra = 'msugra_'+str(m0)+'_'+str(m12)+'_10_0_1'
+            msugra = msugraStrings[ (m0, m12) ]
             if p == None:
               allRatios[btag][ht][met][msugra] = ratio
             else:
