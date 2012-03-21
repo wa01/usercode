@@ -96,17 +96,17 @@ btags = [ "binc", "b0", "b1", "b1p", "b2" ]
 hts = [ 750, 1000 ]
 mets = [ 250, 350, 450, 550 ]
 
-#systGroups = { 'WPol' : [ 'WPol1', 'WPol2+', 'WPol2-', 'WPol3' ], \
-#               'Eff' : [ 'HighEtaLepEff', 'LowPtLepEff', 'PU' ], \
-#               'Xsec' : [ 'DiLep', 'otherBkgs', 'scaleT', 'scaleW' ], \
-#               'Beta' : [ 'ScaleExpTT', 'ScaleExpWm', 'ScaleExpWp' ], \
-#               'Alpha' :[ 'alphaSlopeTT', 'alphaSlopeWm', 'alphaSlopeWp' ], \
-#               'Erf' : [ 'ErfcVar' ], 'JES' : [ 'JES' ] }
-#systGroupsInv = {}
-#for k1 in systGroups:
-#    for k2 in systGroups[k1]:
-#        assert not k2 in systGroupsInv
-#        systGroupsInv[k2] = k1
+systGroups = { 'WPol' : [ 'WPol1', 'WPol2+', 'WPol2-', 'WPol3' ], \
+               'Eff' : [ 'HighEtaLepEff', 'LowPtLepEff', 'PU' ], \
+               'Xsec' : [ 'DiLep', 'otherBkgs', 'scaleT', 'scaleW' ], \
+               'Beta' : [ 'ScaleExpTT', 'ScaleExpWm', 'ScaleExpWp' ], \
+               'Alpha' : [ 'alphaSlopeTT', 'alphaSlopeWm', 'alphaSlopeWp' ], \
+               'Erf' : [ 'ErfcVar' ], 'JES' : [ 'JES' ] }
+systGroupsInv = {}
+for k1 in systGroups:
+    for k2 in systGroups[k1]:
+        assert not k2 in systGroupsInv
+        systGroupsInv[k2] = k1
 
 #
 # MC closure
@@ -159,12 +159,16 @@ for btag in btags:
             elif btag == 'b1' or btag == 'b2':
                 bt = 'b1p'
 
-            sumerr = 0
+            sumerr = {}
             for key in largestAbsDoubleRatioDeviation:
                 if key == 'JES':  continue
+                assert key in systGroupsInv
+                sg = systGroupsInv[key]
+                if not sg in sumerr:  sumerr[sg] = 0.
                 print key,bt,predLep
                 err = sumAbsLepErrors(key,bt,predLep)
-                bkgDict[btagD][ht][met]['syst'+key] = err
+                sumerr[sg] += err*err
+#                bkgDict[btagD][ht][met]['syst'+key] = err
 #                sumerr += err*err
 #                print key,btag,err
             jeserr = 0
@@ -182,7 +186,9 @@ for btag in btags:
             #
             errClos = errMCClosure[ht][met]
             print "Adding MC closure syst ",errClos
-            bkgDict[btagD][ht][met]['systClosure'] = errClos
+            assert not 'Closure' in sumerr
+            sumerr['Closure'] = errClos*errClos
+#            bkgDict[btagD][ht][met]['systClosure'] = err
 #            sumerr += errClos*errClos
             #
             # systematics (b-tag related)
@@ -197,9 +203,14 @@ for btag in btags:
             #
             key = 'ScaleFrac'
             err = sumAbsLepErrors(key,bt,predLep)
-            bkgDict[btagD][ht][met]['systScaleFrac'] = err
+            assert 'Xsec' in sumerr
+            sumerr['Xsec'] += err*err
+#            bkgDict[btagD][ht][met]['systScaleFrac'] = err
 #            sumerr += err*err
 #            bkgDict[btagD][ht][met]['systOther'] = math.sqrt(sumerr)
+
+            for key in sumerr:
+                bkgDict[btagD][ht][met]['syst'+key] = math.sqrt(sumerr[key])
             #
             # b-tag systs
             #
