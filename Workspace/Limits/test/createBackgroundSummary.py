@@ -6,6 +6,7 @@ import sys
 
 
 leptons = [ 'Mu', 'Ele' ]
+
 def sqr (val):
     return val*val
 def getCountsLep (countDict,lep,btag):
@@ -95,6 +96,18 @@ btags = [ "binc", "b0", "b1", "b1p", "b2" ]
 hts = [ 750, 1000 ]
 mets = [ 250, 350, 450, 550 ]
 
+#systGroups = { 'WPol' : [ 'WPol1', 'WPol2+', 'WPol2-', 'WPol3' ], \
+#               'Eff' : [ 'HighEtaLepEff', 'LowPtLepEff', 'PU' ], \
+#               'Xsec' : [ 'DiLep', 'otherBkgs', 'scaleT', 'scaleW' ], \
+#               'Beta' : [ 'ScaleExpTT', 'ScaleExpWm', 'ScaleExpWp' ], \
+#               'Alpha' :[ 'alphaSlopeTT', 'alphaSlopeWm', 'alphaSlopeWp' ], \
+#               'Erf' : [ 'ErfcVar' ], 'JES' : [ 'JES' ] }
+#systGroupsInv = {}
+#for k1 in systGroups:
+#    for k2 in systGroups[k1]:
+#        assert not k2 in systGroupsInv
+#        systGroupsInv[k2] = k1
+
 #
 # MC closure
 #
@@ -151,8 +164,9 @@ for btag in btags:
                 if key == 'JES':  continue
                 print key,bt,predLep
                 err = sumAbsLepErrors(key,bt,predLep)
-                sumerr += err*err
-                print key,btag,err
+                bkgDict[btagD][ht][met]['syst'+key] = err
+#                sumerr += err*err
+#                print key,btag,err
             jeserr = 0
             jeserrpm = []
             for key in [ 'pfRA4TupelizerJESMinus', 'pfRA4TupelizerJESPlus' ]:
@@ -168,7 +182,8 @@ for btag in btags:
             #
             errClos = errMCClosure[ht][met]
             print "Adding MC closure syst ",errClos
-            sumerr += errClos*errClos
+            bkgDict[btagD][ht][met]['systClosure'] = errClos
+#            sumerr += errClos*errClos
             #
             # systematics (b-tag related)
             #
@@ -182,8 +197,9 @@ for btag in btags:
             #
             key = 'ScaleFrac'
             err = sumAbsLepErrors(key,bt,predLep)
-            sumerr += err*err
-            bkgDict[btagD][ht][met]['systOther'] = math.sqrt(sumerr)
+            bkgDict[btagD][ht][met]['systScaleFrac'] = err
+#            sumerr += err*err
+#            bkgDict[btagD][ht][met]['systOther'] = math.sqrt(sumerr)
             #
             # b-tag systs
             #
