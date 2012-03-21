@@ -51,6 +51,22 @@ def getBkg (btags,ht,met,key,bdict):
         result[btag] = bdict[btag][ht][met][key]
     return result
 
+def getBkgNumbers (btags,ht,met,bdict):
+    result = {}
+    for btag in btags:
+        result[btag] = {}
+        for key in bdict[btag][ht][met]:
+            if key == 'obs' or key == 'pred' or key == 'stats':
+                result[btag][key] = bdict[btag][ht][met][key]
+            elif key.startswith('syst'):
+                if not 'syst' in result[btag]:  result[btag]['syst'] = {}
+                k = key[4:]
+                result[btag]['syst'][k] = bdict[btag][ht][met][key]
+            else:
+                print "unknown key in background numbers: ",key
+                sys.exit(1)
+    return result
+                
 def checkProcess (processes):
     result = {}
     for name in processes:
@@ -214,14 +230,15 @@ for m0 in m0s:
             sigBeff = getSig(btags,options.ht,options.met,msugraString,'beff',sigDict)
             sigLeff = getSig(btags,options.ht,options.met,msugraString,'leff',sigDict)
 
-        obsEvts = getBkg(btags,options.ht,options.met,'obs',bkgDict)
-        predEvts = getBkg(btags,options.ht,options.met,'pred',bkgDict)
-        bkgStats = getBkg(btags,options.ht,options.met,'stats',bkgDict)
-        bkgSyst = getBkg(btags,options.ht,options.met,'systOther',bkgDict)
-        if options.btag != 'binc':
-            bkgBeff = getBkg(btags,options.ht,options.met,'systbeff',bkgDict)
-            bkgLeff = getBkg(btags,options.ht,options.met,'systleff',bkgDict)
-        bkgJES = getBkg(btags,options.ht,options.met,'systJES',bkgDict)
+        bkgNumbers = getBkgNumbers(btags,options.ht,options.met,bkgDict)
+#        obsEvts = getBkg(btags,options.ht,options.met,'obs',bkgDict)
+#        predEvts = getBkg(btags,options.ht,options.met,'pred',bkgDict)
+#        bkgStats = getBkg(btags,options.ht,options.met,'stats',bkgDict)
+#        bkgSyst = getBkg(btags,options.ht,options.met,'systOther',bkgDict)
+#        if options.btag != 'binc':
+#            bkgBeff = getBkg(btags,options.ht,options.met,'systbeff',bkgDict)
+#            bkgLeff = getBkg(btags,options.ht,options.met,'systleff',bkgDict)
+#        bkgJES = getBkg(btags,options.ht,options.met,'systJES',bkgDict)
 
         btagsFiltered = []
         for btag in btags:
@@ -249,11 +266,11 @@ for m0 in m0s:
         dcfile.write(line+"\n")
         line = "observation".ljust(20)
         for btag in btagsFiltered:
-            line += "%22d" % obsEvts[btag]
+            line += "%22d" % bkgNumbers[btag]['obs']
         dcfile.write(line+"\n")
 
         dcfile.write("-"*(20+22*nc)+"\n")
-
+        
         line = "bin".ljust(20)
         for btag in btagsFiltered:
             line += btag.rjust(12) + btag.rjust(10)
@@ -272,7 +289,7 @@ for m0 in m0s:
         line = "rate".ljust(20)
         for btag in btagsFiltered:
             line += "%12.3f" % sigEvts[btag]
-            line += "%10.3f" % predEvts[btag]
+            line += "%10.3f" % bkgNumbers[btag]['pred']
         dcfile.write(line+"\n")
         
         dcfile.write("-"*(20+22*nc)+"\n")
@@ -282,21 +299,23 @@ for m0 in m0s:
             for btag1 in btagsFiltered:
                 line += "-".rjust(12)
                 if btag1 == btag:
-                    line += "%10.3f" % (bkgStats[btag]+1)
+                    line += "%10.3f" % (bkgNumbers[btag]['stats']+1)
                 else:
                     line += "-".rjust(10)
             dcfile.write(line+"\n")
 
-        line = "bkgSyst".ljust(15) + "lnN".ljust(5)
-        for btag in btagsFiltered:
-            line += "-".rjust(12)
-            line += "%10.3f" % (bkgSyst[btag]+1)
-        dcfile.write(line+"\n")
+        for key in bkgNumbers[btagsFiltered[0]]['syst']:
+            if key == 'beff' or key == 'leff' or key == 'JES': continue
+            line = key.ljust(15) + "lnN".ljust(5)
+            for btag in btagsFiltered:
+                line += "-".rjust(12)
+                line += "%10.3f" % (bkgNumbers[btag]['syst'][key]+1)
+            dcfile.write(line+"\n")
 
         line = "JES".ljust(15) + "lnN".ljust(5)
         for btag in btagsFiltered:
             line += "%12.3f" % (sigJES[btag]+1)
-            line += "%10.3f" % (bkgJES[btag]+1)
+            line += "%10.3f" % (bkgNumbers[btag]['syst']['JES']+1)
         dcfile.write(line+"\n")
 
         if options.btag != 'binc':
@@ -304,13 +323,13 @@ for m0 in m0s:
             line = "beff".ljust(15) + "lnN".ljust(5)
             for btag in btagsFiltered:
                 line += "%12.3f" % (sigBeff[btag]+1)
-                line += "%10.3f" % (bkgBeff[btag]+1)          
+                line += "%10.3f" % (bkgNumbers[btag]['syst']['beff']+1)          
             dcfile.write(line+"\n")
 
             line = "leff".ljust(15) + "lnN".ljust(5)
             for btag in btagsFiltered:
                 line += "%12.3f" % (sigLeff[btag]+1)
-                line += "%10.3f" % (bkgLeff[btag]+1)
+                line += "%10.3f" % (bkgNumbers[btag]['syst']['leff']+1)
             dcfile.write(line+"\n")
 
         line = "sigSyst".ljust(15) + "lnN".ljust(5)
