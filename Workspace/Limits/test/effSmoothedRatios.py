@@ -34,13 +34,16 @@ def findRange (ms):
 # create dictionary with ratio of smoothed / raw efficiencies
 #   argument: dictionary with raw efficiencies
 #
+from optparse import OptionParser
+parser = OptionParser()
+parser.add_option("--m3Ratio", dest="m3Ratio", default=-1., type="float", action="store", help="ratio for intermediate mass in SMS models")
+(options, args) = parser.parse_args()
+
 # dictionary with efficiencies
-fnameEff = sys.argv[1]
+fnameEff = args[0]
 effdic = cPickle.load(file(fnameEff))
 # dictionary with yields
-fnameEvt = None
-if len(sys.argv) > 2:
-  fnameEvt = sys.argv[2]
+fnameEvt = args[1] if len(args) > 1 else None
 #
 # load macros
 #
@@ -93,6 +96,8 @@ print processes
 
 # loop over all btag bins, ht and met values in input dictionary
 #   and create corresponding levels in output dictionary
+model = None
+suffix = None
 for btag in effdic:
   if not btag in allRatios:  allRatios[btag] = {}
   for ht in effdic[btag]:
@@ -102,7 +107,7 @@ for btag in effdic:
       #
       # create histograms (grid points at bin centre)
       # 
-      print "btag / ht / met = ",btag,ht,met
+      # print "btag / ht / met = ",btag,ht,met
       nb0 = (m0Range[2]-m0Range[1])/m0Range[0] + 1
       if (m0Range[2]-m0Range[1])%m0Range[0] != 0:  nb0 += 1
       fm0Min = m0Range[1] - m0Range[0]/2.
@@ -111,8 +116,8 @@ for btag in effdic:
       if (m12Range[2]-m12Range[1])%m12Range[0] != 0:  nb12 += 1
       fm12Min = m12Range[1] - m12Range[0]/2.
       fm12Max = fm12Min + nb12*m12Range[0]
-      print "m0 ",m0Range[0]," ",m0Range[1]," ",m0Range[2]," ; ",nb0," ",fm0Min," ",fm0Max
-      print "m12 ",m12Range[0]," ",m12Range[1]," ",m12Range[2]," ; ",nb12," ",fm12Min," ",fm12Max
+      # print "m0 ",m0Range[0]," ",m0Range[1]," ",m0Range[2]," ; ",nb0," ",fm0Min," ",fm0Max
+      # print "m12 ",m12Range[0]," ",m12Range[1]," ",m12Range[2]," ; ",nb12," ",fm12Min," ",fm12Max
 
       if len(processes) == 0:  processes.add( None )
       rawHistos = []
@@ -124,10 +129,31 @@ for btag in effdic:
         if p != None:  hname += p
         hRaw = ROOT.TH2F(hname,hname,nb0,fm0Min,fm0Max,nb12,fm12Min,fm12Max)
         #  fill histogram with valid points (add entries / process to output dictionary, if necessary)
-        msugraStrings = {}
         for msugra in effdic[btag][ht][met]:
           parts = msugra.split('_')
-          m0m12 = ( int(parts[1]), int(parts[2]) )
+          # check model name
+          if model == None:
+            model = parts[0]
+          else:
+            assert parts[0] == model
+          # check remaining fields
+          if suffix == None:  suffix = parts[3:]
+          if model == 'msugra':
+            assert len(parts) == 6 and parts[3:] == suffix
+          elif model.startswith('T'):
+            assert len(parts) == 4
+            if options.m3Ratio < 0:
+              if parts[3:] != suffix:
+                print "Varying suffix ",parts[3:],' / ',suffix,': probably missing m3Ratio argument'
+                sys.exit(1)
+            else:
+              m0 = int(parts[1])
+              m12 = int(parts[2])
+              m3 = options.m3Ratio*(m0-m12) + m12
+              if int(m3+0.5) != int(parts[3]):
+                print "Intermediate mass for ",msugra,"is inconsistent with m3Ratio =",options.m3Ratio
+                sys.exit(1)
+          #
           v = None
           if p == None:
             v = effdic[btag][ht][met][msugra]
@@ -136,7 +162,6 @@ for btag in effdic:
             allRatios[btag][ht][met][msugra][p] = {}
           if not v == None and not math.isnan(v):
             hRaw.Fill(float(parts[1]),float(parts[2]),v)
-          msugraStrings[m0m12] = msugra
         #
         # create histogram with ratios and fill bin contents into dictionary
         #
@@ -150,7 +175,12 @@ for btag in effdic:
             m0 = int(hRatio.GetXaxis().GetBinCenter(ix)+0.5)
             m12 = int(hRatio.GetYaxis().GetBinCenter(iy)+0.5)
 #            msugra = 'msugra_'+str(m0)+'_'+str(m12)+'_10_0_1'
-            msugra = msugraStrings[ (m0, m12) ]
+            msugra = model+"_"+str(m0)+"_"+str(m12)
+            if model.startswith('T') and options.m3Ratio < 0:
+              m3 = options.m3Ratio*(m0-m12) + m12
+              msugra += "_"+str(int(m3+0.5))
+            else:
+              for part in suffix:  msugra += "_"+part
             if p == None:
               allRatios[btag][ht][met][msugra] = ratio
             else:
