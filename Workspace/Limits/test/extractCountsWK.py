@@ -6,14 +6,14 @@ from math import sqrt
 #
 # template for directory / file names
 #
-template = Template('/scratch/kwolf/fitTuple_120319/copy3j_highM0_dataset_${lep}_with_msugra/Data_${lep}_newModel_V120212_htSig-${ht}_metSig-${met}_RooMinuit_sampleOff/res.py')
+template = Template('/scratch/kwolf/fitTuple_120319/copy3j_highM0_dataset_${lep}_with_msugra/Data_${lep}_newModel_V120212_htSig-${ht}_metSig-${met}_RooMinuit_sampleOff/res_extended.py')
 #
 # lepton flavour, HT, MET and btag bins
 #
 leptons = [ 'Mu', 'Ele' ]
 hts = [ 750, 1000 ]
 mets = [ 250, 350, 450, 550 ]
-btags = [ 'binc', 'b0', 'b1', 'b2' ]
+btags = [ 'binc', 'b0', 'b1', 'b1p', 'b2' ]
 #
 # output dictionaries:
 #
@@ -57,9 +57,13 @@ for lep in leptons:
                 if btag == 'binc':
                     bt = 'inc'
                     signs = [ "" ]
+                elif btag == 'b1p':
+                    bt = 'b12'
+                    signs = [ "" ]
                 else:
                     bt = btag
-                    signs = [ "Minus", "Plus" ]
+#                    signs = [ "Minus", "Plus" ]
+                    signs = [ "PM" ]
                 # initialise sums
                 countsObs[ht][met][btag][lep] = 0
                 countsNorm[ht][met][btag][lep]  = 0
