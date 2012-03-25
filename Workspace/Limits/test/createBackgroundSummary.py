@@ -109,10 +109,19 @@ for k1 in systGroups:
         systGroupsInv[k2] = k1
 
 #
+# b-tag consistency
+#
+btagConsistency = { 'b2':  {1000: {250: 0.085, 550: 0.180, 450: 0.154, 350: 0.114}, \
+                             750: {250: 0.081, 550: 0.175, 450: 0.150, 350: 0.115}}, \
+                    'b1':  {1000: {250: 0.020, 550: 0.015, 450: 0.020, 350: 0.021}, \
+                             750: {250: 0.022, 550: 0.012, 450: 0.019, 350: 0.023}}, \
+                    'b1p': {1000: {250: 0.042, 350: 0.048, 450: 0.053, 550: 0.050}, \
+                             750: {250: 0.042, 350: 0.050, 450: 0.051, 550: 0.046} } }
+#
 # MC closure
 #
-errMCClosure = { 750 : { 250 : 0.072, 350 : 0.041, 450 : 0.073, 550 : 0.224 }, \
-                 1000 : { 250 : 0.056, 350 : 0.074, 450  : 0.098, 550 : 0.198 } }
+errMCClosure = { 750 : { 250 : 0.073, 350 : 0.049, 450 : 0.071, 550 : 0.222 }, \
+                 1000 : { 250 : 0.059, 350 : 0.077, 450  : 0.148, 550 : 0.197 } }
 #
 # output file name
 #
@@ -190,6 +199,10 @@ for btag in btags:
             sumerr['Closure'] = errClos*errClos
 #            bkgDict[btagD][ht][met]['systClosure'] = err
 #            sumerr += errClos*errClos
+            # if available: add Met vs. b-tag uncertainty
+            if btagD in btagConsistency:
+                errMetBTag = btagConsistency[btagD][ht][met]
+                sumerr['Closure'] += errMetBTag*errMetBTag
             #
             # systematics (b-tag related)
             #
@@ -216,8 +229,12 @@ for btag in btags:
             #
             # keys for up and down variations / source
             #
-            btKeys = { 'beff' : [ 'btagEff3_Up_b_sf0', 'btagEff3_Down_b_sf0' ], \
-                       'leff' : [ 'btagEff3_Up_l_sf0', 'btagEff3_Down_l_sf0' ] }
+            if met <= 350:
+                btKeys = { 'beff' : [ 'btagEff4_Up_b_sf0', 'btagEff4_Down_b_sf0' ], \
+                           'leff' : [ 'btagEff4_Up_l_sf0', 'btagEff4_Down_l_sf0' ] }
+            else:
+                btKeys = { 'beff' : [ 'btagEff3_Up_b_sf0', 'btagEff3_Down_b_sf0' ], \
+                           'leff' : [ 'btagEff3_Up_l_sf0', 'btagEff3_Down_l_sf0' ] }
             for vari in btKeys:
                 # keys
                 keyUp = btKeys[vari][0]
