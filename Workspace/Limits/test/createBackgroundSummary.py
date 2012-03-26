@@ -12,11 +12,13 @@ def sqr (val):
 def getCountsLep (countDict,lep,btag):
     result = 0
     bt = btag    
-    if bt == 'binc' or bt == 'b0' or bt == 'b1' or bt == 'b2':
+#    if bt == 'binc' or bt == 'b0' or bt == 'b1' or bt == 'b2':
+#        result += countDict[ht][met][bt][lep]
+#    elif bt == 'b1p':
+#        for bt1 in [ 'b1', 'b2' ]:
+#            result += countDict[ht][met][bt1][lep]
+    if bt == 'binc' or bt == 'b0' or bt == 'b1' or bt == 'b2' or bt == 'b1p':
         result += countDict[ht][met][bt][lep]
-    elif bt == 'b1p':
-        for bt1 in [ 'b1', 'b2' ]:
-            result += countDict[ht][met][bt1][lep]
     else:
         print "Unknown b-tag bin ",btag
         sys.exit(1)
@@ -30,11 +32,13 @@ def getCounts (countDict,btag):
 def getErrors (errorDict,btag):
     result = 0.
     bt = btag    
-    if bt == 'binc' or bt == 'b0' or bt == 'b1' or bt == 'b2':
+#    if bt == 'binc' or bt == 'b0' or bt == 'b1' or bt == 'b2':
+#        for lep in leptons:  result += sqr(errorDict[ht][met][bt][lep])
+#    elif bt == 'b1p':
+#        for bt1 in [ 'b1', 'b2' ]:
+#            for lep in leptons:  result += sqr(errorDict[ht][met][bt1][lep])
+    if bt == 'binc' or bt == 'b0' or bt == 'b1' or bt == 'b2' or bt == 'b1p':
         for lep in leptons:  result += sqr(errorDict[ht][met][bt][lep])
-    elif bt == 'b1p':
-        for bt1 in [ 'b1', 'b2' ]:
-            for lep in leptons:  result += sqr(errorDict[ht][met][bt1][lep])
     else:
         print "Unknown b-tag bin ",btag
         sys.exit(1)
@@ -137,6 +141,8 @@ ofile = open(oname,"wb")
 #
 execfile("eventCounts.py")
 
+if len(btags) > 1:
+    bkgCorr = cPickle.load(file("bkgCorrelations.pkl"))
 
 for btag in btags:
     btagD = btag
@@ -153,8 +159,30 @@ for btag in btags:
             for lep in leptons:  predLep[lep] = getCountsLep(countsPred,lep,btag)
             errpred = getErrors(errorsPred,btag)
 
-            # background statistics (uncorrelated)
-            bkgDict[btagD][ht][met]['stats'] = errpred/pred
+            #            # background statistics (uncorrelated)
+            #            bkgDict[btagD][ht][met]['stats'] = errpred/pred
+            #
+            # correlated background error from fit via Cholesky decomposition
+            #   (redundant calculations because of inverse order btags <=> sig. regions
+            #    but here CPU is not concern)
+            #
+            bkgDict[btagD][ht][met]['stats'] = { }
+            for btag2 in btags:
+                if btag == 'binc' or btag2 == 'binc': continue
+                if btag2 == btag:
+                    sig = errpred/pred
+                else:
+                    name = btag+"-"+btag2
+                    if name in bkgCorr[ht][met]:
+                        sig = bkgCorr[ht][met][name]
+                    else:
+                        name = btag2+"-"+btag
+                        sig = bkgCorr[ht][met][name]
+                bkgDict[btagD][ht][met]['stats'][btag2] = sig
+            #
+            # background statistics (Poisson)
+            #
+            bkgDict[btagD][ht][met]['countsNorm'] = getCounts(countsNorm,btag)
             #
             # systematics (non-b related)
             #
