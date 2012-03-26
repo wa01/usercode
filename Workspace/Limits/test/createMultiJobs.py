@@ -56,7 +56,7 @@ def getBkgNumbers (btags,ht,met,bdict):
     for btag in btags:
         result[btag] = {}
         for key in bdict[btag][ht][met]:
-            if key == 'obs' or key == 'pred' or key == 'stats':
+            if key == 'obs' or key == 'pred' or key == 'countsNorm' or key == 'stats':
                 result[btag][key] = bdict[btag][ht][met][key]
             elif key.startswith('syst'):
                 if not 'syst' in result[btag]:  result[btag]['syst'] = {}
@@ -81,6 +81,29 @@ def checkProcess (processes):
 #            os.remove(name)
     return result
 
+def getCorrStat (btags,bkgNumbers):
+    result = { }
+    # build list of sigmas / correlations
+    covL = [ ]
+    for i,bi in enumerate(btags):
+        for j,bj in enumerate(btags):
+            if j > i: continue
+            covL.append(bkgNumbers[bi]['stats'][bj])
+    # convert to TVector
+    nb = len(btags)
+    nb2 = len(covL)
+    print nb,nb2
+    covV = ROOT.TVectorD(nb2)
+    for i,c in enumerate(covL):  covV[i] = c
+    # get matrix
+    matU = ROOT.Chol(covV)
+    for i,bi in enumerate(btags):
+        result[bi] = {}
+        for j,bj in enumerate(btags):
+            if j >= i:  result[bi][bj] = matU(i,j)
+    return result
+
+    
 def waitProcess (processes,all=False):
     for name in processes:
         p = processes[name]
@@ -117,7 +140,13 @@ btags = [ "b0", "b1", "b2" ]
 if options.btag != "":
     btags = [ options.btag ]
     if options.btag == "binc":  btags = [ "inc"]
-
+if len(btags) > 1:
+    import ROOT
+    from ROOT import gROOT
+    gROOT.ProcessLine(".L Chol.C+")
+#
+# file with background information
+#
 bkgDict = cPickle.load(file("backgrounds.pkl"))
 sigName = "sig_"+options.model
 if not options.lo:
@@ -212,6 +241,8 @@ idx = 0
 massname = dirname + "/m0m12.lis"
 fmass = open(massname,"w")
 processes = {}
+bkgCorrTags = [ ]
+bkgCorrs = None
 for m0 in m0s:
 
     nmass = 0
@@ -247,6 +278,10 @@ for m0 in m0s:
         if nc == 0:
             print "No signals for ",msugraString
             continue
+
+        if len(btagsFiltered) > 1 and ( bkgCorrTags != btagsFiltered or bkgCorr == None ):
+            bkgCorrTags = btagsFiltered
+            bkgCorr = getCorrStat(btagsFiltered,bkgNumbers)
 
         # output (text) file name
         modelname = dirname + "/model_" + str(m0) + "_" + str(m12)
@@ -295,11 +330,27 @@ for m0 in m0s:
         dcfile.write("-"*(20+22*nc)+"\n")
 
         for btag in btagsFiltered:
-            line = (btag+"Stat").ljust(15) + "lnN".ljust(5)
+            line = (btag+"StatF").ljust(15) + "lnN".ljust(5)
+            if len(btagsFiltered) == 1:
+                line += "-".rjust(12)
+                line += "%10.3f" % (bkgNumbers[btag]['stats'][btag]+1)
+            else:
+                for btag1 in btagsFiltered:
+                    line += "-".rjust(12)
+                    if btag1 in bkgCorr[btag]:
+                        line += "%10.3f" % (bkgCorr[btag][btag1]+1)
+                    else:
+                        line += "-".rjust(10)
+            dcfile.write(line+"\n")
+
+        for btag in btagsFiltered:
+            line = (btag+"StatP").ljust(12) + "gmN".ljust(4)
+            cnorm = bkgNumbers[btag]['countsNorm']
+            line += "%4d" % cnorm
             for btag1 in btagsFiltered:
                 line += "-".rjust(12)
                 if btag1 == btag:
-                    line += "%10.3f" % (bkgNumbers[btag]['stats']+1)
+                    line += "%10.4f" % (bkgNumbers[btag]['pred']/cnorm)
                 else:
                     line += "-".rjust(10)
             dcfile.write(line+"\n")
