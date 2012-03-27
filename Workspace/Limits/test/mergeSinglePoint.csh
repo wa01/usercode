@@ -12,6 +12,7 @@
 #
 # check arguments and CMSSW environment
 #
+#set echo
 if ( $#argv < 1 ) then
   echo "Missing argument"
   exit 1
@@ -101,6 +102,30 @@ set tmpdir = /tmp/adamwo/mergeSinglePoint_$$
 mkdir $tmpdir
 pushd $tmpdir
 #
+# create file for running the limits
+#
+cat <<EOF >runCombine.csh
+#\! /bin/tcsh -f
+set echo
+set curDir = \$PWD
+set tmpDir = /tmp/adamwo/runCombine_\$\$
+mkdir \$tmpDir
+pushd \$tmpDir
+combine \$curDir/\$1 -M HybridNew --frequentist --testStat LHC --singlePoint 1 -s \$2 --clsAcc 0 \
+  -T 100 -i 50 --toysFile \$curDir/\$3 --readHybridResult \$4
+if ( \$status != 0 ) then
+  echo "runCombine FAILED :  combine \$1 ... --singlePoint 1 -s \$2 ... --toysFile \$3 --readHybridResult \$4"
+   exit 1
+else
+  cp higgsCombineTest.*.root \$curDir
+endif
+popd
+rm -r \$tmpDir
+exit 0
+EOF
+chmod u+x runCombine.csh
+#
+#
 # loop of tar files
 #
 @ ntot = 0
@@ -182,13 +207,15 @@ foreach file ( $files )
        while ( $ilim < $#limargs )
          #  calculate limit using the toys
          @ ilim = $ilim + 1
-         combine $model -M HybridNew --frequentist --testStat LHC --singlePoint 1 -s $fields[4] --clsAcc 0 -T 100 -i 50 \
-           --toysFile $tfile --readHybridResult $limargs[$ilim]
-         if ( $status != 0 ) then
-           echo "FAILED :  combine $model ... --singlePoint 1 -s $fields[4] ... --toysFile $tfile --readHybridResult $limargs[$ilim]"
-           exit 1
-         endif
+         $tmpdir/runCombine.csh $model $fields[4] $tfile $limargs[$ilim] &
+#         combine $model -M HybridNew --frequentist --testStat LHC --singlePoint 1 -s $fields[4] --clsAcc 0 -T 100 -i 50 \
+#           --toysFile $tfile --readHybridResult $limargs[$ilim]
+#         if ( $status != 0 ) then
+#           echo "FAILED :  combine $model ... --singlePoint 1 -s $fields[4] ... --toysFile $tfile --readHybridResult $limargs[$ilim]"
+#           exit 1
+#         endif
        end
+       wait
     end
     # get list of root files with limits from all points of the job
     ls higgsCombineTest.*.root >& /dev/null
