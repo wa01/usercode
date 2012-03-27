@@ -227,8 +227,7 @@ PlotLimits2::interpolateExp (double ys[], double zs[],
   return false;
 }
 
-// TGraph*
-TH1*
+TGraph*
 PlotLimits2::scanLimit(LimitHistograms& histos)
 {
   int nbx = histos.hExist->GetNbinsX();
@@ -237,7 +236,6 @@ PlotLimits2::scanLimit(LimitHistograms& histos)
   TAxis* xAxis = histos.hExist->GetXaxis();
   TAxis* yAxis = histos.hExist->GetYaxis();
 
-//   TGraph* result = new TGraph();
   TH1* result = new TH1F("lim","lim",nbx,xAxis->GetXmin(),xAxis->GetXmax());
 
   int nGraph(0);
@@ -318,7 +316,15 @@ PlotLimits2::scanLimit(LimitHistograms& histos)
   }
   if ( ifirst!=0 )  result->GetXaxis()->SetRange(ifirst,ilast);
   result->Smooth(6,"R");
-  return result;
+//   return result;
+
+  TGraph* graph = new TGraph();
+  np = 0;
+  for ( int ix=1; ix<=nbx; ++ix ) {
+    double y = result->GetBinContent(ix);
+    if ( y>1.e-6 )  graph->SetPoint(np++,xAxis->GetBinCenter(ix),y);
+  }
+  return graph;
 }
 
 
@@ -338,15 +344,15 @@ PlotLimits2::drawHistogram (LimitHistograms histos, TGraph** graph)
   TH2* hc = (TH2*)histos.hLimit->Clone();
   hc->SetContour(1,levels);
   hc->Draw("cont3 list same");
-  *graph = 0;
-//   *graph = scanLimit(histos);
-//   (**graph).SetLineColor(2);
-//   (**graph).SetLineWidth(2);  
-//   (**graph).Draw("same");
-  TH1* hlim = scanLimit(histos);
-  hlim->SetLineColor(2);
-  hlim->SetLineWidth(2);
-  hlim->Draw("same C");
+  *graph = scanLimit(histos);
+  (**graph).SetLineColor(2);
+  (**graph).SetLineWidth(2);  
+  (**graph).Draw("same C");
+//   *graph = 0;
+//   TH1* hlim = scanLimit(histos);
+//   hlim->SetLineColor(2);
+//   hlim->SetLineWidth(2);
+//   hlim->Draw("same C");
   gPad->Update();
   return;
 }

@@ -79,8 +79,8 @@ private:
   }
   TH2* getHistogram (const char* name) {return (TH2*)gROOT->Get(name);}
   bool interpolateExp (double ys[], double zs[], double level, double& limit) const;
-//   TGraph* scanLimit (LimitHistograms& histos);
-  TH1* scanLimit (LimitHistograms& histos);
+  TGraph* scanLimit (LimitHistograms& histos);
+//   TH1* scanLimit (LimitHistograms& histos);
 
 private:
    TTree          *fChain;   //!pointer to the analyzed TTree or TChain
