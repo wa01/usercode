@@ -17,7 +17,7 @@
 #include <vector>
 #include <cassert>
 
-void ExclusionPlot(TFile*);  
+void ExclusionPlot(TFile* c,TFile* cM = 0,TFile* cP = 0);  
 
 void CommandMSUGRA(TString plotName,Int_t tanBeta, Bool_t plotLO, Bool_t tb40_plotExpected);
 
@@ -114,7 +114,7 @@ TLegend* makeExpLegend(TGraph& sg_gr, TGraph& sgd_gr,TGraph& ch_gr,TGraph& sl_gr
 
 
   
-  vector<TH1F*> exclusionPlots;
+std::vector<TH1F*> exclusionPlots;
 
   TH2F* yieldPlot(TString mSuGraFile,TString mSuGraDir, TString mSuGraHist){
   //read In mSuGra Histo

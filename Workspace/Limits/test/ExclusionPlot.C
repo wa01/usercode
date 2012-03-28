@@ -18,9 +18,13 @@
 //Produce the limit plot with the command: root -l ExclusionPlot.C+
 
 TFile* ContourFile(0);
+TFile* ContourFileM(0);
+TFile* ContourFileP(0);
 
-void ExclusionPlot(TFile* contours){
+void ExclusionPlot(TFile* contours, TFile* contoursM, TFile* contoursP){
   ContourFile = contours;
+  ContourFileM = contoursM;
+  ContourFileP = contoursP;
   gStyle->SetPalette(1);
 
   gStyle->SetPadTickX(1);  // To get tick marks on the opposite side of the frame
@@ -159,6 +163,20 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
   TGraph* ra4VieExp = (TGraph*)f->Get("gExpMedian");
   TGraph* ra4VieExpP1 = (TGraph*)f->Get("gExpPlus1");
   TGraph* ra4VieExpP2 = (TGraph*)f->Get("gExpPlus2");
+
+  TGraph* ra4VieObsThM(0);
+  TGraph* ra4VieExpThM(0);
+  if ( ContourFileM ) {
+    ra4VieObsThM = (TGraph*)ContourFileM->Get("gObs");
+    ra4VieExpThM = (TGraph*)ContourFileM->Get("gExpMedian");
+  }
+  TGraph* ra4VieObsThP(0);
+  TGraph* ra4VieExpThP(0);
+  if ( ContourFileP ) {
+    ra4VieObsThP = (TGraph*)ContourFileP->Get("gObs");
+    ra4VieExpThP = (TGraph*)ContourFileP->Get("gExpMedian");
+  }
+
   curDir->cd();
 
 
@@ -203,9 +221,19 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
 //     ra4VieObs->RemovePoint(37);
 //     ra4VieObs->RemovePoint(37);
 //     ra4VieObs->RemovePoint(37);
-    ra4VieObs->Draw();
-    ra4VieExp->Draw();
     if ( ra4VieExpM1 && ra4VieExpP1 ) {
+      TGraph* ra4ExpArea = new TGraph();
+      int np(0);
+      double* xExp = ra4VieExpM1->GetX();
+      double* yExp = ra4VieExpM1->GetY();
+      for ( int i=0; i<ra4VieExpM1->GetN(); ++i ) 
+	ra4ExpArea->SetPoint(np++,xExp[i],yExp[i]);
+      xExp = ra4VieExpP1->GetX();
+      yExp = ra4VieExpP1->GetY();
+      for ( int i=ra4VieExpP1->GetN()-1; i>=0; --i ) 
+	ra4ExpArea->SetPoint(np++,xExp[i],yExp[i]);
+      ra4ExpArea->SetFillColor(7);
+      ra4ExpArea->Draw("F");
       ra4VieExpM1->SetLineWidth(2);
       ra4VieExpM1->SetLineStyle(3);
       ra4VieExpM1->SetLineColor(4);
@@ -215,6 +243,28 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
       ra4VieExpM1->Draw();
       ra4VieExpP1->Draw();
     }
+    if ( ra4VieObsThM && ra4VieObsThP ) {
+      ra4VieObsThM->SetLineWidth(2);
+      ra4VieObsThM->SetLineColor(2);
+      ra4VieObsThM->SetLineStyle(2);
+      ra4VieObsThM->Draw();
+      ra4VieObsThP->SetLineWidth(2);
+      ra4VieObsThP->SetLineColor(2);
+      ra4VieObsThP->SetLineStyle(2);
+      ra4VieObsThP->Draw();
+      
+      ra4VieExpThM->SetLineWidth(2);
+      ra4VieExpThM->SetLineColor(4);
+      ra4VieExpThM->SetLineStyle(2);
+      ra4VieExpThM->Draw();
+      ra4VieExpThP->SetLineWidth(2);
+      ra4VieExpThP->SetLineColor(4);
+      ra4VieExpThP->SetLineStyle(2);
+      ra4VieExpThP->Draw();
+      
+    }
+    ra4VieExp->Draw();
+    ra4VieObs->Draw();
 //     if ( ra4VieExpM2 && ra4VieExpP2 ) {
 //       ra4VieExpM2->SetLineWidth(2);
 //       ra4VieExpM2->SetLineStyle(3);
