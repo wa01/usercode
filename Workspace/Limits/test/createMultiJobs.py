@@ -119,7 +119,7 @@ parser = OptionParser()
 parser.add_option("--btag", dest="btag", default="", type="string", action="store", help="btag bin (default = all)")
 parser.add_option("--ht", dest="ht", type="int", action="store", help="HT cut")
 parser.add_option("--met", dest="met", type="int", action="store", help="MET cut")
-#parser.add_option("--lumi", dest="lumi", default=4700., type="float", action="store", help="luminosity (pb-1)")
+parser.add_option("--lumi", dest="lumi", default=4980., type="float", action="store", help="luminosity (pb-1)")
 parser.add_option("--regroupM0", dest="regroupM0", default=1, type="int", action="store", help="step size in M0")
 parser.add_option("--regroupM12", dest="regroupM12", default=1, type="int", action="store", help="step size in M12")
 parser.add_option("--m0s", dest="m0s", default="999,0", type="string", action="store", help="range for M0")
@@ -132,9 +132,15 @@ parser.add_option("--exp", dest="exp", default=-1, type="float", action="store",
 parser.add_option("-M", "--model", dest="model", default="msugra", type="string", action="store", help="signal model")
 parser.add_option("--lo", dest="lo", default=False, action="store_true", help="use LO")
 parser.add_option("--nloVariation", dest="nloVar", default="0", type="choice", action="store", choices=["", "0", "-", "+"], help="NLO variation")
+parser.add_option("--contamination", dest="contamination", default=None, type="string", action="store", help="contamination")
 (options, args) = parser.parse_args()
 #options.bin = True # fake that is a binary output, so that we parse shape lines
 
+# lumi in inputs files (yields)
+inputLumi = 4700.
+## contamination
+#if options.contamination != None:
+#    contaminationFactor = options.contamination/(1.+options.contamination)
 # default for b-tag bins (all)
 btags = [ "b0", "b1", "b2" ]
 if options.btag != "":
@@ -152,11 +158,30 @@ sigName = "sig_"+options.model
 if not options.lo:
     sigName += "NLO"
 if not options.lo and options.nloVar != "":
-    sigName += options.nloVar
+#    sigName += options.nloVar
+    if options.nloVar == '0':  sigName += "0"
+    elif options.nloVar == '-':  sigName += "m"
+    elif options.nloVar == '+':  sigName += "p"
 sigName += ".pkl"
 sigDict = cPickle.load(file(sigName))
-
-
+if options.contamination != None:
+    contDict = None
+    fixedCont = None
+    try:
+        fixedCont = float(options.contamination)
+        contaminationFactor = options.contamination/(1.+options.contamination)
+    except:
+        try:
+            contName = sigName.replace("sig_","sigCont_")
+            contFile = open(contName,"rb")
+            contDict = cPickle.load(contFile)
+            contFile.close()
+        except:
+            pass
+    assert contDict != None or fixedCont != None
+    if contDict:  print "Reading contamination from dictionary"
+    else:         print "Using fixed contamination of ",fixedCont
+    
 # options for "combine"
 combopt = "-M "+options.algo
 if options.algo == "HybridNew":
@@ -194,6 +219,11 @@ if not options.lo:
     if options.nloVar == '0':  dirname = dirname + "0"
     elif options.nloVar == '-':  dirname = dirname + "m"
     elif options.nloVar == '+':  dirname = dirname + "p"
+if options.contamination != None:
+    if fixedCont != None:
+        dirname += "_Cont" + "%3.3d" % int(100*options.contamination+0.5)
+    else:
+        dirname += "_ContVar"
 dirname = dirname + "_" + basename
 if m0range[0] <= m0range[1]:
     dirname = dirname + "_m0_" + str(m0range[0])
@@ -233,7 +263,6 @@ m0m12s = getM0M12c(sigDict[options.ht][options.met].keys(),m0range,m12range,opti
 
 m0s = m0m12s.keys()
 m0s.sort()
-
 #
 # loop on mass combinations
 #
@@ -270,6 +299,23 @@ for m0 in m0s:
 #            bkgBeff = getBkg(btags,options.ht,options.met,'systbeff',bkgDict)
 #            bkgLeff = getBkg(btags,options.ht,options.met,'systleff',bkgDict)
 #        bkgJES = getBkg(btags,options.ht,options.met,'systJES',bkgDict)
+
+        if options.contamination != None:
+            for btag in btags:
+                if sigEvts[btag] != None:
+                    sigEvts[btag] *= float(options.lumi)/inputLumi
+                    cont = 0.
+                    if contDict != None:
+                        if options.ht in contDict and options.met in contDict[options.ht] and \
+                           msugraString in contDict[options.ht][options.met] and \
+                           btag in contDict[options.ht][options.met][msugraString]:
+                            cont = contDict[options.ht][options.met][msugraString][btag]
+                        else:
+                            print "Did not find ",options.ht,options.met,msugraString,btag," in contDict"
+                    else:
+                        cont = fixedCont                    
+                    sigEvts[btag] -= cont/(1+cont)*bkgNumbers[btag]['pred']
+#                    sigEvts[btag] -= contaminationFactor*bkgNumbers[btag]['pred']
 
         btagsFiltered = []
         for btag in btags:
@@ -323,7 +369,8 @@ for m0 in m0s:
 
         line = "rate".ljust(20)
         for btag in btagsFiltered:
-            line += "%12.3f" % sigEvts[btag]
+            print sigEvts[btag],sigEvts[btag]*float(options.lumi)/inputLumi
+            line += "%12.3f" % (sigEvts[btag]*float(options.lumi)/inputLumi)
             line += "%10.3f" % bkgNumbers[btag]['pred']
         dcfile.write(line+"\n")
         
@@ -391,7 +438,8 @@ for m0 in m0s:
 
         line = "lumi".ljust(15) + "lnN".ljust(5)
         for btag in btagsFiltered:
-            line += "%12.3f" % 1.045
+#            line += "%12.3f" % 1.045
+            line += "%12.3f" % 1.022
             line += "-".rjust(10)
         dcfile.write(line+"\n")
 
