@@ -131,41 +131,56 @@ TH2* fillMissing (TH2* h, int nmin=5, int nmin2=14) {
       // linear 2D fit to neighbours (in units of bin number): 
       //   par(0)*(x-ix)+par(1)*(y-iy)+par(2)
       //
-      double det;
-      TMatrixD mat1(mat);
+      double det = mat.Determinant();
+      if ( det < 1.e-6 )  continue;
+//       TMatrixD mat1(mat);
       mat.Invert(&det);
       TVectorD par = mat*cvec;
-      TVectorD tmp = mat1*par;
+//       TVectorD tmp = mat1*par;
       hNew->SetBinContent(ix,iy,par(2));
     }
   }
   return hNew;
 }
 //
-// clear bins with more than nmax empty neighbours
-//   (remove artefacts of smoothing at the edges of
-//    the physical region)
+// clear bins which were empty in a reference histogram
 //
-void clearBins (TH2* histo, TH2* refHisto, int nmax = 1) {
+void clearBins (TH2* histo, TH2* refHisto) {
   int nbx = refHisto->GetNbinsX();
   int nby = refHisto->GetNbinsY();
   // loop over bins
   for ( int ix=1; ix<=nbx; ++ix ) {
     for ( int iy=1; iy<=nby; ++iy ) {
-      int nempty(0);
-      // loop over neighbours
-      for ( int jx=ix-1; jx<ix+2; ++jx ) {
-	if ( jx<1 || jx>nbx )  continue;
-	for ( int jy=iy-1; jy<iy+2; ++jy ) {
-	  if ( jy<1 || jy>nby )  continue;
-	  if ( fabs(refHisto->GetBinContent(jx,jy))<1.e-10 )  ++nempty;
-	}
-      }
-      // clear bin if > nmax empty neighbours
-      if ( nempty>nmax )  histo->SetBinContent(ix,iy,0.);
+      if ( refHisto->GetBinContent(ix,iy)<1.e-10 )
+	histo->SetBinContent(ix,iy,0.);
     }
   }
 }
+// //
+// // clear bins with more than nmax empty neighbours
+// //   (remove artefacts of smoothing at the edges of
+// //    the physical region)
+// //
+// void clearBins (TH2* histo, TH2* refHisto, int nmax = 1) {
+//   int nbx = refHisto->GetNbinsX();
+//   int nby = refHisto->GetNbinsY();
+//   // loop over bins
+//   for ( int ix=1; ix<=nbx; ++ix ) {
+//     for ( int iy=1; iy<=nby; ++iy ) {
+//       int nempty(0);
+//       // loop over neighbours
+//       for ( int jx=ix-1; jx<ix+2; ++jx ) {
+// 	if ( jx<1 || jx>nbx )  continue;
+// 	for ( int jy=iy-1; jy<iy+2; ++jy ) {
+// 	  if ( jy<1 || jy>nby )  continue;
+// 	  if ( fabs(refHisto->GetBinContent(jx,jy))<1.e-10 )  ++nempty;
+// 	}
+//       }
+//       // clear bin if > nmax empty neighbours
+//       if ( nempty>nmax )  histo->SetBinContent(ix,iy,0.);
+//     }
+//   }
+// }
 
 //
 // perform filling of (isolated) empty bins and smoothing
@@ -179,21 +194,38 @@ TH2* doSmooth (TH2* hRaw, const char* algo = "k3a", int nTimes = 2, bool ratio =
   // fill isolated empty bins
   //
   TH2* hFilled = fillMissing(hRaw);
+  TH2* hFilledLoose = fillMissing(hRaw,4,6);
 
   TCanvas* c(0);
   if ( draw ) {
     c = new TCanvas("cFilled","cFilled");
+//     hFilledLoose->Draw("ZCOL");
+//     hFilled->Draw("same box");
+    TH2* hTmp = (TH2*)hFilledLoose->Clone("hTmp");
+    for ( int ix=1; ix<=hTmp->GetNbinsX(); ++ix ) {
+      for ( int iy=1; iy<=hTmp->GetNbinsY(); ++iy ) {
+	if ( hFilled->GetBinContent(ix,iy)>1.e-10 )
+	  hTmp->SetBinContent(ix,iy,0.);
+      }
+    }
+    hTmp->SetMinimum(1.e-10);
+    c->SetLogz(1);
+    hTmp->Draw("ZCOL");
+    c = new TCanvas("cRaw","cRaw");
+    hRaw->Draw("ZCOL");
+    c = new TCanvas("cFill","cFill");
     hFilled->Draw("ZCOL");
+//     hRaw->Draw("same box");
   }
   //
   // smooth histogram 
   //
-  TH2* hSmooth = (TH2*)hFilled->Clone("hSmooth");
+  TH2* hSmooth = (TH2*)hFilledLoose->Clone("hSmooth");
   hSmooth->SetTitle("hSmooth");
   // (first parameter in Smooth is dummy)
   for ( int i=0; i<nTimes; ++i )  hSmooth->Smooth(1,algo);
   // remove artefacts on edges of the filled region
-  clearBins(hSmooth,hFilled,2);
+  clearBins(hSmooth,hFilled);
   if ( draw ) {
     c = new TCanvas("cSmooth","cSmooth");
     hSmooth->Draw("ZCOL");
