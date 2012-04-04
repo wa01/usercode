@@ -72,8 +72,10 @@ def findRange (ms):
 def dictToHm0m12 (filename,preTemps,postTemps):
     import ROOT
     from ROOT import gROOT
+    from ROOT import gStyle
     gROOT.ProcessLine(".L useNiceColorPalette.C")
     gROOT.ProcessLine("useNiceColorPalette()")
+    gStyle.SetOptStat(0)
     d0 = cPickle.load(file(filename))
     d = d0
     msugras = []
