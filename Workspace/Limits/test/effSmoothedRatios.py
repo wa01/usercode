@@ -150,7 +150,7 @@ for btag in effdic:
               m0 = int(parts[1])
               m12 = int(parts[2])
               m3 = options.m3Ratio*(m0-m12) + m12
-              if int(m3+0.5) != int(parts[3]):
+              if abs(int(m3+0.5)-int(parts[3])) > 1:
                 print "Intermediate mass for ",msugra,"is inconsistent with m3Ratio =",options.m3Ratio
                 sys.exit(1)
           #
