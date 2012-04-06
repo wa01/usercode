@@ -63,12 +63,12 @@ def buildSignalString (model_,m0_,m12_,m3Ratio=-1,suffices=None):
     if suffices != None:
         return modelTemplates['*'][0].substitute(model=model_,m0=str(m0_),m12=str(m12_),suffix="_".join(suffices))
     if m3Ratio > 0:
-        m3_ = int(options.m3Ratio*(m0-m12)+m12+0.5)
+        m3_ = int(m3Ratio*(m0_-m12_)+m12_+0.5)
         return modelTemplates[model_][0].substitute(m0=str(m0_),m12=str(m12_),m3=str(m3_))
     else:
         return modelTemplates[model_][0].substitute(m0=str(m0_),m12=str(m12_))
 
-def buildSignalTuple (model,m0_,m12_):
+def buildSignalTuple (model,m0_,m12_,m3Ratio=-1):
     assert model in modelTemplates
     return (m0_,m12_)+modelTemplates[model][1][2:]
 
