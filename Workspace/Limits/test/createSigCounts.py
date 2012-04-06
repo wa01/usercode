@@ -25,7 +25,7 @@ def getRange (rangeString):
     result = ( int(parts[0]), int(parts[1]) )
     return result
 
-def mergeSignalTuplesFromEff (effDict,model,btags,hts,mets,sigTuples):
+def mergeSignalTuplesFromEff (effDict,model,btags,hts,mets,sigTuples,m3Ratio=-1):
     for btag in btags:
         if not btag in effDict:  continue
         for ht in hts:
@@ -35,7 +35,7 @@ def mergeSignalTuplesFromEff (effDict,model,btags,hts,mets,sigTuples):
                 for msugra in effDict[btag][ht][met]:
                     m0 = getFromSignalString(msugra,"m0")
                     m12 = getFromSignalString(msugra,"m12")
-                    tup = buildSignalTuple(model,m0,m12)
+                    tup = buildSignalTuple(model,m0,m12,m3Ratio)
                     if not tup in sigTuples:  sigTuples.append(tup)
     return
 
@@ -43,19 +43,32 @@ from signalUtils import *
 
 from optparse import OptionParser
 parser = OptionParser()
-#parser.add_option("--ht", dest="ht", type="int", action="store", help="HT cut")
-#parser.add_option("--met", dest="met", type="int", action="store", help="MET cut")
+parser.add_option("--btags", dest="btags", default=None, type="string", action="store", help="btag bins")
+parser.add_option("--hts", dest="hts",  default=None, type="string", action="store", help="HT cuts")
+parser.add_option("--mets", dest="mets",  default=None, type="string", action="store", help="MET cuts")
 parser.add_option("--m0s", dest="m0s", default="999,0", type="string", action="store", help="range for M0")
 parser.add_option("--m12s", dest="m12s", default="999,0", type="string", action="store", help="range for M12")
 parser.add_option("-M", "--model", dest="model", default="msugra", type="string", action="store", help="signal model")
+parser.add_option("--m3Ratio", dest="m3Ratio", default=-1., type="float", action="store", help="ratio for intermediate mass in SMS models")
 parser.add_option("--lo", dest="lo", default=False, action="store_true", help="use LO")
 parser.add_option("--nloVariation", dest="nloVar", default="0", type="choice", action="store", choices=["", "0", "-", "+"], help="NLO variation")
+parser.add_option("-f", dest="force", default=False, action="store_true", help="replace output file")
 (options, args) = parser.parse_args()
 #options.bin = True # fake that is a binary output, so that we parse shape lines
 
 btags = [ 'inc', 'b0', 'b1', 'b1p', 'b2' ]
+if options.btags != None:
+    btags = options.btags.split(",")
 hts = [ 750, 1000 ]
+if options.hts != None:
+    hts = [ ]
+    htStrings = options.hts.split(",")
+    for ht in htStrings:  hts.append(int(ht))
 mets = [ 250, 350, 450, 550 ]
+if options.mets != None:
+    mets = [ ]
+    metStrings = options.mets.split(",")
+    for met in metStrings:  mets.append(int(met))
 #hts = [ 1000 ]
 #mets = [ 250 ]
 #
@@ -70,11 +83,15 @@ cwd = os.getcwd()
 #
 #basename = "ht" + str(ht) + "_met" + str(met)
 oname = "sig_" + options.model
+if options.m3Ratio > 0:
+    oname += str(options.m3Ratio).replace(".","")
 if not options.lo:
     oname = oname + "NLO"
-    if options.nloVar == '0':  oname = oname + "0"
-    elif options.nloVar == '-':  oname = oname + "m"
-    elif options.nloVar == '+':  oname = oname + "p"
+if options.model == 'msugra':
+    if not options.lo:
+        if options.nloVar == '0':  oname = oname + "0"
+        elif options.nloVar == '-':  oname = oname + "m"
+        elif options.nloVar == '+':  oname = oname + "p"
 #oname = oname + "_" + basename
 if m0range[0] <= m0range[1]:
     oname = oname + "_m0_" + str(m0range[0])
@@ -86,8 +103,12 @@ if m12range[0] <= m12range[1]:
         oname = oname + "-" + str(m0range[1])
 oname = oname + ".pkl"
 if os.path.exists(oname):
-    print "output file ",oname," exists"
-    sys.exit(1)
+    if options.force:
+        print "Replacing output file",oname
+        os.remove(oname)
+    else:
+        print "output file",oname,"exists"
+        sys.exit(1)
 fout = open(oname,"wb")
 #
 loString = "LO"
@@ -98,7 +119,7 @@ if not options.lo:
 #
 # Mu efficiencies
 #
-fEffMuName = effFileName("Mu",options.model,loString,loVar,True)
+fEffMuName = effFileName("Mu",options.model,loString,loVar,True,options.m3Ratio)
 fEffMu = open(fEffMuName,"rb")
 effsMu = cPickle.load(fEffMu)
 fEffMu.close()
@@ -109,7 +130,7 @@ fEffMu.close()
 #
 # Ele efficiencies
 #
-fEffEleName = effFileName("Ele",options.model,loString,loVar,True)
+fEffEleName = effFileName("Ele",options.model,loString,loVar,True,options.m3Ratio)
 fEffEle = open(fEffEleName,"rb")
 effsEle = cPickle.load(fEffEle)
 fEffEle.close()
@@ -120,27 +141,33 @@ fEffEle.close()
 #
 # JES
 #
-fJesSystsName = options.model+"JES-smoothed.pkl"
+fJesSystsName = options.model
+if options.m3Ratio > 0:
+    fJesSystsName += str(options.m3Ratio).replace(".","")
+fJesSystsName += "JES-smoothed.pkl"
 jesSysts = cPickle.load(file(fJesSystsName))
 #
 # B and udsg scale factors
 #
-if options.model == 'msugra':
-    beffSysts = cPickle.load(file("msugraBeffSyst-smoothed.pkl"))
+#if options.model == 'msugra':
+#    beffSysts = cPickle.load(file("msugraBeffSyst-smoothed.pkl"))
+if btags != [ 'inc' ]:
+    fBEffSystsName = options.model+"BeffSyst-smoothed.pkl"
+    beffSysts = cPickle.load(file(fBEffSystsName))
 #
 # cross sections
 #
 if not options.lo:
-    fXsecName = xsecFileName(options.model,"NLO")
-    fXsecNLO = open(fXsecName)
-    xsecsNLO = cPickle.load(fXsecNLO)
-    fXsecNLO.close()
+#    fXsecName = xsecFileName(options.model,"NLO")
+#    fXsecNLO = open(fXsecName)
+#    xsecsNLO = cPickle.load(fXsecNLO)
+#    fXsecNLO.close()
     xsecsLO = []
 #    for m12 in xsecsNLO:
 #        for m0 in xsecsNLO[m12]:
 #            xsecsLO.append( (  m0, m12, 10, 0, 1 ) )
-    mergeSignalTuplesFromEff(effsMu,options.model,btags,hts,mets,xsecsLO)
-    mergeSignalTuplesFromEff(effsEle,options.model,btags,hts,mets,xsecsLO)
+    mergeSignalTuplesFromEff(effsMu,options.model,btags,hts,mets,xsecsLO,options.m3Ratio)
+    mergeSignalTuplesFromEff(effsEle,options.model,btags,hts,mets,xsecsLO,options.m3Ratio)
 else:
     fXsecName = xsecFileName(options.model,"LO")
     fXsecLO = open(fXsecName)
@@ -153,7 +180,6 @@ else:
 from getM0M12 import *
 #m0m12s = getM0M12a(effsMu,effsEle,xsecsLO,"binc",hts[0],mets[0],1,1)
 sigTuples = getM0M12b(xsecsLO,m0range,m12range,1,1)
-print sigTuples
 
 sigDict = {}
 for ht in hts:
@@ -173,7 +199,7 @@ for ht in hts:
             
 
             # signal characterization (string / tuple)
-            msugraString = buildSignalString(options.model,m0,m12)
+            msugraString = buildSignalString(options.model,m0,m12,options.m3Ratio)
             if not options.lo:
                 # yield for each b-tag bin in list
                 sigYields = getSigYieldsNLO(btags,ht,met,msugraString,effsMu,effsEle)
