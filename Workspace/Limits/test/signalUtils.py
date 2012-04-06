@@ -70,7 +70,11 @@ def buildSignalString (model_,m0_,m12_,m3Ratio=-1,suffices=None):
 
 def buildSignalTuple (model,m0_,m12_,m3Ratio=-1):
     assert model in modelTemplates
-    return (m0_,m12_)+modelTemplates[model][1][2:]
+    if m3Ratio > 0:
+        m3_ = int(m3Ratio*(m0_-m12_)+m12_+0.5)
+        return (m0_,m12_,m3_)+modelTemplates[model][1][3:]
+    else:
+        return (m0_,m12_)+modelTemplates[model][1][2:]
 
 def getFromSignalString (sigString,field):
     parts = sigString.split('_')
