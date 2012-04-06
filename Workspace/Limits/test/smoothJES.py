@@ -69,9 +69,9 @@ for ht in hts:
     except:
       pass
 
-oname = options.model+"JES-smoothed.pkl"
+oname = options.model
 if options.model.startswith("T3w") and options.m3Ratio > 0:
-  oname += str(int(100*options.m3Ratio+0.5))
+  oname += str(options.m3Ratio).replace(".","")
 oname += "JES-smoothed.pkl"
 if os.path.exists(oname):
   print "Output file",oname,"exists"
