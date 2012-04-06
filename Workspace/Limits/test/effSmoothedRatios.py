@@ -37,6 +37,7 @@ def findRange (ms):
 from optparse import OptionParser
 parser = OptionParser()
 parser.add_option("--m3Ratio", dest="m3Ratio", default=-1., type="float", action="store", help="ratio for intermediate mass in SMS models")
+parser.add_option("-f", dest="force", default=False, action="store_true", help="replace output file")
 (options, args) = parser.parse_args()
 
 # dictionary with efficiencies
@@ -176,7 +177,7 @@ for btag in effdic:
             m12 = int(hRatio.GetYaxis().GetBinCenter(iy)+0.5)
 #            msugra = 'msugra_'+str(m0)+'_'+str(m12)+'_10_0_1'
             msugra = model+"_"+str(m0)+"_"+str(m12)
-            if model.startswith('T') and options.m3Ratio < 0:
+            if model.startswith('T3w') and options.m3Ratio > 0:
               m3 = options.m3Ratio*(m0-m12) + m12
               msugra += "_"+str(int(m3+0.5))
             else:
@@ -213,7 +214,6 @@ if fnameEvt != None:
               if not p in evdic[btag][ht][met][msugra]:  continue
               allEvts[btag][ht][met][msugra][p] = evdic[btag][ht][met][msugra][p]* \
                                                   allRatios[btag][ht][met][msugra][p]
-            
 #
 # write output dictionary (derive name from input file name)
 #
@@ -233,8 +233,12 @@ else:
   if ind != -1:  fname = fname[0:ind]
   fname += "-smoothed.pkl"
 if os.path.exists(fname):
-  print fname," exists"
-  sys.exit(1)
+  if options.force:
+    print "Replacing",fname
+    os.remove(fname)
+  else:
+    print fname," exists"
+    sys.exit(1)
   
 f = open(fname,"w")
 if fnameEvt == None:
