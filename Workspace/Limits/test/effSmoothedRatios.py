@@ -29,7 +29,19 @@ def findRange (ms):
       if im > m0max:  m0max = im
     m0 = im;
   return ( dm0,m0min,m0max)
-   
+#
+#
+def findM0M12 (m0,m12,msugras):
+  matches = [ ]
+  for key in msugras:
+    parts = key.split("_")
+    if int(parts[1]) == m0 and int(parts[2]) == m12:
+      matches.append(key)
+  if len(matches) != 1:
+    return None
+  else:
+    return matches[0]
+  
 #
 # create dictionary with ratio of smoothed / raw efficiencies
 #   argument: dictionary with raw efficiencies
@@ -169,8 +181,8 @@ for btag in effdic:
         hRatio = ROOT.doEff(hRaw)
         nbx = hRatio.GetNbinsX()
         nby = hRatio.GetNbinsY()
-        for ix in range(1,nbx):
-          for iy in range(1,nby):
+        for ix in range(1,nbx+1):
+          for iy in range(1,nby+1):
             ratio = hRatio.GetBinContent(ix,iy)
             if abs(ratio) < 0.000001:  continue
             m0 = int(hRatio.GetXaxis().GetBinCenter(ix)+0.5)
@@ -180,6 +192,7 @@ for btag in effdic:
             if model.startswith('T3w') and options.m3Ratio > 0:
               m3 = options.m3Ratio*(m0-m12) + m12
               msugra += "_"+str(int(m3+0.5))
+#              msugra = findM0M12(m0,m12,effdic[btag][ht][met])
             else:
               for part in suffix:  msugra += "_"+part
             if p == None:
@@ -205,14 +218,21 @@ if fnameEvt != None:
         if not met in evdic[btag][ht]:  continue
         allEvts[btag][ht][met] = {}
         for msugra in allRatios[btag][ht][met]:
-          if not msugra in evdic[btag][ht][met]:  continue
+          if model.startswith('T3w') and options.m3Ratio > 0:
+            parts = msugra.split("_")
+            m0 = int(parts[1])
+            m12 = int(parts[2])
+            msugraIn = findM0M12(m0,m12,evdic[btag][ht][met])
+          else:
+            msugraIn = msugra
+          if msugraIn == None or not msugraIn in evdic[btag][ht][met]:  continue
           allEvts[btag][ht][met][msugra] = {}
           for p in processes:
             if p == None:
-              allEvts[btag][ht][met][msugra] = evdic[btag][ht][met][msugra]*allRatios[btag][ht][met][msugra]
+              allEvts[btag][ht][met][msugra] = evdic[btag][ht][met][msugraIn]*allRatios[btag][ht][met][msugra]
             else:
-              if not p in evdic[btag][ht][met][msugra]:  continue
-              allEvts[btag][ht][met][msugra][p] = evdic[btag][ht][met][msugra][p]* \
+              if not p in evdic[btag][ht][met][msugraIn]:  continue
+              allEvts[btag][ht][met][msugra][p] = evdic[btag][ht][met][msugraIn][p]* \
                                                   allRatios[btag][ht][met][msugra][p]
 #
 # write output dictionary (derive name from input file name)
