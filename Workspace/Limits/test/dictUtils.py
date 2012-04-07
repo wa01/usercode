@@ -147,22 +147,32 @@ import sys
 from optparse import OptionParser
 parser = OptionParser()
 parser.add_option("-m", "--mode", dest="mode", default="countValues", type="choice", choices=["countValues","dictLayers","dictDump","dictDumpValue","dictToHm0m12"], action="store")
+parser.add_option("--count", dest="count", default=False, action="store_true")
+parser.add_option("--layers", dest="layers", default=False, action="store_true")
+parser.add_option("--dump", dest="dump", default=False, action="store_true")
+parser.add_option("--dumpValue", dest="dumpValue", default=False, action="store_true")
+parser.add_option("--toHist", dest="toHist", default=False, action="store_true")
 parser.add_option("--maxKeys", dest="maxKeys", default=5, type="int", action="store")
 parser.add_option("--keys", dest="keys", default="", type="string", action="store")
-parser.add_option("--pre", dest="pre", default=None, type="string", action="store")
-parser.add_option("--post", dest="post", default=None, type="string", action="store")
+parser.add_option("--pre", dest="pre", default="", type="string", action="store")
+parser.add_option("--post", dest="post", default="", type="string", action="store")
 (options, args) = parser.parse_args()
 if len(args) != 1:  sys.exit(1)
-if options.mode == "countValues":
+if options.count:
     countValues(args[0])
-elif options.mode == "dictLayers":
+    sys.exit(0)
+elif options.layers:
     dictLayers(args[0],options.maxKeys)
-elif options.mode == "dictDump":
+    sys.exit(0)
+elif options.dump:
     dictDump(args[0])
-elif options.mode == "dictDumpValue":
+    sys.exit(0)
+elif options.dumpValue:
     dictDumpValue(args[0],options.keys.split(","))
-elif options.mode == "dictToHm0m12":
+    sys.exit(0)
+elif options.toHist:
     if options.pre == None or options.post == None:  sys.exit(1)
     print options.pre.split(",")
     print options.post.split(",")
     dictToHm0m12(args[0],options.pre.split(","),options.post.split(","))
+    sys.exit(0)
