@@ -71,9 +71,12 @@ struct Triplet {
 struct SmallerDistance {
   SmallerDistance (double x, double y) : x_(x), y_(y) {}
   bool operator() (const Triplet& p1, const Triplet& p2) {
-    double drSq1 = (p1.first-x_)*(p1.first-x_) + (p1.second-y_)*(p1.second-y_);
-    double drSq2 = (p2.first-x_)*(p2.first-x_) + (p2.second-y_)*(p2.second-y_);
-    return drSq1<drSq2;
+//     double drSq1 = (p1.first-x_)*(p1.first-x_) + (p1.second-y_)*(p1.second-y_);
+//     double drSq2 = (p2.first-x_)*(p2.first-x_) + (p2.second-y_)*(p2.second-y_);
+    return distSquare(p1)<distSquare(p2);
+  }
+  inline double distSquare (const Triplet& p) const {
+    return (p.first-x_)*(p.first-x_) + (p.second-y_)*(p.second-y_);
   }
   double x_;
   double y_;
@@ -103,6 +106,11 @@ double solve (double x, double y, const vector<Triplet>& nonZeroBins)
   vector<double> xs;
   vector<double> ys;
   vector<double> zs;
+
+  SmallerDistance dist(x,y);
+  cout << "Closest dist = " << dist.distSquare(closest.front()) << " "
+       << closest.front().first << " " << closest.front().second << " "
+       << closest.front().third << endl;
 
   bool done(false);
   for ( size_t ia=0; ia<closest.size(); ++ia ) {
@@ -189,6 +197,7 @@ TH2* triangular (TH2* histo, const TH2* refHisto)
 // 	cout << i << " " << closestBins[i].first << " " << closestBins[i].second << " / "
 // 	     << ix << " " << iy << endl;
 //       }
+      cout << x << " " << y << endl;
       double res = solve(x,y,nonZeroBins);
       histo->SetBinContent(ix,iy,res);
     }

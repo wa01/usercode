@@ -29,15 +29,24 @@ def findRange (ms):
 # read contamination from ROOT files (in WKs format) and interpolate
 #   write result to a new dictionary
 #
+from optparse import OptionParser
+parser = OptionParser()
+parser.add_option("--prefix", dest="prefix", default=None, type="string", action="store")
+parser.add_option("-M", "--model", dest="model", default="msugra", type="string", action="store", help="signal model")
+parser.add_option("--m3Ratio", dest="m3Ratio", default=-1., type="float", action="store", help="ratio for intermediate mass in SMS models")
+parser.add_option("-f", dest="force", default=False, action="store_true", help="replace output file")
+(options, args) = parser.parse_args()
+
+
 from ROOT import gROOT
 gROOT.ProcessLine(".L TriangularInterpolation.C+")
 
 from signalUtils import buildSignalString
 from signalUtils import buildSignalString
 
-assert len(sys.argv) > 1
+assert len(args) > 0
 
-refFileName = sys.argv[1]
+refFileName = args[0]
 sigDict = cPickle.load(file(refFileName))
 
 #btags = [ 'binc', 'b0', 'b1', 'b2' ]
@@ -45,6 +54,7 @@ sigDict = cPickle.load(file(refFileName))
 #mets = [ 250, 350, 450, 550 ]
 
 contDict = {}
+print sigDict.keys()
 for ht in sigDict:
   if not ht in contDict:  contDict[ht] = {}
   for met in sigDict[ht]:
@@ -68,11 +78,19 @@ for ht in sigDict:
     hInter = ROOT.TH2F("hCont","hCont", \
                        nb0,m0range[1]-m0range[0]/2.,m0range[2]+m0range[0]/2., \
                        nb12,m12range[1]-m12range[0]/2.,m12range[2]+m12range[0]/2.)
-    
+
+    print btags    
     for bt in btags:
       bt2 = bt if bt != 'binc' else 'inc'
-      filename = "Contamination/h_cont_msugra_"+bt+"_"+str(ht)+"_"+str(met)+".root"
-      if not os.path.exists(filename):  continue
+      filename = "Contamination/"
+      if not options.prefix == None:
+        filename += options.prefix
+      filename += "_"+options.model
+      if options.m3Ratio > 0:  filename += str(options.m3Ratio).replace(".","")
+      filename += "_"+bt+"_"+str(ht)+"_"+str(met)+".root"
+      if not os.path.exists(filename):
+        print "Missing file with contamination information",filename
+        continue
       print filename
       file = ROOT.TFile(filename)
       hInter.Reset()
@@ -86,12 +104,23 @@ for ht in sigDict:
       yh = hInter.GetYaxis().GetXmax()
       dy = (yh-yl) / nby
       for ix in range(nbx):
+        print ix
         for iy in range(nby):
+          print ix,iy
           v = hInter.GetBinContent(ix+1,iy+1)
           if v < 0.000001:  continue
           m0 = int(xl+ix*dx+0.5)
           m12 = int(yl+iy*dy+0.5)
-          msugra = buildSignalString("msugra",m0,m12)
+          if options.model == "msugra":
+            msugra = buildSignalString("msugra",m0,m12)
+          elif options.model == "T1tttt":
+            msugra = options.model+"_"+str(m0)+"_"+str(m12)+"_-1"
+          elif options.model.startswith("T3w") and options.m3Ratio > 0:
+            m3 = int(options.m3Ratio*(m0-m12)+m12+0.5)
+            msugra = options.model+"_"+str(m0)+"_"+str(m12)+"_"+str(m3)
+          else:
+            print "Unknown model",options.model
+            sys.exit(1)
           if not msugra in contDict[ht][met]: contDict[ht][met][msugra] = {}
           contDict[ht][met][msugra][bt] = v
       c = ROOT.TCanvas("c","c")
@@ -101,6 +130,20 @@ for ht in sigDict:
       except:
         pass
 
-ofile = open("sigCont_msugraNLO0.pkl","wb")
+oname = "sigCont_"+options.model+"NLO"
+if options.model == "msugra":
+  oname += "0"
+elif options.m3Ratio > 0:
+  oname += str(options.m3Ratio).replace(".","")
+oname += ".pkl"
+if os.path.exists(oname):
+  if options.force:
+    print "Replacing",oname
+    os.remove(oname)
+  else:
+    print oname,"exists"
+    sys.exit(1)
+    
+ofile = open(oname,"wb")
 cPickle.dump(contDict,ofile)
 ofile.close()
