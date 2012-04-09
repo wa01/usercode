@@ -65,6 +65,7 @@ def getBkgNumbers (btags,ht,met,bdict):
             else:
                 print "unknown key in background numbers: ",key
                 sys.exit(1)
+    print result
     return result
                 
 def checkProcess (processes):
@@ -130,6 +131,7 @@ parser.add_option("-a", "--algo", dest="algo", default="HybridNew", type="string
 parser.add_option("--single", dest="single", default=False, action="store_true", help="single point evaluation (for HybridNew)")
 parser.add_option("--exp", dest="exp", default=-1, type="float", action="store", help="quantile for expected limit")
 parser.add_option("-M", "--model", dest="model", default="msugra", type="string", action="store", help="signal model")
+parser.add_option("--m3Ratio", dest="m3Ratio", default=-1., type="float", action="store", help="ratio for intermediate mass in SMS models")
 parser.add_option("--lo", dest="lo", default=False, action="store_true", help="use LO")
 parser.add_option("--nloVariation", dest="nloVar", default="0", type="choice", action="store", choices=["", "0", "-", "+"], help="NLO variation")
 parser.add_option("--contamination", dest="contamination", default=None, type="string", action="store", help="contamination")
@@ -155,13 +157,14 @@ if len(btags) > 1:
 #
 bkgDict = cPickle.load(file("backgrounds.pkl"))
 sigName = "sig_"+options.model
+if options.m3Ratio > 0:
+    sigName += str(options.m3Ratio).replace(".","")
 if not options.lo:
     sigName += "NLO"
-if not options.lo and options.nloVar != "":
-#    sigName += options.nloVar
-    if options.nloVar == '0':  sigName += "0"
-    elif options.nloVar == '-':  sigName += "m"
-    elif options.nloVar == '+':  sigName += "p"
+    if options.nloVar != "" and options.model == "msugra":
+        if options.nloVar == '0':  sigName += "0"
+        elif options.nloVar == '-':  sigName += "m"
+        elif options.nloVar == '+':  sigName += "p"
 sigName += ".pkl"
 sigDict = cPickle.load(file(sigName))
 if options.contamination != None:
@@ -173,6 +176,7 @@ if options.contamination != None:
     except:
         try:
             contName = sigName.replace("sig_","sigCont_")
+            print contName
             contFile = open(contName,"rb")
             contDict = cPickle.load(contFile)
             contFile.close()
@@ -186,10 +190,11 @@ if options.contamination != None:
 combopt = "-M "+options.algo
 if options.algo == "HybridNew":
     if not options.single:
-        combopt = "-H Asymptotic " + combopt
+#        combopt = "-H Asymptotic " + combopt
+        combopt += " --frequentist --testStat LHC -T 500 -i 25"
     else:
-        combopt = combopt + " --singlePoint 1.00 --clsAcc 0 -T 500 -i 25 --saveToys --saveHybridResult -n Toys "
-    combopt = combopt + " --frequentist --testStat LHC"
+        combopt += " --frequentist --testStat LHC -T 500 -i 25"
+        combopt += " --singlePoint 1.00 --clsAcc 0 --saveToys --saveHybridResult -n Toys "
     if options.exp > 0:
         combopt = combopt + " --expectedFromGrid " + str(options.exp)
     combopt = combopt + " --fork 0"
@@ -214,11 +219,14 @@ else:
     basename = "multibtag"
 basename = basename + "_ht" + str(options.ht) + "_met" + str(options.met)
 dirname = "/tmp/adamwo/job_" + options.model
+if options.m3Ratio > 0:
+    dirname += str(options.m3Ratio).replace(".","")
 if not options.lo:
     dirname = dirname + "NLO"
-    if options.nloVar == '0':  dirname = dirname + "0"
-    elif options.nloVar == '-':  dirname = dirname + "m"
-    elif options.nloVar == '+':  dirname = dirname + "p"
+    if options.model == "msugra":
+        if options.nloVar == '0':  dirname = dirname + "0"
+        elif options.nloVar == '-':  dirname = dirname + "m"
+        elif options.nloVar == '+':  dirname = dirname + "p"
 if options.contamination != None:
     if fixedCont != None:
         dirname += "_Cont" + "%3.3d" % int(100*options.contamination+0.5)
@@ -279,9 +287,9 @@ for m0 in m0s:
     for m12 in m0m12s[m0]:
 
         # signal characterization (string)
-        msugraString = buildSignalString(options.model,m0,m12)
+        msugraString = buildSignalString(options.model,m0,m12,options.m3Ratio)
         # signal characterization (tuple)
-        msugraTuple = buildSignalTuple(options.model,m0,m12)
+        msugraTuple = buildSignalTuple(options.model,m0,m12,options.m3Ratio)
 
         sigEvts = getSig(btags,options.ht,options.met,msugraString,'yield',sigDict)
         sigSyst = getSig(btags,options.ht,options.met,msugraString,'sigSystOther',sigDict)
@@ -491,7 +499,11 @@ if not options.text:
 replacements = {}
 replacements["${OPTIONS}"] = combopt
 
-fshtmp = open("combine_template.sh","r")
+if options.single:
+    nshtmp = "combine_template.sh"
+else:
+    nshtmp = "combine_template_XS.sh"
+fshtmp = open(nshtmp,"r")
 shname = dirname + "/combine_"+options.algo+".sh"
 fsh = open(shname,"w")
 for line in fshtmp:
@@ -537,6 +549,8 @@ combine = which("combine")
 if combine != None:
     os.system("ln -s "+combine+" "+dirname+"/combine")
 
+os.system("cp asymptotic.awk"+" "+dirname)
+
 #if not ( options.m0 > 0 and options.m12 > 0 ):
 #
 # tar file of all models
@@ -544,6 +558,6 @@ if combine != None:
 if not ( m0range[0] == m0range[1] and m12range[0] == m12range[1] ):
     os.system("cd "+dirname+"; tar -zcf modelsText.tgz model_*.txt")
     os.system("rm "+dirname+"/model_*.txt")
-    if not options.text:
-        os.system("cd "+dirname+"; tar -cf models.tar model_*.root")
-        os.system("rm "+dirname+"/model_*.root")
+if not options.text:
+    os.system("cd "+dirname+"; tar -cf models.tar model_*.root")
+    os.system("rm "+dirname+"/model_*.root")
