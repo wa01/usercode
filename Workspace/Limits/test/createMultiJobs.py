@@ -176,6 +176,7 @@ if options.contamination != None:
     except:
         try:
             contName = sigName.replace("sig_","sigCont_")
+            contName = contName.replace(".pkl","_"+options.contamination+".pkl")
             print contName
             contFile = open(contName,"rb")
             contDict = cPickle.load(contFile)
@@ -231,7 +232,7 @@ if options.contamination != None:
     if fixedCont != None:
         dirname += "_Cont" + "%3.3d" % int(100*options.contamination+0.5)
     else:
-        dirname += "_ContVar"
+        dirname += "_ContVar" + options.contamination
 dirname = dirname + "_" + basename
 if m0range[0] <= m0range[1]:
     dirname = dirname + "_m0_" + str(m0range[0])
@@ -297,6 +298,9 @@ for m0 in m0s:
         if options.btag != 'binc':
             sigBeff = getSig(btags,options.ht,options.met,msugraString,'beff',sigDict)
             sigLeff = getSig(btags,options.ht,options.met,msugraString,'leff',sigDict)
+        for btag in btags:
+            if sigEvts[btag] != None:
+                sigEvts[btag] *= float(options.lumi)/inputLumi
 
         bkgNumbers = getBkgNumbers(btags,options.ht,options.met,bkgDict)
 #        obsEvts = getBkg(btags,options.ht,options.met,'obs',bkgDict)
@@ -310,23 +314,22 @@ for m0 in m0s:
 
         if options.contamination != None:
             for btag in btags:
-                if sigEvts[btag] != None:
-                    sigEvts[btag] *= float(options.lumi)/inputLumi
-                    cont = 0.
-                    if contDict != None:
-                        if options.ht in contDict and options.met in contDict[options.ht] and \
+                if sigEvts[btag] == None:  continue
+                cont = 0.
+                if contDict != None:
+                    if options.ht in contDict and options.met in contDict[options.ht] and \
                            msugraString in contDict[options.ht][options.met] and \
                            btag in contDict[options.ht][options.met][msugraString]:
-                            cont = contDict[options.ht][options.met][msugraString][btag]
-                        else:
-                            print "Did not find ",options.ht,options.met,msugraString,btag," in contDict"
+                        cont = contDict[options.ht][options.met][msugraString][btag]
                     else:
-                        cont = fixedCont                    
-                    sigEvts[btag] -= cont/(1+cont)*bkgNumbers[btag]['pred']
-#                    sigEvts[btag] -= contaminationFactor*bkgNumbers[btag]['pred']
+                        print "Did not find ",options.ht,options.met,msugraString,btag," in contDict"
+                else:
+                    cont = fixedCont                    
+                sigEvts[btag] -= cont/(1+cont)*bkgNumbers[btag]['pred']
 
         btagsFiltered = []
         for btag in btags:
+            print btag,sigEvts[btag]
             if sigEvts[btag] != None and sigEvts[btag] > 0.001:  btagsFiltered.append(btag)
         nc = len(btagsFiltered)
         if nc == 0:
@@ -377,8 +380,8 @@ for m0 in m0s:
 
         line = "rate".ljust(20)
         for btag in btagsFiltered:
-            print sigEvts[btag],sigEvts[btag]*float(options.lumi)/inputLumi
-            line += "%12.3f" % (sigEvts[btag]*float(options.lumi)/inputLumi)
+            print sigEvts[btag],sigEvts[btag]
+            line += "%12.3f" % sigEvts[btag]
             line += "%10.3f" % bkgNumbers[btag]['pred']
         dcfile.write(line+"\n")
         
@@ -496,19 +499,19 @@ if not options.text:
 #
 # bash script for executing job
 #
-replacements = {}
-replacements["${OPTIONS}"] = combopt
+shReplacements = {}
+shReplacements["${OPTIONS}"] = combopt
 
 if options.single:
-    nshtmp = "combine_template.sh"
+    nshtmp = "combine_template_single.sh"
 else:
     nshtmp = "combine_template_XS.sh"
 fshtmp = open(nshtmp,"r")
 shname = dirname + "/combine_"+options.algo+".sh"
 fsh = open(shname,"w")
 for line in fshtmp:
-    for repl in replacements:
-        line = line.replace(repl,replacements[repl])
+    for repl in shReplacements:
+        line = line.replace(repl,shReplacements[repl])
     fsh.write(line)
 fshtmp.close()
 fsh.close()
@@ -518,27 +521,33 @@ fsh.close()
 #
 # CRAB cfg file
 #
-replacements = {}
-replacements["${ALGORITHM}"] = options.algo
-replacements["${NUMBER_OF_JOBS}"] = str(idx)
+cfgReplacements = {}
+cfgReplacements["${ALGORITHM}"] = options.algo
+cfgReplacements["${NUMBER_OF_JOBS}"] = str(idx)
 
 fcfgtmp = open("combine_template.cfg","r")
 cfgname = dirname + "/combine_"+options.algo+".cfg"
 fcrab = open(cfgname,"w")
 for line in fcfgtmp:
-    for repl in replacements:
-        line = line.replace(repl,replacements[repl])
-    fcrab.write(line)
+    for repl in cfgReplacements:
+        line = line.replace(repl,cfgReplacements[repl])
     if line.find("return_data") != -1:
-        return_data = 0
-        fcrab.write("copy_data = 1\n")
-        fcrab.write("publish_data = 0\n")
-        fcrab.write("storage_element=srm-cms.cern.ch\n")
+        if options.single:
+            crabPrefix = "# "
+            fcrab.write("return_data = 1\n")
+        else:
+            crabPrefix = ""
+            fcrab.write("return_data = 0\n")
+        fcrab.write(crabPrefix+"copy_data = 1\n")
+        fcrab.write(crabPrefix+"publish_data = 0\n")
+        fcrab.write(crabPrefix+"storage_element=srm-cms.cern.ch\n")
         castor = dirname
         ijob = castor.find("job_")
         if ijob != -1:  castor = castor[(ijob+4):] 
-        fcrab.write("user_remote_dir=user/a/adamwo/CrabOutput/"+castor+"\n")
-        fcrab.write("storage_path=/srm/managerv2?SFN=/castor/cern.ch/\n")
+        fcrab.write(crabPrefix+"user_remote_dir=user/a/adamwo/CrabOutput/"+castor+"\n")
+        fcrab.write(crabPrefix+"storage_path=/srm/managerv2?SFN=/castor/cern.ch/\n")
+        continue
+    fcrab.write(line)
 
 fcfgtmp.close()
 fcrab.close()
