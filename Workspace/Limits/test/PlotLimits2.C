@@ -204,6 +204,9 @@ PlotLimits2::drawHistograms()
   string cname = name_;
   cname += "-histos.pdf";
   canvas_->SaveAs(cname.c_str());
+  cname = name_;
+  cname += "-histos.root";
+  canvas_->SaveAs(cname.c_str());
 
 //   TCanvas* cExists = new TCanvas("cexist","cexist");
 //   hExist->Draw("zcol");
@@ -266,6 +269,9 @@ PlotLimits2::scanLimit(LimitHistograms& histos)
 	  if ( nUp>1 )  break;
 	}
       }
+      else {
+	nUp = 0;
+      }
       ys[np] = y;
       zs[np] = z;
       ezs[np] = ez;
@@ -282,7 +288,8 @@ PlotLimits2::scanLimit(LimitHistograms& histos)
     if ( found ) {
       nGraph++;
       result->SetBinContent(ix,yLim);
-      std::cout << ix << " " << yLim << " " << result->GetBinContent(ix) << std::endl;
+//       std::cout << histos.hLimit->GetName() << " " 
+// 		<< xAxis->GetBinCenter(ix) << " " << yLim << " " << result->GetBinContent(ix) << std::endl;
 //       result->SetPoint(nGraph++,xAxis->GetBinCenter(ix),yLim);
     }
   }

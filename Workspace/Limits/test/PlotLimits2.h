@@ -57,6 +57,14 @@ public:
   //
   void saveContours();
   //
+  // all in one go ..
+  //
+  void doAll () {
+    Loop();
+    drawHistograms();
+    saveContours();
+  }
+  //
   // draw slice through histograms
   //
   void drawSlices (float m0 = -1.);
