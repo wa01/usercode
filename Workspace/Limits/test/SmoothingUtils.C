@@ -5,6 +5,8 @@
 #include "TFile.h"
 #include "TKey.h"
 
+#include <string>
+#include <vector>
 #include <iostream>
 
 using namespace std;
@@ -13,6 +15,61 @@ using namespace std;
 // Smoothing of distributions in the msugra plane
 //
 
+//
+// extract histogram with limits from
+//   a canvas in a root file
+//
+TH2* findLimitHisto (TFile* file, std::string hname) {
+  // result == 0 : failure
+  TH2* result(0);
+  //
+  // find TCanvas in TFile
+  //
+  TIter itKey(file->GetListOfKeys());
+  TObject* obj;
+  TKey* key;
+  TCanvas* cnv(0);
+  while ( (key=(TKey*)itKey.Next()) ) {
+    obj = key->ReadObj();
+    if ( obj->IsA()==TCanvas::Class() ) {
+      if ( cnv ) {
+	cout << "Found multiple canvases" << endl;
+	return result;
+      }
+      cnv = (TCanvas*)obj;
+    }
+  }
+  if ( cnv == 0 ) {
+    cout << "No canvas" << endl;
+    return result;
+  }
+  //
+  // find TH2 in TCanvas
+  //
+  vector<TPad*> pads(1,(TPad*)cnv);
+  for ( size_t ipad=0; ipad<pads.size(); ++ipad ) {
+    TIter itC(pads[ipad]->GetListOfPrimitives());
+    while ( (obj=(TObject*)itC.Next()) ) {
+      if ( obj->InheritsFrom(TH2::Class()) ) {
+	TH2* h = (TH2*)obj;
+	if ( string(h->GetName()) == hname )  return h;
+// 	cout << "Found histogram " << h->GetName() << endl;
+// 	if ( result ) {
+// 	  cout << "Found multiple histograms" << endl;
+// 	  return (TH2*)0;
+// 	}
+// 	result = (TH2*)obj;
+      }
+      else if ( obj->InheritsFrom(TPad::Class()) ) {
+// 	cout << "Found " << obj->ClassName() << endl;
+	pads.push_back((TPad*)obj);
+      }
+    }
+  }
+//   return result;
+  cout << "Did not find histogram" << endl;
+  return (TH2*)0;
+}
 //
 // extract histogram with JES signal systematics from
 //   a canvas in a root file
@@ -276,6 +333,14 @@ TH2* doEff (TH2* hRaw, bool ratio = true, bool draw = false) {
 //
 TH2* doJES (TFile* file, bool ratio = true, bool draw = false) {
   TH2* hRaw = findJesHisto(file);
+  if ( hRaw == 0 )  return hRaw;
+  return doSmooth(hRaw,"",2,ratio,draw);
+}
+//
+// default settings for smoothing limits
+//
+TH2* doLimits (TFile* file, string name = "hObs", bool ratio = true, bool draw = false) {
+  TH2* hRaw = findLimitHisto(file,name);
   if ( hRaw == 0 )  return hRaw;
   return doSmooth(hRaw,"",2,ratio,draw);
 }
