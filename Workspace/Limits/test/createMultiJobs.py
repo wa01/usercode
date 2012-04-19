@@ -176,7 +176,7 @@ if options.contamination != None:
     except:
         try:
             contName = sigName.replace("sig_","sigCont_")
-            contName = contName.replace(".pkl","_"+options.contamination+".pkl")
+#            contName = contName.replace(".pkl","_"+options.contamination+".pkl")
             print contName
             contFile = open(contName,"rb")
             contDict = cPickle.load(contFile)
@@ -232,7 +232,8 @@ if options.contamination != None:
     if fixedCont != None:
         dirname += "_Cont" + "%3.3d" % int(100*options.contamination+0.5)
     else:
-        dirname += "_ContVar" + options.contamination
+        dirname += "_DynCont"
+#        dirname += "_ContVar" + options.contamination
 dirname = dirname + "_" + basename
 if m0range[0] <= m0range[1]:
     dirname = dirname + "_m0_" + str(m0range[0])
@@ -312,20 +313,20 @@ for m0 in m0s:
 #            bkgLeff = getBkg(btags,options.ht,options.met,'systleff',bkgDict)
 #        bkgJES = getBkg(btags,options.ht,options.met,'systJES',bkgDict)
 
-        if options.contamination != None:
-            for btag in btags:
-                if sigEvts[btag] == None:  continue
-                cont = 0.
-                if contDict != None:
-                    if options.ht in contDict and options.met in contDict[options.ht] and \
-                           msugraString in contDict[options.ht][options.met] and \
-                           btag in contDict[options.ht][options.met][msugraString]:
-                        cont = contDict[options.ht][options.met][msugraString][btag]
-                    else:
-                        print "Did not find ",options.ht,options.met,msugraString,btag," in contDict"
-                else:
-                    cont = fixedCont                    
-                sigEvts[btag] -= cont/(1+cont)*bkgNumbers[btag]['pred']
+#        if options.contamination != None:
+#            for btag in btags:
+#                if sigEvts[btag] == None:  continue
+#                cont = 0.
+#                if contDict != None:
+#                    if options.ht in contDict and options.met in contDict[options.ht] and \
+#                           msugraString in contDict[options.ht][options.met] and \
+#                           btag in contDict[options.ht][options.met][msugraString]:
+#                        cont = contDict[options.ht][options.met][msugraString][btag]
+#                    else:
+#                        print "Did not find ",options.ht,options.met,msugraString,btag," in contDict"
+#                else:
+#                    cont = fixedCont                    
+#                sigEvts[btag] -= cont/(1+cont)*bkgNumbers[btag]['pred']
 
         btagsFiltered = []
         for btag in btags:
@@ -376,6 +377,23 @@ for m0 in m0s:
         line = "process".ljust(20)
         for btag in btagsFiltered:
             line += "0".rjust(12) + "1".rjust(10)
+        dcfile.write(line+"\n")
+
+        if options.contamination != None:
+            line = "contamination".ljust(20)
+            for btag in btagsFiltered:
+                line += "%12.0f" % 0
+                cont = 0.
+                if contDict != None:
+                    if options.ht in contDict and options.met in contDict[options.ht] and \
+                           msugraString in contDict[options.ht][options.met] and \
+                           btag in contDict[options.ht][options.met][msugraString]:
+                        cont = contDict[options.ht][options.met][msugraString][btag]
+                    else:
+                        print "Did not find ",options.ht,options.met,msugraString,btag," in contDict"
+                else:
+                    cont = fixedCont                    
+                line += "%10.3f" % cont
         dcfile.write(line+"\n")
 
         line = "rate".ljust(20)
