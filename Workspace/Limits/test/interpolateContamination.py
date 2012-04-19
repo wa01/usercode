@@ -56,9 +56,7 @@ sigDict = cPickle.load(file(refFileName))
 contDict = {}
 print sigDict.keys()
 for ht in sigDict:
-  if not ht in contDict:  contDict[ht] = {}
   for met in sigDict[ht]:
-    if not met in contDict[ht]:  contDict[ht][met] = {}
     m0s = []
     m12s = []
     btags = None
@@ -94,6 +92,9 @@ for ht in sigDict:
       print filename
       file = ROOT.TFile(filename)
       hInter.Reset()
+      for msugra in sigDict[ht][met]:
+        fields = msugra.split('_')
+        hInter.Fill(float(fields[1]),float(fields[2]),1.)
       hInter = ROOT.triangular(hInter,file)
       nbx = hInter.GetNbinsX()
       xl = hInter.GetXaxis().GetXmin()
@@ -103,14 +104,16 @@ for ht in sigDict:
       yl = hInter.GetYaxis().GetXmin()
       yh = hInter.GetYaxis().GetXmax()
       dy = (yh-yl) / nby
+      print nbx,dx,xl,xh
+      print nby,dy,yl,yh
       for ix in range(nbx):
-        print ix
+#        print ix
         for iy in range(nby):
-          print ix,iy
+#          print ix,iy
           v = hInter.GetBinContent(ix+1,iy+1)
           if v < 0.000001:  continue
-          m0 = int(xl+ix*dx+0.5)
-          m12 = int(yl+iy*dy+0.5)
+          m0 = int(xl+(ix+0.5)*dx+0.5)
+          m12 = int(yl+(iy+0.5)*dy+0.5)
           if options.model == "msugra":
             msugra = buildSignalString("msugra",m0,m12)
           elif options.model == "T1tttt":
@@ -121,8 +124,11 @@ for ht in sigDict:
           else:
             print "Unknown model",options.model
             sys.exit(1)
+          if not ht in contDict:  contDict[ht] = {}
+          if not met in contDict[ht]:  contDict[ht][met] = {}
           if not msugra in contDict[ht][met]: contDict[ht][met][msugra] = {}
-          contDict[ht][met][msugra][bt] = v
+          # conversion from % to fraction
+          contDict[ht][met][msugra][bt] = v/100.
       c = ROOT.TCanvas("c","c")
       hInter.Draw("zcol")
       try:
@@ -130,11 +136,12 @@ for ht in sigDict:
       except:
         pass
 
-oname = "sigCont_"+options.model+"NLO"
+oname = "sigCont_"+options.model
+if options.m3Ratio > 0:
+  oname += str(options.m3Ratio).replace(".","")
+oname += "NLO"
 if options.model == "msugra":
   oname += "0"
-elif options.m3Ratio > 0:
-  oname += str(options.m3Ratio).replace(".","")
 oname += ".pkl"
 if os.path.exists(oname):
   if options.force:
