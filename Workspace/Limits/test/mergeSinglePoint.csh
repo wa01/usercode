@@ -56,6 +56,7 @@ if ( ( $status == 0 ) && ( $#argv == 1 ) ) then
 #endif
 # get list of files from CASTOR
   set files = ( `nsls $castorDir | grep -E 'outputToy.*\.tgz' | sort -t'_' -r -n -k2,2 -k3,3` )
+###  set files = ( `nsls -l $castorDir | grep -F 'Apr 16' | awk '/outputToy/{print $NF}' | sort -t'_' -r -n -k2,2 -k3,3` )
 else
   echo "No such CASTOR directory: $castorDir - trying job area"
   ls $jobdir/crab_0_* >& /dev/null
@@ -81,7 +82,7 @@ else
   set localDir = $PWD
   ls outputToy*.tgz >& /dev/null
   if ( $status == 0 ) then
-    set files = ( `ls outputToy*.tgz` )
+    set files = ( `ls outputToy*.tgz | sort -t'_' -r -n -k2,2 -k3,3` )
   endif
   popd
 endif
@@ -132,35 +133,49 @@ chmod u+x runCombine.csh
 @ imax = 0
 @ icur = 0
 foreach file ( $files ) 
+    date
     #
     # decode file name: expect 5 fields with job# in the 2nd field
     #
+    echo ";$file;"
+    echo $file | sed 's/[_\.]/ /g'
+    if ( $?parts )  unset parts
     set parts = ( `echo $file | sed 's/[_\.]/ /g'` )
+    echo $parts
+    echo $#parts
     if ( $#parts != 5 ) then
       echo "Wrong format of filename : $file"
       exit 1
     endif
-    if ( $imax == 0 )  @ imax = $parts[2]
     # skip multiple output files for the same job
     if ( $parts[2] == $icur ) then
-      echo "Found multiple outputs for job $parts[2]"
-      exit 1
+      echo "Found multiple outputs for job $parts[2], skipping $file"
+      continue
+#      exit 1
     endif
     @ icur = $parts[2]
     @ ntot = $ntot + 1
     echo $file
+    date
     # copy file to working directory
     if ( $?localDir ) then
       cp $localDir/$file .
     else
      rfcp $castorDir/$file .
     endif
+    date
     # untar file
     tar -zxf $file
     if ( $status != 0 ) then
       echo "failed to unpack output file $file"
-      break
+      if ( -d outputToy ) then
+        rm -r outputToy
+      endif
+      rm $file
+      @ icur = 0
+      continue
     endif
+    date
     # move to directory with output files and get list of root files
     pushd outputToy
 #    pwd
@@ -170,63 +185,75 @@ foreach file ( $files )
       echo "No output root files for $file \!\!\!\!\!\!\!"
       popd
       rm -r outputToy
+      rm $file
+      @ icur = 0
       continue
     endif
     #
-    # loop over root files
+    # loop over root files (first try to get list of root files with limits 
+    # from all points of the job in case they were done by the job)
     #
-    foreach tfile ( higgsCombineToys*.root )
-      # decode file name: expect 10000*m0+m12 in 4th field
-      set fields = ( `echo $tfile | sed 's/\./ /g'` )
-      @ m0m12 = $fields[4]
-      @ m0 = $m0m12 / 10000
-      @ m12 = $m0m12 % 10000
-      # build name of input workspace and retrieve the input file
-      set model = "model_${m0}_${m12}.root"
-      echo $m0,$m12
-      tar -xvf $curdir/$jobdir/models.tar $model
-      if ( !( -e $model ) ) then
-        echo "Could not unpack $model"
-        exit 1
-       endif
-       # check in log file, if toys were written (i.e., no crash in combine)
-       set errflg
-       set log = "combine_${m0}_${m12}.log"
-       if ( -e $log ) then
-         grep -qF 'Hybrid result saved as ' $log
-         if ( $status == 0 )  unset errflg
-       endif
-       if ( $?errflg ) then
-         echo "No hybrid result for ${tfile}"
-         continue
-       endif
-       #
-       # loop over all types of limits
-       #
-       @ ilim = 0
-       while ( $ilim < $#limargs )
-         #  calculate limit using the toys
-         @ ilim = $ilim + 1
-         $tmpdir/runCombine.csh $model $fields[4] $tfile $limargs[$ilim] &
-#         combine $model -M HybridNew --frequentist --testStat LHC --singlePoint 1 -s $fields[4] --clsAcc 0 -T 100 -i 50 \
-#           --toysFile $tfile --readHybridResult $limargs[$ilim]
-#         if ( $status != 0 ) then
-#           echo "FAILED :  combine $model ... --singlePoint 1 -s $fields[4] ... --toysFile $tfile --readHybridResult $limargs[$ilim]"
-#           exit 1
-#         endif
-       end
-       wait
-    end
+#    rm higgsCombineTest.HybridNew*.root
+    ls higgsCombineTest.HybridNew*.root >& /dev/null
+    if ( $status != 0 ) then
+      foreach tfile ( higgsCombineToys*.root )
+        # decode file name: expect 10000*m0+m12 in 4th field
+        set fields = ( `echo $tfile | sed 's/\./ /g'` )
+        @ m0m12 = $fields[4]
+        @ m0 = $m0m12 / 10000
+        @ m12 = $m0m12 % 10000
+        # build name of input workspace and retrieve the input file
+        set model = "model_${m0}_${m12}.root"
+        echo $m0,$m12
+        date
+        tar -xvf $curdir/$jobdir/models.tar $model
+        if ( !( -e $model ) ) then
+          echo "Could not unpack $model"
+          exit 1
+         endif
+         # check in log file, if toys were written (i.e., no crash in combine)
+         set errflg
+         set log = "combine_${m0}_${m12}.log"
+         if ( -e $log ) then
+           grep -qF 'Hybrid result saved as ' $log
+           if ( $status == 0 )  unset errflg
+         endif
+         if ( $?errflg ) then
+           echo "No hybrid result for ${tfile}"
+           continue
+         endif
+         #
+         # loop over all types of limits
+         #
+         date
+         @ ilim = 0
+         while ( $ilim < $#limargs )
+           #  calculate limit using the toys
+           @ ilim = $ilim + 1
+           time $tmpdir/runCombine.csh $model $fields[4] $tfile $limargs[$ilim] &
+#           combine $model -M HybridNew --frequentist --testStat LHC --singlePoint 1 -s $fields[4] --clsAcc 0 -T 100 -i 50 \
+#             --toysFile $tfile --readHybridResult $limargs[$ilim]
+#           if ( $status != 0 ) then
+#             echo "FAILED :  combine $model ... --singlePoint 1 -s $fields[4] ... --toysFile $tfile --readHybridResult $limargs[$ilim]"
+#             exit 1
+#           endif
+         end
+         wait
+      end
+      date
+    endif
     # get list of root files with limits from all points of the job
-    ls higgsCombineTest.*.root >& /dev/null
+    ls higgsCombineTest.HybridNew*.root >& /dev/null
     if ( $status != 0 ) then
       echo "No combine output files?"
       popd
       rm -r outputToy
+      @ icur = 0
       continue
 #      exit 1
     endif
-    set cfiles = ( higgsCombineTest.*.root )
+    set cfiles = ( higgsCombineTest.HybridNew*.root )
+    if ( $imax == 0 )  @ imax = $parts[2]
 #    if ( $#cfiles == 0 ) then  
 #    endif
     # prepare for hadd: if output file exists rename it and
@@ -237,7 +264,13 @@ foreach file ( $files )
        rm $ofile
     endif
     # combine previous results and all limits from the current job in the output file
-    hadd $ofile $cfiles
+    if ( $#cfiles == 1 ) then
+      mv $cfiles $ofile
+    else
+      echo hadd $ofile $cfiles
+      hadd $ofile $cfiles
+    endif
+    date
     # clean temporary files from this job
     popd
     rm -r outputToy
