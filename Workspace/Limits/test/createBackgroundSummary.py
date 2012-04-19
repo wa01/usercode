@@ -168,17 +168,19 @@ for btag in btags:
             #
             bkgDict[btagD][ht][met]['stats'] = { }
             for btag2 in btags:
-                if btag == 'binc' or btag2 == 'binc': continue
+                btag2D = btag2
+                if btag2D == 'binc':  btag2D = 'inc'
                 if btag2 == btag:
                     sig = errpred/pred
                 else:
+                    if btag == 'binc' or btag2 == 'binc': continue
                     name = btag+"-"+btag2
                     if name in bkgCorr[ht][met]:
                         sig = bkgCorr[ht][met][name]
                     else:
                         name = btag2+"-"+btag
                         sig = bkgCorr[ht][met][name]
-                bkgDict[btagD][ht][met]['stats'][btag2] = sig
+                bkgDict[btagD][ht][met]['stats'][btag2D] = sig
             #
             # background statistics (Poisson)
             #
