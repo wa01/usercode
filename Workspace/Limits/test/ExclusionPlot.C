@@ -163,6 +163,7 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
   TGraph* ra4VieExp = (TGraph*)f->Get("gExpMedian");
   TGraph* ra4VieExpP1 = (TGraph*)f->Get("gExpPlus1");
   TGraph* ra4VieExpP2 = (TGraph*)f->Get("gExpPlus2");
+  TGraph* ra4VieExpArea(0);
 
   TGraph* ra4VieObsThM(0);
   TGraph* ra4VieExpThM(0);
@@ -181,7 +182,8 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
 
 
   double m0min = 0;
-  double m0max=1800;
+  double m0max=1600;
+//   double m0max=1800;
   double xscale = m0max-m0min;
   if (tanBeta_ == 50) m0min=200;
   if (tanBeta_ == 40) {m0min=400;  m0max=2000;}
@@ -211,7 +213,7 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
     ra4VieObs->SetLineWidth(3);
     ra4VieObs->SetLineColor(2);
     ra4VieExp->SetLineWidth(3);
-    ra4VieExp->SetLineStyle(2);
+//     ra4VieExp->SetLineStyle(2);
     ra4VieExp->SetLineColor(4);
 //     ra4VieObs->RemovePoint(0);
 //     ra4VieObs->RemovePoint(0);
@@ -222,22 +224,23 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
 //     ra4VieObs->RemovePoint(37);
 //     ra4VieObs->RemovePoint(37);
     if ( ra4VieExpM1 && ra4VieExpP1 ) {
-      TGraph* ra4ExpArea = new TGraph();
+      ra4VieExpArea = new TGraph();
       int np(0);
       double* xExp = ra4VieExpM1->GetX();
       double* yExp = ra4VieExpM1->GetY();
       for ( int i=0; i<ra4VieExpM1->GetN(); ++i ) 
-	ra4ExpArea->SetPoint(np++,xExp[i],yExp[i]);
+	ra4VieExpArea->SetPoint(np++,xExp[i],yExp[i]);
       xExp = ra4VieExpP1->GetX();
       yExp = ra4VieExpP1->GetY();
       for ( int i=ra4VieExpP1->GetN()-1; i>=0; --i ) 
-	ra4ExpArea->SetPoint(np++,xExp[i],yExp[i]);
-      ra4ExpArea->SetFillColor(7);
-      ra4ExpArea->Draw("F");
-      ra4VieExpM1->SetLineWidth(2);
+	ra4VieExpArea->SetPoint(np++,xExp[i],yExp[i]);
+      ra4VieExpArea->SetLineColor(7);
+      ra4VieExpArea->SetFillColor(7);
+      ra4VieExpArea->Draw("F");
+      ra4VieExpM1->SetLineWidth(1);
       ra4VieExpM1->SetLineStyle(3);
       ra4VieExpM1->SetLineColor(4);
-      ra4VieExpP1->SetLineWidth(2);
+      ra4VieExpP1->SetLineWidth(1);
       ra4VieExpP1->SetLineStyle(3);
       ra4VieExpP1->SetLineColor(4);
       ra4VieExpM1->Draw();
@@ -287,7 +290,13 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
   float leg_x2= 0.55+0.25;
   float leg_y2= 0.84+0.05;
 
-  if( plotLO_ ) myleg = new TLegend(0.3,0.65,0.65,0.8,NULL,"brNDC");
+  if( plotLO_ ) {
+    if ( ContourFileM && ContourFileP )
+      myleg = new TLegend(0.3,0.55,0.6,0.7,NULL,"brNDC");
+//       myleg = new TLegend(0.3,0.55,0.6,0.8,NULL,"brNDC");
+    else
+      myleg = new TLegend(0.3,0.65,0.6,0.7,NULL,"brNDC");
+  }
   else if (tb40_plotExpected) myleg = new TLegend(0.25,0.76,0.44,0.91,NULL,"brNDC"); // copied from else block below
   else if (tanBeta_==40) myleg = new TLegend(leg_x1,leg_y1,leg_x2,leg_y2,NULL,"brNDC");
   else          myleg = new TLegend(0.25,0.76,0.44,0.91,NULL,"brNDC");
@@ -295,17 +304,25 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
 
   myleg->SetFillColor(0); 
   myleg->SetShadowColor(0);
-  myleg->SetTextSize(0.04);
+  myleg->SetTextSize(0.03);
   myleg->SetBorderSize(0);
 
   TLegendEntry *entry=0;
 
   if (tanBeta_ == 10 ) {
 //     myleg->SetHeader("RA4Tmpl, (NLO, exp. unc.)");
-    myleg->AddEntry(ra4VieObs,"obs","l");
-    myleg->AddEntry(ra4VieExp,"exp","l");
+    myleg->SetHeader("95% CL exclusion limits");
+    myleg->AddEntry(ra4VieObs,"observed","l");
+    myleg->AddEntry(ra4VieExp,"median expected","l");
     if ( ra4VieExpM1 && ra4VieExpP1 ) {
-      myleg->AddEntry(ra4VieExpP1,"exp #pm 1#sigma","l");
+//       myleg->AddEntry(ra4VieExpP1,"exp #pm 1#sigma","l");
+      myleg->AddEntry(ra4VieExpArea,"expected #pm 1#sigma exp.","f");
+    }
+    if ( ra4VieObsThM && ra4VieObsThP ) {
+      myleg->AddEntry(ra4VieObsThM,"observed / sig.cont.","l");
+      myleg->AddEntry(ra4VieExpThM,"expected / sig.cont.","l");
+//       myleg->AddEntry(ra4VieObsThM,"observed #pm 1#sigma theor.","l");
+//       myleg->AddEntry(ra4VieExpThM,"expected #pm 1#sigma theor.","l");
     }
     //     entry=myleg->AddEntry("RA1","2011 Limits","l");
     //     entry->SetLineColor(1);
@@ -507,12 +524,12 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
   if (tanBeta_==10)   LEP_ch->Draw("fsame");
   if (tanBeta_ != 50 && tanBeta_!=40) LEP_sl->Draw("fsame");
 
-  //remove CDF/D0 excluded regions
-  if (tanBeta_==10) {
-    TEV_sg_cdf->Draw("fsame");
-    TEV_sg_d0->Draw("same");  
-    TEV_sg_d0->Draw("fsame");
-  }
+//   //remove CDF/D0 excluded regions
+//   if (tanBeta_==10) {
+//     TEV_sg_cdf->Draw("fsame");
+//     TEV_sg_d0->Draw("same");  
+//     TEV_sg_d0->Draw("fsame");
+//   }
 
   //other labels
   Double_t xpos = 0;
@@ -546,7 +563,8 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
   text_tanBeta =  "tan#beta = "+tanb+",  A_{0} = "+a0str+",  #mu > 0";
   int anotherOffset = (tb40_plotExpected && tanBeta_==40) ? -100 : 0;
 //   TLatex* cmssmpars = new TLatex(/*530.+xpos,690.+ypos-130*/120+xpos,555+ypos+anotherOffset,text_tanBeta);
-  TLatex* cmssmpars = new TLatex(0.61,0.60,text_tanBeta);
+//   TLatex* cmssmpars = new TLatex(0.61,0.60,text_tanBeta);
+  TLatex* cmssmpars = new TLatex(0.61,0.70,text_tanBeta);
   cmssmpars->SetNDC(1);
 
   cmssmpars->SetTextSize(0.04);
@@ -636,6 +654,7 @@ void CommandMSUGRA(TString plotName,Int_t tanBeta_, Bool_t plotLO_, Bool_t tb40_
   }
   
   output->Write();
+
   //output->Close();
   //delete output; 
 
@@ -1038,7 +1057,8 @@ TLegend* makeExpLegend(TGraph& sg_gr, TGraph& sgd_gr,TGraph& ch_gr,TGraph& sl_gr
 
   //TLegend* legexp = new TLegend(0.61,0.65,0.91,0.9,NULL,"brNDC");
   //TLegend* legexp = new TLegend(0.70,0.70,0.91,0.9,NULL,"brNDC");
-  TLegend* legexp = new TLegend(0.61,0.65,0.99,0.9,NULL,"brNDC");
+//   TLegend* legexp = new TLegend(0.61,0.65,0.99,0.9,NULL,"brNDC");
+  TLegend* legexp = new TLegend(0.61,0.75,0.99,0.9,NULL,"brNDC");
 
 
   legexp->SetFillColor(0);
@@ -1048,9 +1068,9 @@ TLegend* makeExpLegend(TGraph& sg_gr, TGraph& sgd_gr,TGraph& ch_gr,TGraph& sl_gr
 
   sg_gr.SetLineColor(1);
   
-  legexp->AddEntry(&sg_gr,"CDF  #tilde{#font[12]{g}}, #tilde{#font[12]{q}}, #scale[0.8]{tan#beta=5, #mu<0}","f"); 
+//   legexp->AddEntry(&sg_gr,"CDF  #tilde{#font[12]{g}}, #tilde{#font[12]{q}}, #scale[0.8]{tan#beta=5, #mu<0}","f"); 
 
-  legexp->AddEntry(&sgd_gr,"D0   #tilde{#font[12]{g}}, #tilde{#font[12]{q}}, #scale[0.8]{tan#beta=3, #mu<0}","f");  
+//   legexp->AddEntry(&sgd_gr,"D0   #tilde{#font[12]{g}}, #tilde{#font[12]{q}}, #scale[0.8]{tan#beta=3, #mu<0}","f");  
 
   ch_gr.SetLineColor(1);
   legexp->AddEntry(&ch_gr,"LEP2   #tilde{#chi}_{1}^{#pm}","f");  
