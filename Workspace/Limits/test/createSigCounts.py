@@ -39,6 +39,18 @@ def mergeSignalTuplesFromEff (effDict,model,btags,hts,mets,sigTuples,m3Ratio=-1)
                     if not tup in sigTuples:  sigTuples.append(tup)
     return
 
+def findM0M12 (m0,m12,msugras):
+  matches = [ ]
+  for key in msugras:
+    parts = key.split("_")
+    if int(parts[1]) == m0 and int(parts[2]) == m12:
+      matches.append(key)
+  if len(matches) != 1:
+    return None
+  else:
+    return matches[0]
+  
+
 from signalUtils import *
 
 from optparse import OptionParser
@@ -212,10 +224,16 @@ for ht in hts:
                 sigYields = getSigYieldsLO(btags,ht,met,msugraString,msugraTuple,1.,xsecsLO,effsMu,effsEle)
             if msugraString in jesSysts[ht][met]:
                 systJES = jesSysts[ht][met][msugraString]
+            elif options.m3Ratio > 0:
+                msugraString2 = findM0M12(m0,m12,jesSysts[ht][met])
+                if msugraString2 == None:  continue
+                systJES = jesSysts[ht][met][msugraString2]                    
             else:
                 continue
             for btag in btags:
-                if sigYields[btag] == None:  continue
+                if sigYields[btag] == None:
+                    if btag == 'inc': print "skipping1 ",btag,ht,met,msugraString
+                    continue
 #                if sigYields[btag] == None or sigYields[btag] < 0.001:
 #                    print "empty signal for ",ht,met,m0,m12,btag," !!!"
 #                    continue
@@ -227,6 +245,7 @@ for ht in hts:
                         systBeff = beffSysts[btag][ht][met][msugraString]['relVarB']
                         systLeff = beffSysts[btag][ht][met][msugraString]['relVarL']
                     except:
+                        print "skipping2 ",btag,ht,met,msugraString
                         continue
                 if not msugraString in sigDict[ht][met]:  sigDict[ht][met][msugraString] = {}
                 if not btag in sigDict[ht][met][msugraString]:  sigDict[ht][met][msugraString][btag] = {}
