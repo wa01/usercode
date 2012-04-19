@@ -31,7 +31,13 @@ def findRange (ms):
 # create dictionary with ratio of smoothed / raw efficiencies
 #   argument: dictionary with raw efficiencies
 #
-filename = sys.argv[1]
+from optparse import OptionParser
+parser = OptionParser()
+parser.add_option("--m3Ratio", dest="m3Ratio", default=-1., type="float", action="store", help="ratio for intermediate mass in SMS models")
+parser.add_option("-f", dest="force", default=False, action="store_true", help="replace output file")
+(options, args) = parser.parse_args()
+
+filename = args[0]
 mydic = pickle.load(file(filename))
 
 from ROOT import gROOT
@@ -45,6 +51,8 @@ m12s = [ ]
 labels = [ ]
 # loop over all ht and met values
 # in input dictionary
+model = None
+suffix = None
 for btag in mydic:
   for ht in mydic[btag]:
     for met in mydic[btag][ht]:
@@ -57,6 +65,28 @@ for btag in mydic:
         if not m0 in m0s:  m0s.append(m0)
         m12 = int(parts[2])
         if not m12 in m12s:  m12s.append(m12)
+        # check model name
+        if model == None:
+          model = parts[0]
+        else:
+          assert parts[0] == model
+        # check remaining fields
+        if suffix == None:  suffix = parts[3:]
+        if model == 'msugra':
+          assert len(parts) == 6 and parts[3:] == suffix
+        elif model.startswith('T'):
+          assert len(parts) == 4
+          if options.m3Ratio < 0:
+            if parts[3:] != suffix:
+              print "Varying suffix ",parts[3:],' / ',suffix,': probably missing m3Ratio argument'
+              sys.exit(1)
+          else:
+            m0 = int(parts[1])
+            m12 = int(parts[2])
+            m3 = options.m3Ratio*(m0-m12) + m12
+            if abs(int(m3+0.5)-int(parts[3])) > 1:
+              print "Intermediate mass for ",msugra,"is inconsistent with m3Ratio =",options.m3Ratio
+              sys.exit(1)
 #
 # extraction of ranges and bin widths
 #
@@ -116,6 +146,8 @@ for btag in mydic:
       #
       # create histogram with ratios and fill bin contents into dictionary
       #
+      from signalUtils import *
+      
       labels = {}
       for label in hRaws:
         hRatio = ROOT.doEff(hRaws[label],0)
@@ -129,7 +161,9 @@ for btag in mydic:
             labels[label] += 1
             m0 = int(hRatio.GetXaxis().GetBinCenter(ix)+0.5)
             m12 = int(hRatio.GetYaxis().GetBinCenter(iy)+0.5)
-            msugra = 'msugra_'+str(m0)+'_'+str(m12)+'_10_0_1'
+#            msugra = 'msugra_'+str(m0)+'_'+str(m12)+'_10_0_1'
+#            if not msugra in newdic[btag][ht][met]: newdic[btag][ht][met][msugra] = {}
+            msugra = buildSignalString(model,m0,m12,options.m3Ratio,suffix)
             if not msugra in newdic[btag][ht][met]: newdic[btag][ht][met][msugra] = {}
             newdic[btag][ht][met][msugra][label] = ratio  #*hRaws[label].GetBinContent(ix,iy)
       # clear root memory before creating the next histogram
@@ -149,10 +183,14 @@ ind = fname.find(".")
 if ind != -1:  fname = fname[0:ind]
 fname += "-smoothed.pkl"
 if os.path.exists(fname):
-  print fname," exists"
-  sys.exit(1)
+  if options.force:
+    print "Replacing ",fname
+    os.remove(fname)
+  else:
+    print fname," exists"
+    sys.exit(1)
   
-f = open(fname,"w")
+f = open(fname,"wb")
 pickle.dump(newdic,f)
 f.close()
 
