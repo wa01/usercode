@@ -331,10 +331,13 @@ TH2* doEff (TH2* hRaw, bool ratio = true, bool draw = false) {
 //
 // default settings for smoothing JES signal systematics
 //
+TH2* doJES (TH2* histo, bool ratio = true, bool draw = false) {
+  return doSmooth(histo,"",2,ratio,draw);
+}
 TH2* doJES (TFile* file, bool ratio = true, bool draw = false) {
   TH2* hRaw = findJesHisto(file);
   if ( hRaw == 0 )  return hRaw;
-  return doSmooth(hRaw,"",2,ratio,draw);
+  return doJES (hRaw,ratio,draw);
 }
 //
 // default settings for smoothing limits
