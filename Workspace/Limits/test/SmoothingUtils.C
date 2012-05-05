@@ -4,6 +4,9 @@
 #include "TCanvas.h"
 #include "TFile.h"
 #include "TKey.h"
+#include "Triplet.h"
+#include "FcnLogL.C"
+#include "TFitterMinuit.h"
 
 #include <string>
 #include <vector>
@@ -11,7 +14,62 @@
 
 using namespace std;
 
-//
+bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
+{
+  bool result(false);
+  value = 0.;
+  error = 0.;
+//   std::vector<Triplet> newTriplets(triplets);
+//   for ( size_t i=0; i<newTriplets.size(); ++i ) {
+//     Triplet& triplet = newTriplets[i];
+//     triplet.x_ -= ixRef;
+//     triplet.y_ -= iyRef;
+//   }
+  FcnLogL* fcn = new FcnLogL(triplets,10000);
+
+//   std::vector<double> pars(6,0.);
+//   pars[0] = 0.01;
+//   std::cout << (*fcn)(pars);
+//   return 0.;
+
+  double ave(0.);
+  for ( size_t i=0; i<triplets.size(); ++i ) ave += triplets[i].z();
+  ave /= triplets.size();
+
+  TFitterMinuit* minuitx = new TFitterMinuit();
+  minuitx->SetMinuitFCN(fcn);
+  minuitx->SetParameter(0,"a",ave,ave/20.,0.,1.);
+  minuitx->SetParameter(1,"ax",0.,ave/10.,-0.1,0.1);
+  minuitx->SetParameter(2,"ay",0.,ave/10.,-0.1,0.1);
+  minuitx->SetParameter(3,"axx",0.,ave/100.,-0.01,0.01);
+  minuitx->SetParameter(4,"axy",0.,ave/100.,-0.01,0.01);
+  minuitx->SetParameter(5,"ayy",0.,ave/100.,-0.01,0.01);
+  minuitx->FixParameter(3);
+  minuitx->FixParameter(4);
+  minuitx->FixParameter(5);
+  minuitx->SetMaxIterations(100);
+  minuitx->SetPrintLevel(0);
+  minuitx->CreateMinimizer();
+  int ierr = minuitx->Minimize();
+  if ( ierr == 0 ) {
+    result = true;
+    value = minuitx->GetParameter(0);
+    error = minuitx->GetParError(0);
+  }
+  minuitx->ReleaseParameter(3);
+  minuitx->ReleaseParameter(4);
+  minuitx->ReleaseParameter(5);
+  ierr = minuitx->Minimize();
+  if ( ierr == 0 ) {
+    result = true;
+    value = minuitx->GetParameter(0);
+    error = minuitx->GetParError(0);
+  }
+//   std::cout << "Result for " << triplets.size() << " points is " << value  << std::endl;
+  delete minuitx;
+  return result;
+}
+
 // Smoothing of distributions in the msugra plane
 //
 
@@ -112,6 +170,86 @@ TH2* findJesHisto (TFile* file) {
     }
   }
   return result;
+}
+
+void fillTriplets (std::vector<Triplet>& triplets, TH2* h, int nbx, int nby,
+		   int ix, int iy, int delta, int prevDelta=-1 )
+{
+  for ( int jx=-delta; jx<=delta; ++jx ) {
+    for ( int jy=-delta; jy<=delta; ++jy ) {
+      if ( abs(jx)<=prevDelta && abs(jy)<=prevDelta ) continue;
+      if ( (ix+jx)<1 || (ix+jx)>nbx )  continue;
+      if ( (iy+jy)<1 || (iy+jy)>nby )  continue;
+      // skip empty neighbours
+      double z =  h->GetBinContent(ix+jx,iy+jy);
+      if ( z<1.e-10 )  continue;
+      triplets.push_back(Triplet(jx,jy,z));
+    }
+  }
+}
+
+TH2* fitMissing (TH2* h) {
+//   TH2* hNew = h;
+  TH2* hNew = (TH2*)h->Clone("hFilled");
+  hNew->Reset();
+  hNew->SetTitle("hFilled");
+  int nbx = h->GetNbinsX();
+  int nby = h->GetNbinsY();
+
+  //
+  // loop over histogram (excluding a 1-bin wide margin)
+  //
+  bool fitSucceeded(false);
+  double fittedValue(0);
+  double fittedError(0);
+  std::vector<Triplet> triplets;
+  for ( int ix=1; ix<=nbx; ++ix ) {
+    for ( int iy=1; iy<=nby; ++iy ) {
+//       // check only empty bins
+//       if ( fabs(h->GetBinContent(ix,iy))>1.e-10 )  continue;
+      // clear matrix and vector used for fit
+      fitSucceeded = false;
+      triplets.clear();
+      int delta(1);
+      // loop over neighbours
+      fillTriplets (triplets,h,nbx,nby,ix,iy,delta,-1);
+      if ( triplets.size()>=8 ) {
+// 	std::cout << "nTriplets(1) = " << triplets.size() << << std::endl;
+	fitSucceeded = fit(triplets,fittedValue,fittedError);
+      }
+      if ( !fitSucceeded || fittedError>0.15*fittedValue ) {
+	fitSucceeded = false;
+	++delta;
+	fillTriplets (triplets,h,nbx,nby,ix,iy,delta,delta-1);
+	if ( triplets.size()>=12 ) {
+// 	  std::cout << "nTriplets(2) = " << triplets.size() << std::endl;
+	  fitSucceeded = fit(triplets,fittedValue,fittedError);
+	}
+	if ( !fitSucceeded || fittedError>0.3*fittedValue ) {
+	  fitSucceeded = false;
+	  ++delta;
+	  fillTriplets (triplets,h,nbx,nby,ix,iy,delta,delta-1);
+	  if ( triplets.size()>=12 ) {
+	    fitSucceeded = fit(triplets,fittedValue,fittedError);
+	  }
+	  if ( !fitSucceeded || fittedError>0.5*fittedValue ) {
+	    fitSucceeded = false;
+	    ++delta;
+	    fillTriplets (triplets,h,nbx,nby,ix,iy,delta,delta-1);
+	    if ( triplets.size()>=12 ) {
+	      fitSucceeded = fit(triplets,fittedValue,fittedError);
+	    }
+	  }
+	}
+      }
+//       if ( fitSucceeded && triplets.size()<12 )  
+// 	std::cout << "**************** " << fitSucceeded << " " << triplets.size() << " " << fittedValue 
+// 		  << " " << fittedError << std::endl;
+//       if ( fitSucceeded && fittedError<fittedValue )  hNew->SetBinContent(ix,iy,triplets.size());
+      if ( fitSucceeded && fittedError<fittedValue )  hNew->SetBinContent(ix,iy,fittedValue);
+    }
+  }
+  return hNew;
 }
 
 //
