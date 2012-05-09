@@ -64,7 +64,7 @@ from ROOT import gROOT
 gROOT.ProcessLine(".L SmoothingUtils.C+")
 
 # output dictionary
-allRatios = {}
+allEvts = {}
 
 # loop over all btag bins, ht and met values
 # in input dictionary
@@ -107,16 +107,19 @@ print m0Range
 print m12Range
 print processes
 
+if fnameEvt != None:
+  evdic = cPickle.load(file(fnameEvt))
+
 # loop over all btag bins, ht and met values in input dictionary
 #   and create corresponding levels in output dictionary
 model = None
 suffix = None
 for btag in effdic:
-  if not btag in allRatios:  allRatios[btag] = {}
+  if not btag in allEvts:  allEvts[btag] = {}
   for ht in effdic[btag]:
-    if not ht in allRatios[btag]:  allRatios[btag][ht] = {}
+    if not ht in allEvts[btag]:  allEvts[btag][ht] = {}
     for met in effdic[btag][ht]:
-      if not met in allRatios[btag][ht]:  allRatios[btag][ht][met] = {}
+      if not met in allEvts[btag][ht]:  allEvts[btag][ht][met] = {}
       #
       # create histograms (grid points at bin centre)
       # 
@@ -135,12 +138,19 @@ for btag in effdic:
       if len(processes) == 0:  processes.add( None )
       rawHistos = []
       ratioHistos = []
+      evtHistos = []
       # loop over processes
       for p in processes:
         # create histogram
         hname = "hraw"
         if p != None:  hname += p
         hRaw = ROOT.TH2F(hname,hname,nb0,fm0Min,fm0Max,nb12,fm12Min,fm12Max)
+        hEvt = None
+        if fnameEvt != 0 and btag in evdic  and ht in evdic[btag] and met in evdic[btag][ht]:
+          hname = "hevt"
+          if p != None:  hname += p
+          hEvt = ROOT.TH2F(hname,hname,nb0,fm0Min,fm0Max,nb12,fm12Min,fm12Max)
+        if hEvt == None:  continue
         #  fill histogram with valid points (add entries / process to output dictionary, if necessary)
         for msugra in effdic[btag][ht][met]:
           parts = msugra.split('_')
@@ -172,21 +182,31 @@ for btag in effdic:
             v = effdic[btag][ht][met][msugra]
           elif p in effdic[btag][ht][met][msugra]:
             v = effdic[btag][ht][met][msugra][p]
-            allRatios[btag][ht][met][msugra][p] = {}
+            allEvts[btag][ht][met][msugra][p] = {}
           if not v == None and not math.isnan(v):
+            if v<0.000001: v = 0.000001
             hRaw.Fill(float(parts[1]),float(parts[2]),v)
+          v = None
+          if hEvt != None:
+            if p == None:
+              v = evdic[btag][ht][met][msugra]
+            elif p in evdic[btag][ht][met][msugra]:
+              v = evdic[btag][ht][met][msugra][p]
+              allEvts[btag][ht][met][msugra][p] = {}
+            if not v == None and not math.isnan(v):
+              hEvt.Fill(float(parts[1]),float(parts[2]),v)
         #
         # create histogram with ratios and fill bin contents into dictionary
         #
-        hRatio = ROOT.doEff(hRaw)
-        nbx = hRatio.GetNbinsX()
-        nby = hRatio.GetNbinsY()
+        hEvt = ROOT.doEffFit(hRaw,hEvt)
+        nbx = hEvt.GetNbinsX()
+        nby = hEvt.GetNbinsY()
         for ix in range(1,nbx+1):
           for iy in range(1,nby+1):
-            ratio = hRatio.GetBinContent(ix,iy)
+            ratio = hEvt.GetBinContent(ix,iy)
             if abs(ratio) < 0.000001:  continue
-            m0 = int(hRatio.GetXaxis().GetBinCenter(ix)+0.5)
-            m12 = int(hRatio.GetYaxis().GetBinCenter(iy)+0.5)
+            m0 = int(hEvt.GetXaxis().GetBinCenter(ix)+0.5)
+            m12 = int(hEvt.GetYaxis().GetBinCenter(iy)+0.5)
 #            msugra = 'msugra_'+str(m0)+'_'+str(m12)+'_10_0_1'
             msugra = model+"_"+str(m0)+"_"+str(m12)
             if model.startswith('T3w') and options.m3Ratio > 0:
@@ -196,44 +216,44 @@ for btag in effdic:
             else:
               for part in suffix:  msugra += "_"+part
             if p == None:
-              allRatios[btag][ht][met][msugra] = ratio
+              allEvts[btag][ht][met][msugra] = ratio
             else:
-              allRatios[btag][ht][met][msugra][p] = ratio
+              allEvts[btag][ht][met][msugra][p] = ratio
         # clear root memory before creating the next histogram
         gROOT.Clear()
 #        gROOT.ls()
-#
-# rescale event yields
-#
-if fnameEvt != None:
-  evdic = cPickle.load(file(fnameEvt))
-  allEvts = {}
-  for btag in allRatios:
-    if not btag in evdic:  continue
-    allEvts[btag] = {}
-    for ht in allRatios[btag]:
-      if not ht in evdic[btag]:  continue
-      allEvts[btag][ht] = {}
-      for met in allRatios[btag][ht]:
-        if not met in evdic[btag][ht]:  continue
-        allEvts[btag][ht][met] = {}
-        for msugra in allRatios[btag][ht][met]:
-          if model.startswith('T3w') and options.m3Ratio > 0:
-            parts = msugra.split("_")
-            m0 = int(parts[1])
-            m12 = int(parts[2])
-            msugraIn = findM0M12(m0,m12,evdic[btag][ht][met])
-          else:
-            msugraIn = msugra
-          if msugraIn == None or not msugraIn in evdic[btag][ht][met]:  continue
-          allEvts[btag][ht][met][msugra] = {}
-          for p in processes:
-            if p == None:
-              allEvts[btag][ht][met][msugra] = evdic[btag][ht][met][msugraIn]*allRatios[btag][ht][met][msugra]
-            else:
-              if not p in evdic[btag][ht][met][msugraIn]:  continue
-              allEvts[btag][ht][met][msugra][p] = evdic[btag][ht][met][msugraIn][p]* \
-                                                  allRatios[btag][ht][met][msugra][p]
+##
+## rescale event yields
+##
+#if fnameEvt != None:
+#  evdic = cPickle.load(file(fnameEvt))
+#  allEvts = {}
+#  for btag in allRatios:
+#    if not btag in evdic:  continue
+#    allEvts[btag] = {}
+#    for ht in allRatios[btag]:
+#      if not ht in evdic[btag]:  continue
+#      allEvts[btag][ht] = {}
+#      for met in allRatios[btag][ht]:
+#        if not met in evdic[btag][ht]:  continue
+#        allEvts[btag][ht][met] = {}
+#        for msugra in allRatios[btag][ht][met]:
+#          if model.startswith('T3w') and options.m3Ratio > 0:
+#            parts = msugra.split("_")
+#            m0 = int(parts[1])
+#            m12 = int(parts[2])
+#            msugraIn = findM0M12(m0,m12,evdic[btag][ht][met])
+#          else:
+#            msugraIn = msugra
+#          if msugraIn == None or not msugraIn in evdic[btag][ht][met]:  continue
+#          allEvts[btag][ht][met][msugra] = {}
+#          for p in processes:
+#            if p == None:
+#              allEvts[btag][ht][met][msugra] = evdic[btag][ht][met][msugraIn]*allRatios[btag][ht][met][msugra]
+#            else:
+#              if not p in evdic[btag][ht][met][msugraIn]:  continue
+#              allEvts[btag][ht][met][msugra][p] = evdic[btag][ht][met][msugraIn][p]* \
+#                                                  allRatios[btag][ht][met][msugra][p]
 #
 # write output dictionary (derive name from input file name)
 #

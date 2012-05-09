@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include "assert.h"
 
 using namespace std;
 
@@ -190,9 +191,9 @@ void fillTriplets (std::vector<Triplet>& triplets, TH2* h, int nbx, int nby,
 
 TH2* fitMissing (TH2* h) {
 //   TH2* hNew = h;
-  TH2* hNew = (TH2*)h->Clone("hFilled");
+  TH2* hNew = (TH2*)h->Clone("hSmoothFit");
   hNew->Reset();
-  hNew->SetTitle("hFilled");
+  hNew->SetTitle("hSmoothFit");
   int nbx = h->GetNbinsX();
   int nby = h->GetNbinsY();
 
@@ -257,7 +258,7 @@ TH2* fitMissing (TH2* h) {
 //   surrounding bins 
 //   nmin: minimum number of non-empty neighbours
 //
-TH2* fillMissing (TH2* h, int nmin=5, int nmin2=14) {
+TH2* fillMissing (TH2* h, int nmin=5, int nmin2=14, bool useLog = false) {
 //   TH2* hNew = h;
   TH2* hNew = (TH2*)h->Clone("hFilled");
   hNew->SetTitle("hFilled");
@@ -289,6 +290,7 @@ TH2* fillMissing (TH2* h, int nmin=5, int nmin2=14) {
 	  // skip empty neighbours
 	  double z =  h->GetBinContent(ix+jx,iy+jy);
 	  if ( z<1.e-10 )  continue;
+	  if ( useLog )  z = log(z);
 	  // update matrix and vector
 	  ++nn;
 	  mat(0,0) += jx*jx; mat(0,1) += jx*jy; mat(0,2) += jx;
@@ -309,6 +311,7 @@ TH2* fillMissing (TH2* h, int nmin=5, int nmin2=14) {
 	    // skip empty neighbours
 	    double z =  h->GetBinContent(ix+jx,iy+jy);
 	    if ( z<1.e-10 )  continue;
+	    if ( useLog )  z = log(z);
 	    // update matrix and vector
 	    ++nn;
 	    mat(0,0) += jx*jx; mat(0,1) += jx*jy; mat(0,2) += jx;
@@ -332,7 +335,10 @@ TH2* fillMissing (TH2* h, int nmin=5, int nmin2=14) {
       mat.Invert(&det);
       TVectorD par = mat*cvec;
 //       TVectorD tmp = mat1*par;
-      hNew->SetBinContent(ix,iy,par(2));
+      if ( useLog )
+	hNew->SetBinContent(ix,iy,exp(par(2)));
+      else
+	hNew->SetBinContent(ix,iy,par(2));
     }
   }
   return hNew;
@@ -377,6 +383,90 @@ void clearBins (TH2* histo, TH2* refHisto) {
 //   }
 // }
 
+//
+// perform filling of (isolated) empty bins and smoothing
+//   on an efficiency histogram in the msugra plane
+//   algo:   name of smoothing algorithm
+//   nTimes: # of times the algorithm is applied
+//   ratio:  if true return ratio smoothed / raw; else smoothed
+//
+TH2* doSmoothEff (TH2* hRaw, bool ratio = true, bool draw = false) {
+  //
+  // fill isolated empty bins
+  //
+  TH2* hFilled = fillMissing(hRaw);
+//   TH2* hFilledLoose = fillMissing(hRaw,4,6);
+
+  TCanvas* c(0);
+  if ( draw ) {
+    c = new TCanvas("cFilled","cFilled");
+    hFilled->Draw("ZCOL");
+//     hFilled->Draw("same box");
+//     TH2* hTmp = (TH2*)hFilledLoose->Clone("hTmp");
+//     for ( int ix=1; ix<=hTmp->GetNbinsX(); ++ix ) {
+//       for ( int iy=1; iy<=hTmp->GetNbinsY(); ++iy ) {
+// 	if ( hFilled->GetBinContent(ix,iy)>1.e-10 )
+// 	  hTmp->SetBinContent(ix,iy,0.);
+//       }
+//     }
+//     hTmp->SetMinimum(1.e-10);
+//     c->SetLogz(1);
+//     hTmp->Draw("ZCOL");
+//     c = new TCanvas("cRaw","cRaw");
+//     hRaw->Draw("ZCOL");
+//     c = new TCanvas("cFill","cFill");
+//     hFilled->Draw("ZCOL");
+// //     hRaw->Draw("same box");
+  }
+  //
+  // smooth histogram 
+  //
+  TH2* hSmooth = fitMissing(hFilled);
+  hSmooth->SetName("hSmooth");
+  hSmooth->SetTitle("hSmooth");
+//   // (first parameter in Smooth is dummy)
+//   for ( int i=0; i<nTimes; ++i )  hSmooth->Smooth(1,algo);
+  // remove artefacts on edges of the filled region
+  clearBins(hSmooth,hFilled);
+  if ( draw ) {
+    c = new TCanvas("cSmooth","cSmooth");
+    hSmooth->Draw("ZCOL");
+  }
+  //
+  // relative difference smoothed/raw (cross check)
+  //
+  if ( draw ) {
+    TH2* hRelDiff = (TH2*)hFilled->Clone("hRelDiff");
+    hRelDiff->SetTitle("hRelDiff");
+    hRelDiff->Add(hSmooth,-1);
+    hRelDiff->Divide(hSmooth);
+    hRelDiff->SetMinimum(-0.15);
+    hRelDiff->SetMaximum(0.15);
+    hRelDiff->Smooth();
+    hRelDiff->Smooth();
+    c = new TCanvas("cRelDiff","cRelDiff");
+    hRelDiff->Draw("ZCOL");
+  }
+  //
+  // ratio smoothed / raw
+  //
+  TH2* hRatio(0);
+  if ( draw || ratio ) {
+    hRatio = (TH2*)hSmooth->Clone("hRatio");
+    hRatio->SetTitle("hRatio");
+    hRatio->Divide(hFilled);
+    hRatio->SetMinimum(0.5);
+    hRatio->SetMaximum(1.5);
+//   hRatio->Smooth();
+//   hRatio->Smooth();
+    if ( draw ) {
+      c = new TCanvas("cRatio","cRatio");
+      hRatio->Draw("ZCOL");
+    }
+  }
+
+  return ratio ? hRatio : hSmooth;
+}
 //
 // perform filling of (isolated) empty bins and smoothing
 //   on an efficiency histogram in the msugra plane
@@ -459,6 +549,36 @@ TH2* doSmooth (TH2* hRaw, const char* algo = "k3a", int nTimes = 2, bool ratio =
   }
 
   return ratio ? hRatio : hSmooth;
+}
+//
+// default settings for smoothing efficiency histograms
+//
+TH2* doEffFit (TH2* hEff, TH2* hEvt, bool draw = false) {
+  TH2* hEffFit = doSmoothEff(hEff,false);
+  TH2* hXsec = (TH2*)hEvt->Clone("hXsec");
+  hXsec->Divide(hEff);
+  
+//   TH2* hXsecFilled = fillMissing(hXsec,5,14,true);
+  TH2* hXsecFilled = fillMissing(hXsec,4,6,true);
+
+  int nbx = hEff->GetNbinsX();
+  int nby = hEff->GetNbinsY();
+  for ( int ix=1; ix<=nbx; ++ix ) {
+    for ( int iy=1; iy<=nby; ++iy ) {
+      double vEff = hEffFit->GetBinContent(ix,iy);
+      if ( vEff < 1.e-10 )  continue;
+      double vXsec = hXsecFilled->GetBinContent(ix,iy);
+      if ( vXsec > 1.e-10 )
+	hEffFit->SetBinContent(ix,iy,vEff*vXsec);
+      else
+	hEffFit->SetBinContent(ix,iy,0.);
+    }
+  }
+
+  hEffFit->Draw("zcol");
+// //   TH2* hFilledLoose = fillMissing(hRaw,4,6);
+
+  return hEffFit;
 }
 //
 // default settings for smoothing efficiency histograms
