@@ -249,43 +249,15 @@ TH2* fitMissing (TH2* h) {
       fitSucceeded = false;
       triplets.clear();
       int delta(1);
-      // loop over neighbours
-      fillTriplets (triplets,h,nbx,nby,ix,iy,delta,-1);
+
+      for ( int delta=1; delta<8; ++delta ) {
+	// loop over neighbours
+	fillTriplets (triplets,h,nbx,nby,ix,iy,delta,-1);
 //       std::cout << "nTriplets(1) = " << triplets.size() << std::endl;
-      if ( triplets.size()>=8 ) {
-// 	std::cout << "nTriplets(1) = " << triplets.size() << << std::endl;
-	fitSucceeded = fit(triplets,fittedValue,fittedError);
-// 	std::cout << "succ(1) = " << fitSucceeded << " " << fittedValue << " " << fittedError << std::endl;
-      }
-      if ( !fitSucceeded || fittedError>0.15*fittedValue ) {
-	fitSucceeded = false;
-	++delta;
-	fillTriplets (triplets,h,nbx,nby,ix,iy,delta,delta-1);
-// 	std::cout << "nTriplets(2) = " << triplets.size() << std::endl;
-	if ( triplets.size()>=12 ) {
-// 	  std::cout << "nTriplets(2) = " << triplets.size() << std::endl;
+	if ( triplets.size()>=max(8,(2*delta+1)*(2*delta+1)/2) ) {
+	  // 	std::cout << "nTriplets(1) = " << triplets.size() << << std::endl;
 	  fitSucceeded = fit(triplets,fittedValue,fittedError);
-// 	  std::cout << "succ(2) = " << fitSucceeded << " " << fittedValue << " " << fittedError << std::endl;
-	}
-	if ( !fitSucceeded || fittedError>0.15*fittedValue ) {
-	  fitSucceeded = false;
-	  ++delta;
-	  fillTriplets (triplets,h,nbx,nby,ix,iy,delta,delta-1);
-// 	  std::cout << "nTriplets(3) = " << triplets.size() << std::endl;
-	  if ( triplets.size()>=12 ) {
-	    fitSucceeded = fit(triplets,fittedValue,fittedError);
-// 	    std::cout << "succ(3) = " << fitSucceeded << " " << fittedValue << " " << fittedError << std::endl;
-	  }
-	  if ( !fitSucceeded || fittedError>0.15*fittedValue ) {
-	    fitSucceeded = false;
-	    ++delta;
-	    fillTriplets (triplets,h,nbx,nby,ix,iy,delta,delta-1);
-// 	    std::cout << "nTriplets(4) = " << triplets.size() << std::endl;
-	    if ( triplets.size()>=12 ) {
-	      fitSucceeded = fit(triplets,fittedValue,fittedError);
-// 	      std::cout << "succ(4) = " << fitSucceeded << " " << fittedValue << " " << fittedError << std::endl;
-	    }
-	  }
+	  if ( fitSucceeded && fittedError>0.15*fittedValue )  break;
 	}
       }
 //       if ( fitSucceeded && triplets.size()<12 )  
@@ -293,7 +265,7 @@ TH2* fitMissing (TH2* h) {
 // 		  << " " << fittedError << std::endl;
 //       if ( fitSucceeded && fittedError<fittedValue )  hNew->SetBinContent(ix,iy,triplets.size());
 //       std::cout << "Res = " << fitSucceeded << " " << fittedError << " " << fittedValue << std::endl;
-      if ( fitSucceeded && fittedError<fittedValue ) {
+      if ( fitSucceeded && fittedError<0.2*fittedValue ) {
 	hNew->SetBinContent(ix,iy,fittedValue);
 	HEffErr->SetBinContent(ix,iy,fittedError/fittedValue);
 	HEffWidth->SetBinContent(ix,iy,2*delta+1);
