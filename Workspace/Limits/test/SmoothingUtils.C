@@ -18,6 +18,8 @@ using namespace std;
 TH2* HEffErr(0);
 TH2* HEffWidth(0);
 
+double SavedPars[6];
+
 bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
 {
   bool result(false);
@@ -49,11 +51,13 @@ bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
   TFitterMinuit* minuitx = new TFitterMinuit();
   minuitx->SetMinuitFCN(fcn);
   minuitx->SetParameter(0,"a",ave,log(0.001),log(1.e-10),0.);
-  minuitx->SetParameter(1,"ax",0.,fabs(log(1.e-10)/delta/10.),-100,100);
-  minuitx->SetParameter(2,"ay",0.,fabs(log(1.e-10)/delta/10.),-100,100);
+//   minuitx->SetParameter(1,"ax",0.,fabs(log(1.e-10)/delta/10.),-100,100);
+//   minuitx->SetParameter(2,"ay",0.,fabs(log(1.e-10)/delta/10.),-100,100);
   minuitx->SetParameter(3,"axx",0.,fabs(log(1.e-10)/delta/delta/10.),-100,100);
   minuitx->SetParameter(4,"axy",0.,fabs(log(1.e-10)/delta/delta/10.),-100,100);
   minuitx->SetParameter(5,"ayy",0.,fabs(log(1.e-10)/delta/delta/10.),-100,100);
+  minuitx->SetParameter(1,"ax",0.,fabs(log(1.e-10)/delta/100.),-100,100);
+  minuitx->SetParameter(2,"ay",0.,fabs(log(1.e-10)/delta/100.),-100,100);
 //   minuitx->SetParameter(0,"a",ave,ave/20.,0.,1.);
 //   minuitx->SetParameter(1,"ax",0.,ave/10.,-0.1,0.1);
 //   minuitx->SetParameter(2,"ay",0.,ave/10.,-0.1,0.1);
@@ -92,6 +96,9 @@ bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
     error = minuitx->GetParError(0);
   }
 //   std::cout << "Result for " << triplets.size() << " points is " << value  << std::endl;
+
+  for ( int i=0; i<6; ++i )  SavedPars[i] = minuitx->GetParameter(i);
+
   delete minuitx;
 
   value = exp(value);
@@ -248,16 +255,21 @@ TH2* fitMissing (TH2* h) {
       // clear matrix and vector used for fit
       fitSucceeded = false;
       triplets.clear();
-      int delta(1);
 
-      for ( int delta=1; delta<8; ++delta ) {
+      int delta(1);
+      int prevDelta(-1);
+      double maxErr(0.10);
+      for ( delta=1; delta<8; ++delta ) {
 	// loop over neighbours
-	fillTriplets (triplets,h,nbx,nby,ix,iy,delta,-1);
+	fillTriplets (triplets,h,nbx,nby,ix,iy,delta,prevDelta);
+	prevDelta = delta;
 //       std::cout << "nTriplets(1) = " << triplets.size() << std::endl;
 	if ( triplets.size()>=max(8,(2*delta+1)*(2*delta+1)/2) ) {
 	  // 	std::cout << "nTriplets(1) = " << triplets.size() << << std::endl;
 	  fitSucceeded = fit(triplets,fittedValue,fittedError);
-	  if ( fitSucceeded && fittedError>0.15*fittedValue )  break;
+	  if ( fitSucceeded )  std::cout << ix << " " << iy << " " << delta << " "
+					 << fittedValue << " " << fittedError/fittedValue << std::endl;
+	  if ( fitSucceeded && fittedError<maxErr*fittedValue )  break;
 	}
       }
 //       if ( fitSucceeded && triplets.size()<12 )  
@@ -267,8 +279,8 @@ TH2* fitMissing (TH2* h) {
 //       std::cout << "Res = " << fitSucceeded << " " << fittedError << " " << fittedValue << std::endl;
       if ( fitSucceeded && fittedError<0.2*fittedValue ) {
 	hNew->SetBinContent(ix,iy,fittedValue);
-	HEffErr->SetBinContent(ix,iy,fittedError/fittedValue);
-	HEffWidth->SetBinContent(ix,iy,2*delta+1);
+ 	HEffErr->SetBinContent(ix,iy,fittedError/fittedValue);
+ 	HEffWidth->SetBinContent(ix,iy,2*delta+1);
       }
     }
   }
