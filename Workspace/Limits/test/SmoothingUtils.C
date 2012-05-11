@@ -15,6 +15,9 @@
 
 using namespace std;
 
+TH2* HEffErr(0);
+TH2* HEffWidth(0);
+
 bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
 {
   bool result(false);
@@ -37,14 +40,28 @@ bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
   for ( size_t i=0; i<triplets.size(); ++i ) ave += triplets[i].z();
   ave /= triplets.size();
 
+//   for ( size_t i=0; i<triplets.size(); ++i ) 
+//     std::cout << i << " " << triplets[i].x() << " " << triplets[i].y() << " " << triplets[i].z() << std::endl;
+//   std::cout << "ave = " << ave << std::endl;
+
+  ave = log(ave);
+  double delta = sqrt(triplets.size())/2.;
   TFitterMinuit* minuitx = new TFitterMinuit();
   minuitx->SetMinuitFCN(fcn);
-  minuitx->SetParameter(0,"a",ave,ave/20.,0.,1.);
-  minuitx->SetParameter(1,"ax",0.,ave/10.,-0.1,0.1);
-  minuitx->SetParameter(2,"ay",0.,ave/10.,-0.1,0.1);
-  minuitx->SetParameter(3,"axx",0.,ave/100.,-0.01,0.01);
-  minuitx->SetParameter(4,"axy",0.,ave/100.,-0.01,0.01);
-  minuitx->SetParameter(5,"ayy",0.,ave/100.,-0.01,0.01);
+  minuitx->SetParameter(0,"a",ave,log(0.001),log(1.e-10),0.);
+  minuitx->SetParameter(1,"ax",0.,fabs(log(1.e-10)/delta/10.),-100,100);
+  minuitx->SetParameter(2,"ay",0.,fabs(log(1.e-10)/delta/10.),-100,100);
+  minuitx->SetParameter(3,"axx",0.,fabs(log(1.e-10)/delta/delta/10.),-100,100);
+  minuitx->SetParameter(4,"axy",0.,fabs(log(1.e-10)/delta/delta/10.),-100,100);
+  minuitx->SetParameter(5,"ayy",0.,fabs(log(1.e-10)/delta/delta/10.),-100,100);
+//   minuitx->SetParameter(0,"a",ave,ave/20.,0.,1.);
+//   minuitx->SetParameter(1,"ax",0.,ave/10.,-0.1,0.1);
+//   minuitx->SetParameter(2,"ay",0.,ave/10.,-0.1,0.1);
+//   minuitx->SetParameter(3,"axx",0.,ave/100.,-0.01,0.01);
+//   minuitx->SetParameter(4,"axy",0.,ave/100.,-0.01,0.01);
+//   minuitx->SetParameter(5,"ayy",0.,ave/100.,-0.01,0.01);
+  minuitx->FixParameter(1);
+  minuitx->FixParameter(2);
   minuitx->FixParameter(3);
   minuitx->FixParameter(4);
   minuitx->FixParameter(5);
@@ -52,6 +69,14 @@ bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
   minuitx->SetPrintLevel(0);
   minuitx->CreateMinimizer();
   int ierr = minuitx->Minimize();
+  if ( ierr == 0 ) {
+    result = true;
+    value = minuitx->GetParameter(0);
+    error = minuitx->GetParError(0);
+  }
+  minuitx->ReleaseParameter(1);
+  minuitx->ReleaseParameter(2);
+  ierr = minuitx->Minimize();
   if ( ierr == 0 ) {
     result = true;
     value = minuitx->GetParameter(0);
@@ -68,6 +93,9 @@ bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
   }
 //   std::cout << "Result for " << triplets.size() << " points is " << value  << std::endl;
   delete minuitx;
+
+  value = exp(value);
+  error *= value;
   return result;
 }
 
@@ -191,6 +219,13 @@ void fillTriplets (std::vector<Triplet>& triplets, TH2* h, int nbx, int nby,
 
 TH2* fitMissing (TH2* h) {
 //   TH2* hNew = h;
+  HEffErr = (TH2*)h->Clone("HEffErr");
+  HEffErr->SetTitle("EffErr");
+  HEffErr->Reset();
+  HEffWidth = (TH2*)h->Clone("HEffWidth");
+  HEffWidth->SetTitle("EffWidth");
+  HEffWidth->Reset();
+
   TH2* hNew = (TH2*)h->Clone("hSmoothFit");
   hNew->Reset();
   hNew->SetTitle("hSmoothFit");
@@ -204,41 +239,51 @@ TH2* fitMissing (TH2* h) {
   double fittedValue(0);
   double fittedError(0);
   std::vector<Triplet> triplets;
+//   int ix0 = h->GetXaxis()->FindBin(1700);
+//   int iy0 = h->GetYaxis()->FindBin(140);
   for ( int ix=1; ix<=nbx; ++ix ) {
+//     if ( ix != ix0 )  continue;
     for ( int iy=1; iy<=nby; ++iy ) {
-//       // check only empty bins
-//       if ( fabs(h->GetBinContent(ix,iy))>1.e-10 )  continue;
+//       if ( iy != iy0 )  continue;
       // clear matrix and vector used for fit
       fitSucceeded = false;
       triplets.clear();
       int delta(1);
       // loop over neighbours
       fillTriplets (triplets,h,nbx,nby,ix,iy,delta,-1);
+//       std::cout << "nTriplets(1) = " << triplets.size() << std::endl;
       if ( triplets.size()>=8 ) {
 // 	std::cout << "nTriplets(1) = " << triplets.size() << << std::endl;
 	fitSucceeded = fit(triplets,fittedValue,fittedError);
+// 	std::cout << "succ(1) = " << fitSucceeded << " " << fittedValue << " " << fittedError << std::endl;
       }
       if ( !fitSucceeded || fittedError>0.15*fittedValue ) {
 	fitSucceeded = false;
 	++delta;
 	fillTriplets (triplets,h,nbx,nby,ix,iy,delta,delta-1);
+// 	std::cout << "nTriplets(2) = " << triplets.size() << std::endl;
 	if ( triplets.size()>=12 ) {
 // 	  std::cout << "nTriplets(2) = " << triplets.size() << std::endl;
 	  fitSucceeded = fit(triplets,fittedValue,fittedError);
+// 	  std::cout << "succ(2) = " << fitSucceeded << " " << fittedValue << " " << fittedError << std::endl;
 	}
-	if ( !fitSucceeded || fittedError>0.3*fittedValue ) {
+	if ( !fitSucceeded || fittedError>0.15*fittedValue ) {
 	  fitSucceeded = false;
 	  ++delta;
 	  fillTriplets (triplets,h,nbx,nby,ix,iy,delta,delta-1);
+// 	  std::cout << "nTriplets(3) = " << triplets.size() << std::endl;
 	  if ( triplets.size()>=12 ) {
 	    fitSucceeded = fit(triplets,fittedValue,fittedError);
+// 	    std::cout << "succ(3) = " << fitSucceeded << " " << fittedValue << " " << fittedError << std::endl;
 	  }
-	  if ( !fitSucceeded || fittedError>0.5*fittedValue ) {
+	  if ( !fitSucceeded || fittedError>0.15*fittedValue ) {
 	    fitSucceeded = false;
 	    ++delta;
 	    fillTriplets (triplets,h,nbx,nby,ix,iy,delta,delta-1);
+// 	    std::cout << "nTriplets(4) = " << triplets.size() << std::endl;
 	    if ( triplets.size()>=12 ) {
 	      fitSucceeded = fit(triplets,fittedValue,fittedError);
+// 	      std::cout << "succ(4) = " << fitSucceeded << " " << fittedValue << " " << fittedError << std::endl;
 	    }
 	  }
 	}
@@ -247,7 +292,12 @@ TH2* fitMissing (TH2* h) {
 // 	std::cout << "**************** " << fitSucceeded << " " << triplets.size() << " " << fittedValue 
 // 		  << " " << fittedError << std::endl;
 //       if ( fitSucceeded && fittedError<fittedValue )  hNew->SetBinContent(ix,iy,triplets.size());
-      if ( fitSucceeded && fittedError<fittedValue )  hNew->SetBinContent(ix,iy,fittedValue);
+//       std::cout << "Res = " << fitSucceeded << " " << fittedError << " " << fittedValue << std::endl;
+      if ( fitSucceeded && fittedError<fittedValue ) {
+	hNew->SetBinContent(ix,iy,fittedValue);
+	HEffErr->SetBinContent(ix,iy,fittedError/fittedValue);
+	HEffWidth->SetBinContent(ix,iy,2*delta+1);
+      }
     }
   }
   return hNew;
@@ -427,7 +477,7 @@ TH2* doSmoothEff (TH2* hRaw, bool ratio = true, bool draw = false) {
 //   // (first parameter in Smooth is dummy)
 //   for ( int i=0; i<nTimes; ++i )  hSmooth->Smooth(1,algo);
   // remove artefacts on edges of the filled region
-  clearBins(hSmooth,hFilled);
+//   clearBins(hSmooth,hFilled);
   if ( draw ) {
     c = new TCanvas("cSmooth","cSmooth");
     hSmooth->Draw("ZCOL");
@@ -555,8 +605,28 @@ TH2* doSmooth (TH2* hRaw, const char* algo = "k3a", int nTimes = 2, bool ratio =
 //
 TH2* doEffFit (TH2* hEff, TH2* hEvt, bool draw = false) {
   TH2* hEffFit = doSmoothEff(hEff,false);
+  TH2* hEffRatio = (TH2*)hEff->Clone("hEffRatio");
+  hEffRatio->Divide(hEffFit);
+  cout << "Histos " << hEff << " " << hEffFit << " " << hEffRatio
+       << " " << HEffErr << " " << HEffWidth << endl;
+  TCanvas* c = new TCanvas();
+  c->Divide(2,3);
+  c->cd(1);
+  hEff->Draw("zcol");
+  c->cd(2);
+  hEffFit->Draw("zcol");
+  c->cd(3);
+  hEffRatio->Draw("zcol");
   TH2* hXsec = (TH2*)hEvt->Clone("hXsec");
   hXsec->Divide(hEff);
+  if ( HEffErr ) {
+    c->cd(5);
+    HEffErr->Draw("zcol");
+  }
+  if ( HEffWidth ) {
+    c->cd(6);
+    HEffWidth->Draw("zcol");
+  }
   
 //   TH2* hXsecFilled = fillMissing(hXsec,5,14,true);
   TH2* hXsecFilled = fillMissing(hXsec,4,6,true);
@@ -568,14 +638,14 @@ TH2* doEffFit (TH2* hEff, TH2* hEvt, bool draw = false) {
       double vEff = hEffFit->GetBinContent(ix,iy);
       if ( vEff < 1.e-10 )  continue;
       double vXsec = hXsecFilled->GetBinContent(ix,iy);
-      if ( vXsec > 1.e-10 )
-	hEffFit->SetBinContent(ix,iy,vEff*vXsec);
-      else
-	hEffFit->SetBinContent(ix,iy,0.);
+//       if ( vXsec > 1.e-10 )
+// 	hEffFit->SetBinContent(ix,iy,vEff*vXsec);
+//       else
+// 	hEffFit->SetBinContent(ix,iy,0.);
     }
   }
 
-  hEffFit->Draw("zcol");
+//   hEffFit->Draw("zcol");
 // //   TH2* hFilledLoose = fillMissing(hRaw,4,6);
 
   return hEffFit;

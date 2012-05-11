@@ -64,9 +64,11 @@ FcnLogL::logL (const Triplet& triplet, const std::vector<double>& pars) const
   if ( pars.size() == 6 ) {
     lambda += x*x*pars[3] + x*y*pars[4] + y*y*pars[5];
   }
+//   if ( lambda < 0 )  lambda = 0.;
+  lambda = exp(lambda);
   double result = logBinomial(z,lambda);
 //   std::cout << "z = " << z << " lambda for " << x << " " << y << " = " << lambda 
-// 	    << " / " << result << std::endl;
+//     	    << " / " << result << std::endl;
   return result;
 }
 
