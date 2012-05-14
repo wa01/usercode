@@ -211,6 +211,28 @@ PlotLimits2::drawHistograms()
 //   TCanvas* cExists = new TCanvas("cexist","cexist");
 //   hExist->Draw("zcol");
 
+  TCanvas* canvasErr = new TCanvas("cErr","cErr",1000,1000);
+  canvasErr->Divide(2,3);
+  canvasErr->cd(1);
+  hExpMinus2.hLimitErr->Draw("zcol");
+  if ( gExpMinus2 )  gExpMinus2->Draw();
+  canvasErr->cd(2);
+  hExpMinus1.hLimitErr->Draw("zcol");
+  if ( gExpMinus1 )  gExpMinus1->Draw();
+  canvasErr->cd(3);
+  hObs.hLimitErr->Draw("zcol");
+  if ( gObs )  gObs->Draw();
+  canvasErr->cd(4);
+  hExpMedian.hLimitErr->Draw("zcol");
+  if ( gExpMedian )  gExpMedian->Draw();
+  canvasErr->cd(5);
+  hExpPlus1.hLimitErr->Draw("zcol");
+  if ( gExpPlus1 )  gExpPlus1->Draw();
+  canvasErr->cd(6);
+  hExpPlus2.hLimitErr->Draw("zcol");
+  if ( gExpPlus2 )  gExpPlus2->Draw();
+
+
 }
 
 bool
@@ -322,7 +344,8 @@ PlotLimits2::scanLimit(LimitHistograms& histos)
     }
   }
   if ( ifirst!=0 )  result->GetXaxis()->SetRange(ifirst,ilast);
-  result->Smooth(6,"R");
+//   result->Smooth(6,"R");
+  result->Smooth(20,"R");
 //   return result;
 
   TGraph* graph = new TGraph();
