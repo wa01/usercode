@@ -15,55 +15,30 @@
 
 using namespace std;
 
-TH2* HEffErr(0);
-TH2* HEffWidth(0);
-
-double SavedPars[6];
-
 bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
 {
   bool result(false);
   value = 0.;
   error = 0.;
-//   std::vector<Triplet> newTriplets(triplets);
-//   for ( size_t i=0; i<newTriplets.size(); ++i ) {
-//     Triplet& triplet = newTriplets[i];
-//     triplet.x_ -= ixRef;
-//     triplet.y_ -= iyRef;
-//   }
-  FcnLogL* fcn = new FcnLogL(triplets,10000);
 
-//   std::vector<double> pars(6,0.);
-//   pars[0] = 0.01;
-//   std::cout << (*fcn)(pars);
-//   return 0.;
+  FcnLogL* fcn = new FcnLogL(triplets,10000);
 
   double ave(0.);
   for ( size_t i=0; i<triplets.size(); ++i ) ave += triplets[i].z();
   ave /= triplets.size();
 
-//   for ( size_t i=0; i<triplets.size(); ++i ) 
-//     std::cout << i << " " << triplets[i].x() << " " << triplets[i].y() << " " << triplets[i].z() << std::endl;
-//   std::cout << "ave = " << ave << std::endl;
-
+  // move to logarithmic scale
   ave = log(ave);
   double delta = sqrt(triplets.size())/2.;
   TFitterMinuit* minuitx = new TFitterMinuit();
   minuitx->SetMinuitFCN(fcn);
   minuitx->SetParameter(0,"a",ave,log(0.001),log(1.e-10),0.);
-//   minuitx->SetParameter(1,"ax",0.,fabs(log(1.e-10)/delta/10.),-100,100);
-//   minuitx->SetParameter(2,"ay",0.,fabs(log(1.e-10)/delta/10.),-100,100);
+  minuitx->SetParameter(1,"ax",0.,fabs(log(1.e-10)/delta/100.),-100,100);
+  minuitx->SetParameter(2,"ay",0.,fabs(log(1.e-10)/delta/100.),-100,100);
   minuitx->SetParameter(3,"axx",0.,fabs(log(1.e-10)/delta/delta/10.),-100,100);
   minuitx->SetParameter(4,"axy",0.,fabs(log(1.e-10)/delta/delta/10.),-100,100);
   minuitx->SetParameter(5,"ayy",0.,fabs(log(1.e-10)/delta/delta/10.),-100,100);
-  minuitx->SetParameter(1,"ax",0.,fabs(log(1.e-10)/delta/100.),-100,100);
-  minuitx->SetParameter(2,"ay",0.,fabs(log(1.e-10)/delta/100.),-100,100);
-//   minuitx->SetParameter(0,"a",ave,ave/20.,0.,1.);
-//   minuitx->SetParameter(1,"ax",0.,ave/10.,-0.1,0.1);
-//   minuitx->SetParameter(2,"ay",0.,ave/10.,-0.1,0.1);
-//   minuitx->SetParameter(3,"axx",0.,ave/100.,-0.01,0.01);
-//   minuitx->SetParameter(4,"axy",0.,ave/100.,-0.01,0.01);
-//   minuitx->SetParameter(5,"ayy",0.,ave/100.,-0.01,0.01);
+  // first fit: constant
   minuitx->FixParameter(1);
   minuitx->FixParameter(2);
   minuitx->FixParameter(3);
@@ -78,6 +53,7 @@ bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
     value = minuitx->GetParameter(0);
     error = minuitx->GetParError(0);
   }
+  // second fit: linear
   minuitx->ReleaseParameter(1);
   minuitx->ReleaseParameter(2);
   ierr = minuitx->Minimize();
@@ -86,6 +62,7 @@ bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
     value = minuitx->GetParameter(0);
     error = minuitx->GetParError(0);
   }
+  // third fit: quadratic
   minuitx->ReleaseParameter(3);
   minuitx->ReleaseParameter(4);
   minuitx->ReleaseParameter(5);
@@ -95,14 +72,14 @@ bool fit (const std::vector<Triplet>& triplets, double& value, double& error)
     value = minuitx->GetParameter(0);
     error = minuitx->GetParError(0);
   }
-//   std::cout << "Result for " << triplets.size() << " points is " << value  << std::endl;
-
-  for ( int i=0; i<6; ++i )  SavedPars[i] = minuitx->GetParameter(i);
 
   delete minuitx;
-
+  //
+  // back from logarithmic scale
+  //
   value = exp(value);
   error *= value;
+
   return result;
 }
 
@@ -225,13 +202,6 @@ void fillTriplets (std::vector<Triplet>& triplets, TH2* h, int nbx, int nby,
 }
 
 TH2* fitMissing (TH2* h) {
-//   TH2* hNew = h;
-  HEffErr = (TH2*)h->Clone("HEffErr");
-  HEffErr->SetTitle("EffErr");
-  HEffErr->Reset();
-  HEffWidth = (TH2*)h->Clone("HEffWidth");
-  HEffWidth->SetTitle("EffWidth");
-  HEffWidth->Reset();
 
   TH2* hNew = (TH2*)h->Clone("hSmoothFit");
   hNew->Reset();
@@ -246,41 +216,27 @@ TH2* fitMissing (TH2* h) {
   double fittedValue(0);
   double fittedError(0);
   std::vector<Triplet> triplets;
-//   int ix0 = h->GetXaxis()->FindBin(1700);
-//   int iy0 = h->GetYaxis()->FindBin(140);
   for ( int ix=1; ix<=nbx; ++ix ) {
-//     if ( ix != ix0 )  continue;
     for ( int iy=1; iy<=nby; ++iy ) {
-//       if ( iy != iy0 )  continue;
+
       // clear matrix and vector used for fit
       fitSucceeded = false;
       triplets.clear();
 
       int delta(1);
       int prevDelta(-1);
-      double maxErr(0.10);
-      for ( delta=1; delta<8; ++delta ) {
+      double maxErr(0.05);
+      for ( delta=1; delta<10; ++delta ) {
 	// loop over neighbours
 	fillTriplets (triplets,h,nbx,nby,ix,iy,delta,prevDelta);
 	prevDelta = delta;
-//       std::cout << "nTriplets(1) = " << triplets.size() << std::endl;
 	if ( triplets.size()>=max(8,(2*delta+1)*(2*delta+1)/2) ) {
-	  // 	std::cout << "nTriplets(1) = " << triplets.size() << << std::endl;
 	  fitSucceeded = fit(triplets,fittedValue,fittedError);
-	  if ( fitSucceeded )  std::cout << ix << " " << iy << " " << delta << " "
-					 << fittedValue << " " << fittedError/fittedValue << std::endl;
 	  if ( fitSucceeded && fittedError<maxErr*fittedValue )  break;
 	}
       }
-//       if ( fitSucceeded && triplets.size()<12 )  
-// 	std::cout << "**************** " << fitSucceeded << " " << triplets.size() << " " << fittedValue 
-// 		  << " " << fittedError << std::endl;
-//       if ( fitSucceeded && fittedError<fittedValue )  hNew->SetBinContent(ix,iy,triplets.size());
-//       std::cout << "Res = " << fitSucceeded << " " << fittedError << " " << fittedValue << std::endl;
       if ( fitSucceeded && fittedError<0.2*fittedValue ) {
 	hNew->SetBinContent(ix,iy,fittedValue);
- 	HEffErr->SetBinContent(ix,iy,fittedError/fittedValue);
- 	HEffWidth->SetBinContent(ix,iy,2*delta+1);
       }
     }
   }
@@ -435,22 +391,6 @@ TH2* doSmoothEff (TH2* hRaw, bool ratio = true, bool draw = false) {
   if ( draw ) {
     c = new TCanvas("cFilled","cFilled");
     hFilled->Draw("ZCOL");
-//     hFilled->Draw("same box");
-//     TH2* hTmp = (TH2*)hFilledLoose->Clone("hTmp");
-//     for ( int ix=1; ix<=hTmp->GetNbinsX(); ++ix ) {
-//       for ( int iy=1; iy<=hTmp->GetNbinsY(); ++iy ) {
-// 	if ( hFilled->GetBinContent(ix,iy)>1.e-10 )
-// 	  hTmp->SetBinContent(ix,iy,0.);
-//       }
-//     }
-//     hTmp->SetMinimum(1.e-10);
-//     c->SetLogz(1);
-//     hTmp->Draw("ZCOL");
-//     c = new TCanvas("cRaw","cRaw");
-//     hRaw->Draw("ZCOL");
-//     c = new TCanvas("cFill","cFill");
-//     hFilled->Draw("ZCOL");
-// //     hRaw->Draw("same box");
   }
   //
   // smooth histogram 
@@ -458,10 +398,6 @@ TH2* doSmoothEff (TH2* hRaw, bool ratio = true, bool draw = false) {
   TH2* hSmooth = fitMissing(hFilled);
   hSmooth->SetName("hSmooth");
   hSmooth->SetTitle("hSmooth");
-//   // (first parameter in Smooth is dummy)
-//   for ( int i=0; i<nTimes; ++i )  hSmooth->Smooth(1,algo);
-  // remove artefacts on edges of the filled region
-//   clearBins(hSmooth,hFilled);
   if ( draw ) {
     c = new TCanvas("cSmooth","cSmooth");
     hSmooth->Draw("ZCOL");
@@ -589,28 +525,28 @@ TH2* doSmooth (TH2* hRaw, const char* algo = "k3a", int nTimes = 2, bool ratio =
 //
 TH2* doEffFit (TH2* hEff, TH2* hEvt, bool draw = false) {
   TH2* hEffFit = doSmoothEff(hEff,false);
-  TH2* hEffRatio = (TH2*)hEff->Clone("hEffRatio");
-  hEffRatio->Divide(hEffFit);
-  cout << "Histos " << hEff << " " << hEffFit << " " << hEffRatio
-       << " " << HEffErr << " " << HEffWidth << endl;
-  TCanvas* c = new TCanvas();
-  c->Divide(2,3);
-  c->cd(1);
-  hEff->Draw("zcol");
-  c->cd(2);
-  hEffFit->Draw("zcol");
-  c->cd(3);
-  hEffRatio->Draw("zcol");
   TH2* hXsec = (TH2*)hEvt->Clone("hXsec");
   hXsec->Divide(hEff);
-  if ( HEffErr ) {
-    c->cd(5);
-    HEffErr->Draw("zcol");
-  }
-  if ( HEffWidth ) {
-    c->cd(6);
-    HEffWidth->Draw("zcol");
-  }
+//   TH2* hEffRatio = (TH2*)hEff->Clone("hEffRatio");
+//   hEffRatio->Divide(hEffFit);
+//   cout << "Histos " << hEff << " " << hEffFit << " " << hEffRatio
+//        << " " << HEffErr << " " << HEffWidth << endl;
+//   TCanvas* c = new TCanvas();
+//   c->Divide(2,3);
+//   c->cd(1);
+//   hEff->Draw("zcol");
+//   c->cd(2);
+//   hEffFit->Draw("zcol");
+//   c->cd(3);
+//   hEffRatio->Draw("zcol");
+//   if ( HEffErr ) {
+//     c->cd(5);
+//     HEffErr->Draw("zcol");
+//   }
+//   if ( HEffWidth ) {
+//     c->cd(6);
+//     HEffWidth->Draw("zcol");
+//   }
   
 //   TH2* hXsecFilled = fillMissing(hXsec,5,14,true);
   TH2* hXsecFilled = fillMissing(hXsec,4,6,true);
@@ -622,14 +558,14 @@ TH2* doEffFit (TH2* hEff, TH2* hEvt, bool draw = false) {
       double vEff = hEffFit->GetBinContent(ix,iy);
       if ( vEff < 1.e-10 )  continue;
       double vXsec = hXsecFilled->GetBinContent(ix,iy);
-//       if ( vXsec > 1.e-10 )
-// 	hEffFit->SetBinContent(ix,iy,vEff*vXsec);
-//       else
-// 	hEffFit->SetBinContent(ix,iy,0.);
+      if ( vXsec > 1.e-10 )
+	hEffFit->SetBinContent(ix,iy,vEff*vXsec);
+      else
+	hEffFit->SetBinContent(ix,iy,0.);
     }
   }
 
-//   hEffFit->Draw("zcol");
+  hEffFit->Draw("zcol");
 // //   TH2* hFilledLoose = fillMissing(hRaw,4,6);
 
   return hEffFit;

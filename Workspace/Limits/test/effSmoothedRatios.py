@@ -62,6 +62,9 @@ fnameEvt = args[1] if len(args) > 1 else None
 #
 from ROOT import gROOT
 gROOT.ProcessLine(".L SmoothingUtils.C+")
+gROOT.ProcessLine(".L useNiceColorPalette.C")
+ROOT.useNiceColorPalette()
+ROOT.gStyle.SetOptStat(0)
 
 # output dictionary
 allEvts = {}
@@ -199,6 +202,10 @@ for btag in effdic:
         # create histogram with ratios and fill bin contents into dictionary
         #
         hEvt = ROOT.doEffFit(hRaw,hEvt)
+#        try:
+#          input("abc")
+#        except:
+#          pass
         nbx = hEvt.GetNbinsX()
         nby = hEvt.GetNbinsY()
         for ix in range(1,nbx+1):
