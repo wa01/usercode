@@ -5,6 +5,7 @@
 #include <TCanvas.h>
 #include "TGraph.h"
 #include "TMarker.h"
+#include "TGraphSmooth.h"
 
 #include <iostream>
 #include <vector>
@@ -16,7 +17,6 @@
 #include <string>
 
 using namespace std;
-
 
 void PlotLimits2::Loop()
 {
@@ -211,26 +211,26 @@ PlotLimits2::drawHistograms()
 //   TCanvas* cExists = new TCanvas("cexist","cexist");
 //   hExist->Draw("zcol");
 
-  TCanvas* canvasErr = new TCanvas("cErr","cErr",1000,1000);
-  canvasErr->Divide(2,3);
-  canvasErr->cd(1);
-  hExpMinus2.hLimitErr->Draw("zcol");
-  if ( gExpMinus2 )  gExpMinus2->Draw();
-  canvasErr->cd(2);
-  hExpMinus1.hLimitErr->Draw("zcol");
-  if ( gExpMinus1 )  gExpMinus1->Draw();
-  canvasErr->cd(3);
-  hObs.hLimitErr->Draw("zcol");
-  if ( gObs )  gObs->Draw();
-  canvasErr->cd(4);
-  hExpMedian.hLimitErr->Draw("zcol");
-  if ( gExpMedian )  gExpMedian->Draw();
-  canvasErr->cd(5);
-  hExpPlus1.hLimitErr->Draw("zcol");
-  if ( gExpPlus1 )  gExpPlus1->Draw();
-  canvasErr->cd(6);
-  hExpPlus2.hLimitErr->Draw("zcol");
-  if ( gExpPlus2 )  gExpPlus2->Draw();
+//   TCanvas* canvasErr = new TCanvas("cErr","cErr",1000,1000);
+//   canvasErr->Divide(2,3);
+//   canvasErr->cd(1);
+//   hExpMinus2.hLimitErr->Draw("zcol");
+//   if ( gExpMinus2 )  gExpMinus2->Draw();
+//   canvasErr->cd(2);
+//   hExpMinus1.hLimitErr->Draw("zcol");
+//   if ( gExpMinus1 )  gExpMinus1->Draw();
+//   canvasErr->cd(3);
+//   hObs.hLimitErr->Draw("zcol");
+//   if ( gObs )  gObs->Draw();
+//   canvasErr->cd(4);
+//   hExpMedian.hLimitErr->Draw("zcol");
+//   if ( gExpMedian )  gExpMedian->Draw();
+//   canvasErr->cd(5);
+//   hExpPlus1.hLimitErr->Draw("zcol");
+//   if ( gExpPlus1 )  gExpPlus1->Draw();
+//   canvasErr->cd(6);
+//   hExpPlus2.hLimitErr->Draw("zcol");
+//   if ( gExpPlus2 )  gExpPlus2->Draw();
 
 
 }
@@ -345,15 +345,62 @@ PlotLimits2::scanLimit(LimitHistograms& histos)
   }
   if ( ifirst!=0 )  result->GetXaxis()->SetRange(ifirst,ilast);
 //   result->Smooth(6,"R");
-  result->Smooth(20,"R");
+//   result->Smooth(20,"R");
 //   return result;
 
   TGraph* graph = new TGraph();
   np = 0;
+  double dxmin(1.e30);
+  int npmin(-1);
   for ( int ix=1; ix<=nbx; ++ix ) {
+    double x = result->GetXaxis()->GetBinCenter(ix);
     double y = result->GetBinContent(ix);
-    if ( y>1.e-6 )  graph->SetPoint(np++,xAxis->GetBinCenter(ix),y);
+    if ( y<1.e-6 ) continue;
+    if ( fabs(x-1200.)<dxmin ) {
+      dxmin = fabs(x-1200.);
+      npmin = np;
+    }
+    graph->SetPoint(np++,x,y);
   }
+
+  TGraphSmooth* smoothL = new TGraphSmooth();
+  TGraphSmooth* smoothH = new TGraphSmooth();
+  cout << "abc" << endl;
+  TGraph* graphLow = (TGraph*)graph->Clone();
+  graphLow = smoothL->SmoothLowess(graphLow,"",0.10);
+  cout << "abc1" << endl;
+  TGraph* graphHigh = (TGraph*)graph->Clone();
+  graphHigh = smoothH->SmoothLowess(graphHigh,"",0.25);
+  cout << "abc2" << endl;
+  graph->Clear();
+  cout << graphLow->GetN() << " " << graphHigh->GetN() << " " << graph->GetN() << endl;
+  double xp;
+  double yp;
+  cout << "npmin = " << npmin << endl;
+  for ( int i=0; i<np; ++i ) {
+    if ( i<npmin ) {
+      graphLow->GetPoint(i,xp,yp);
+    }
+    else if ( i>npmin ) {
+      graphHigh->GetPoint(i,xp,yp);
+    }
+    else {
+      graphLow->GetPoint(i,xp,yp);
+      double xp1 = xp;
+      double yp1 = yp;
+      graphHigh->GetPoint(i,xp,yp);
+      xp = (xp+xp1)/2.;
+      yp = (yp+yp1)/2.;
+    }
+    graph->SetPoint(i,xp,yp);
+  }
+  delete smoothL;
+  delete smoothH;
+//   delete graphLow;
+//   delete graphHigh;
+
+  cout << "abcde" << endl;
+
   return graph;
 }
 
