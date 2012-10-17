@@ -1,0 +1,7 @@
+<use   name="Workspace/TrackProducerFromSeed"/>
+<use   name="RecoTracker/TrackProducer"/>
+<use   name="RecoTracker/TkDetLayers"/>
+<use   name="TrackingTools/TransientTrack"/>
+<library   file="*.cc" name="WorkspaceTrackProducerFromSeedPlugins">
+  <flags   EDM_PLUGIN="1"/>
+</library>

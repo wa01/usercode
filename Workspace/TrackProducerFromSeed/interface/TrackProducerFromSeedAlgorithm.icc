@@ -1,0 +1,79 @@
+// #include "RecoTracker/TrackProducer/interface/TrackProducerFromSeedAlgorithm.h"
+
+#include "DataFormats/Common/interface/OrphanHandle.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
+
+#include "MagneticField/Engine/interface/MagneticField.h"
+#include "Geometry/CommonDetUnit/interface/TrackingGeometry.h"
+
+#include "DataFormats/TrajectorySeed/interface/TrajectorySeed.h"
+#include "DataFormats/TrackCandidate/interface/TrackCandidate.h"
+#include "DataFormats/TrackingRecHit/interface/TrackingRecHitFwd.h"
+
+#include "TrackingTools/TrackFitters/interface/TrajectoryFitter.h"
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateTransform.h"
+#include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHitBuilder.h"
+#include "RecoTracker/TransientTrackingRecHit/interface/TkTransientTrackingRecHitBuilder.h"
+#include "TrackingTools/PatternTools/interface/TransverseImpactPointExtrapolator.h"
+#include "TrackingTools/TransientTrack/interface/TransientTrack.h"
+#include "RecoTracker/TrackProducer/interface/TrackingRecHitLessFromGlobalPosition.h"
+//#include "RecoTracker/TrackProducer/interface/HitSplitter.h"
+
+#include "TrackingTools/PatternTools/interface/TSCPBuilderNoMaterial.h"
+#include "Utilities/General/interface/CMSexception.h"
+
+#include "RecoTracker/TransientTrackingRecHit/interface/TRecHit5DParamConstraint.h"
+#include "RecoTracker/TransientTrackingRecHit/interface/TRecHit2DPosConstraint.h"
+#include "RecoTracker/TransientTrackingRecHit/interface/TRecHit1DMomConstraint.h"
+// #include "TrackingTools/MaterialEffects/interface/PropagatorWithMaterial.h"
+#include "TrackingTools/GeomPropagators/interface/AnalyticalPropagator.h"
+#include "DataFormats/GeometryCommonDetAlgo/interface/ErrorFrameTransformer.h"
+#include "TrackingTools/TrackFitters/interface/RecHitSorter.h"
+
+#include "DataFormats/SiStripDetId/interface/SiStripDetId.h"
+
+template <class T> void
+TrackProducerFromSeedAlgorithm<T>::runWithSeed (const TrackingGeometry * theG,
+					  const MagneticField * theMF,
+					  const TrajectorySeedCollection& theTSCollection,
+					  const Propagator * thePropagator,
+					  const TransientTrackingRecHitBuilder* builder,
+					  const reco::BeamSpot& bs,
+					  AlgoProductCollection& algoResults)
+{
+  LogDebug("TrackProducer") << "Number of TrajectorySeeds: " << theTSCollection.size() << "\n";
+
+  int cont = 0;
+  for (TrajectorySeedCollection::const_iterator i=theTSCollection.begin(); i!=theTSCollection.end();i++)
+    {
+      
+      const TrajectorySeed& seed = *i;
+      PTrajectoryStateOnDet state = seed.startingState();
+      const TrajectorySeed::range& recHitVec=seed.recHits();
+      
+      //convert PTrajectoryStateOnDet to TrajectoryStateOnSurface
+      DetId  detId(state.detId());
+      TrajectoryStateOnSurface theTSOS = trajectoryStateTransform::transientState( state,
+										   &(theG->idToDet(detId)->surface()), 
+										   theMF);
+      LogDebug("MyTrackProducer") << "Initial TSOS\n" << theTSOS << "\n";
+      
+      //convert the TrackingRecHit vector to a TransientTrackingRecHit vector
+      TransientTrackingRecHit::RecHitContainer hits;
+      
+      float ndof=0;     
+      for (edm::OwnVector<TrackingRecHit>::const_iterator i=recHitVec.first;
+	   i!=recHitVec.second; i++){
+	hits.push_back(builder->build(&(*i) ));
+      }      
+      
+      //build Track
+      LogDebug("TrackProducer") << "going to buildTrack"<< "\n";      
+      bool ok = buildTrack(thePropagator,algoResults, hits, theTSOS, seed, ndof, bs);
+      LogDebug("TrackProducer") << "buildTrack result: " << ok << "\n";
+      if(ok) cont++;
+    }
+  LogDebug("TrackProducer") << "Number of Tracks found: " << cont << "\n";
+}
+
