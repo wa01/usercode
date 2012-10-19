@@ -89,7 +89,12 @@ TrackProducerFromSeedAlgorithm<reco::Track>::buildTrack (const Propagator * theP
     
     TSCBLBuilderNoMaterial tscblBuilder;
     //    const FreeTrajectoryState & stateForProjectionToBeamLine=*innertsos.freeState();
-    const TrajectoryStateOnSurface & stateForProjectionToBeamLineOnSurface = theTraj->closestMeasurement(GlobalPoint(bs.x0(),bs.y0(),bs.z0())).updatedState();
+//     const TrajectoryStateOnSurface & stateForProjectionToBeamLineOnSurface = theTraj->closestMeasurement(GlobalPoint(bs.x0(),bs.y0(),bs.z0())).updatedState();
+    //
+    // for conversion: use innermost hit position; could / should be replace by an estimate (x,y) of
+    //   the conversion vertex position
+    //
+    const TrajectoryStateOnSurface & stateForProjectionToBeamLineOnSurface = theTraj->firstMeasurement().updatedState();
     if (!stateForProjectionToBeamLineOnSurface.isValid()){
       edm::LogError("CannotPropagateToBeamLine")<<"the state on the closest measurement isnot valid. skipping track.";
       delete theTraj;
@@ -99,7 +104,12 @@ TrackProducerFromSeedAlgorithm<reco::Track>::buildTrack (const Propagator * theP
 
     LogDebug("TrackProducer") << "stateForProjectionToBeamLine=" << stateForProjectionToBeamLine;
 
-    TrajectoryStateClosestToBeamLine tscbl = tscblBuilder(stateForProjectionToBeamLine,bs);
+//     TrajectoryStateClosestToBeamLine tscbl = tscblBuilder(stateForProjectionToBeamLine,bs);
+    reco::BeamSpot refSpot(reco::BeamSpot::Point(stateForProjectionToBeamLineOnSurface.globalPosition().x(),
+						 stateForProjectionToBeamLineOnSurface.globalPosition().y(),
+						 stateForProjectionToBeamLineOnSurface.globalPosition().z()),
+			   5.,0.,0.,0.0015,reco::BeamSpot::CovarianceMatrix());
+    TrajectoryStateClosestToBeamLine tscbl = tscblBuilder(stateForProjectionToBeamLine,refSpot);
 
     if (tscbl.isValid()==false) {
         delete theTraj;
