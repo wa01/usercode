@@ -91,14 +91,14 @@ private:
 class LogLErfTest {
 public:
   LogLErfTest (const string& path, float metMin = 150, float metMax = 1500) : 
-    path_(path), metMin_(metMin), metMax_(metMax) {
+    path_(path), metMin_(metMin), metMax_(metMax), minuitx_(0), fcn_(0) {
     if ( !path.empty() && path[path.size()-1]!='/' )   path_ += "/";
   }
   LogLErfTest (float metMin = 150, float metMax = 1500) : 
-    metMin_(metMin), metMax_(metMax) {}
-  void fitSingleHT (TFitterMinuit* minuitx, const vector< pair<float,float> >& data,
-		    TH1* hAll, TH1* hAllS1,
-		    float htMin);
+    metMin_(metMin), metMax_(metMax), minuitx_(0), fcn_(0) {}
+
+  void fitSingleHT (TH1* hAll, TH1* hAllS1, float htMin);
+
   void fitMultiHT (const vector<string>& filenames, const vector<float>& fileweights,
 		   vector<float> htMin = vector<float>());
   
@@ -167,22 +167,27 @@ private:
   float metMin_;
   float metMax_;
 
+  TFitterMinuit* minuitx_;
+  FcnLogL* fcn_;
+
+  typedef vector< pair<float,float> >  DataContainer;
+  DataContainer data_;
+
   vector<TGraphErrors*> parGraphs_;
 };
 //
 // Fit
 //
 void 
-LogLErfTest::fitSingleHT (TFitterMinuit* minuitx, const vector< pair<float,float> >& data,
-		  TH1* hAll, TH1* hAllS1, float htMin) {
+LogLErfTest::fitSingleHT (TH1* hAll, TH1* hAllS1, float htMin) {
 
   // TRandom2 rgen;
-  // for ( size_t i=0; i<data.size(); ++i ) {
+  // for ( size_t i=0; i<data_.size(); ++i ) {
   //   double met = rgen.Exp(250.);
   //   double eff = responseFunction(met,230.,130.,0.02);
   //   double ht = rgen.Uniform()<eff ? 1.1*htMin : 0.9*htMin;
-  //   data[i].first = ht;
-  //   data[i].second = met;
+  //   data_[i].first = ht;
+  //   data_[i].second = met;
   // }
 
   //
@@ -196,8 +201,8 @@ LogLErfTest::fitSingleHT (TFitterMinuit* minuitx, const vector< pair<float,float
   TH1* hCut = (TH1*)hAll->Clone(hName);
   hCut->SetTitle(hTitle);
   hCut->Reset();
-  for ( size_t i=0; i<data.size(); ++i ) {
-    if ( data[i].first>htMin ) hCut->Fill(data[i].second);
+  for ( size_t i=0; i<data_.size(); ++i ) {
+    if ( data_[i].first>htMin ) hCut->Fill(data_[i].second);
   }
   // hAllS1->Divide(hAll); // mean MET / MET bin
 
@@ -210,46 +215,46 @@ LogLErfTest::fitSingleHT (TFitterMinuit* minuitx, const vector< pair<float,float
   //
   // LL function
   //
-  minuitx->SetParameter(0,"loc",htMin,100.,metMin_,metMax_);
-  minuitx->SetParameter(1,"scale",100.,20.,0.,500.);
-  minuitx->SetParameter(2,"shape",0.,0.05,-0.2,0.2);
-  minuitx->SetParameter(3,"min",0.,0.05,0,1);
-  minuitx->SetParameter(4,"max",1.,0.05,0,1);
+  minuitx_->SetParameter(0,"loc",htMin,100.,-metMax_,metMax_);
+  minuitx_->SetParameter(1,"scale",100.,20.,0.,500.);
+  minuitx_->SetParameter(2,"shape",0.,0.05,-0.2,0.2);
+  minuitx_->SetParameter(3,"min",0.,0.05,0,1);
+  minuitx_->SetParameter(4,"max",1.,0.05,0,1);
   //
   // first fit: location and scale
   //
-  minuitx->FixParameter(2);
-  minuitx->FixParameter(3);
-  minuitx->FixParameter(4);
-  // minuitx->SetMaxIterations(10000);
-  // minuitx->SetPrintLevel(2);
-  // minuitx->CreateMinimizer();
-  int ierr = minuitx->Minimize();
+  minuitx_->FixParameter(2);
+  minuitx_->FixParameter(3);
+  minuitx_->FixParameter(4);
+  // minuitx_->SetMaxIterations(10000);
+  // minuitx_->SetPrintLevel(2);
+  // minuitx_->CreateMinimizer();
+  int ierr = minuitx_->Minimize();
   // if ( ierr==0 ) {
-  //   cout << "Results = " << minuitx->GetParameter(0)
-  // 	 << " " << minuitx->GetParameter(1) << endl;    
+  //   cout << "Results = " << minuitx_->GetParameter(0)
+  // 	 << " " << minuitx_->GetParameter(1) << endl;    
   // }
   //
   // second fit: skewness
   //
-  minuitx->FixParameter(0);
-  minuitx->FixParameter(1);
-  minuitx->ReleaseParameter(2);
-  double shapeMax = minuitx->GetParameter(1)/max(metMax_-minuitx->GetParameter(0),minuitx->GetParameter(0)-metMin_);
-  minuitx->SetParameter(2,"shape",minuitx->GetParameter(2),0.05,-0.2,shapeMax);
-  ierr = minuitx->Minimize();
+  minuitx_->FixParameter(0);
+  minuitx_->FixParameter(1);
+  minuitx_->ReleaseParameter(2);
+  double shapeMax = minuitx_->GetParameter(1)/max(metMax_-minuitx_->GetParameter(0),minuitx_->GetParameter(0)-metMin_);
+  minuitx_->SetParameter(2,"shape",minuitx_->GetParameter(2),0.05,-0.2,shapeMax);
+  ierr = minuitx_->Minimize();
   // if ( ierr==0 ) {
-  //   cout << "Results = " << minuitx->GetParameter(0)
-  // 	 << " " << minuitx->GetParameter(1) << endl;    
+  //   cout << "Results = " << minuitx_->GetParameter(0)
+  // 	 << " " << minuitx_->GetParameter(1) << endl;    
   // }
   //
   // third fit: location, scale, shape
-  minuitx->ReleaseParameter(0);
-  minuitx->ReleaseParameter(1);
-  ierr = minuitx->Minimize();
+  minuitx_->ReleaseParameter(0);
+  minuitx_->ReleaseParameter(1);
+  ierr = minuitx_->Minimize();
   // if ( ierr==0 ) {
-  //   cout << "Results = " << minuitx->GetParameter(0)
-  // 	 << " " << minuitx->GetParameter(1) << endl;
+  //   cout << "Results = " << minuitx_->GetParameter(0)
+  // 	 << " " << minuitx_->GetParameter(1) << endl;
   // }
   //
   // new Graph with updated mean METs / bin
@@ -280,9 +285,9 @@ LogLErfTest::fitSingleHT (TFitterMinuit* minuitx, const vector< pair<float,float
   sprintf(name,"fLL%4.4d",ihtMin);
   TF1* f = new TF1(name,responseFunction,hAll->GetXaxis()->GetXmin(),
 		   hAll->GetXaxis()->GetXmax(),5);
-  f->SetParameters(minuitx->GetParameter(0),minuitx->GetParameter(1),
-		   minuitx->GetParameter(2),minuitx->GetParameter(3),
-		   minuitx->GetParameter(4));
+  f->SetParameters(minuitx_->GetParameter(0),minuitx_->GetParameter(1),
+		   minuitx_->GetParameter(2),minuitx_->GetParameter(3),
+		   minuitx_->GetParameter(4));
   f->SetLineColor(2);
   f->SetLineWidth(2);
   f->Draw("same");
@@ -292,11 +297,11 @@ LogLErfTest::fitSingleHT (TFitterMinuit* minuitx, const vector< pair<float,float
   sprintf(name,"fG%4.4d",ihtMin);
   TF1* g = new TF1(name,responseFunction,hAll->GetXaxis()->GetXmin(),
 		   hAll->GetXaxis()->GetXmax(),5);
-  g->SetParameters(minuitx->GetParameter(0),minuitx->GetParameter(1),
-		   minuitx->GetParameter(2),0.,1.);
-  g->SetParLimits(0,metMin_,metMax_);
+  g->SetParameters(minuitx_->GetParameter(0),minuitx_->GetParameter(1),
+		   minuitx_->GetParameter(2),0.,1.);
+  g->SetParLimits(0,-metMax_,metMax_);
   g->SetParLimits(1,0.,500.);
-  shapeMax = minuitx->GetParameter(1)/max(metMax_-minuitx->GetParameter(0),minuitx->GetParameter(0)-metMin_);
+  shapeMax = minuitx_->GetParameter(1)/max(metMax_-minuitx_->GetParameter(0),minuitx_->GetParameter(0)-metMin_);
   g->SetParLimits(2,-0.2,shapeMax);
   g->FixParameter(3,0.);
   g->FixParameter(4,1.);
@@ -332,21 +337,21 @@ LogLErfTest::fitMultiHT (const vector<string>& filenames, const vector<float>& f
   }
 
   TRandom2 rgen;
-  vector< pair<float,float> > data;
+  data_.clear();
   for ( size_t i=0; i<filenames.size(); ++i ) {
-    vector< pair<float,float> > dataTmp;
+    DataContainer dataTmp;
     HtMetTreeReader reader(filenames[i].c_str());
     reader.loop(dataTmp);
     for ( size_t j=0; j<dataTmp.size(); ++j ) {
       if ( dataTmp[j].second<metMin_ )  continue;
-      if ( rgen.Uniform()<fileweights[i]/maxFileWgt )  data.push_back(dataTmp[j]);
+      if ( rgen.Uniform()<fileweights[i]/maxFileWgt )  data_.push_back(dataTmp[j]);
     }
   }
-  cout << "Number of events = " << data.size() << endl;
+  cout << "Number of events = " << data_.size() << endl;
   // //
   // // impose lower limit on MET
   // //
-  // vector< pair<float,float> > data;
+  // DataContainer data;
   // data.reserve(data1.size());
   // for ( size_t i=0; i<data1.size(); ++i ) {
   //   if ( data1[i].second>=metMin_ )  data.push_back(data1[i]);
@@ -374,36 +379,38 @@ LogLErfTest::fitMultiHT (const vector<string>& filenames, const vector<float>& f
   //
   // LL function
   //
-  FcnLogL* fcn = new FcnLogL(data,0.);
-  TFitterMinuit* minuitx = new TFitterMinuit();
-  minuitx->SetMinuitFCN(fcn);
-  minuitx->SetParameter(0,"loc",0.,100.,0.,metMax_);
-  minuitx->SetParameter(1,"scale",100.,20.,0.,500.);
-  minuitx->SetParameter(2,"shape",0.,0.05,-1.0,1.0);
-  minuitx->SetParameter(3,"min",0.,0.05,0,1);
-  minuitx->SetParameter(4,"max",1.,0.05,0,1);
-  minuitx->SetMaxIterations(10000);
-  minuitx->SetPrintLevel(2);
-  minuitx->CreateMinimizer();
+  delete minuitx_;
+  delete fcn_;
+  fcn_ = new FcnLogL(data_,0.);
+  minuitx_ = new TFitterMinuit();
+  minuitx_->SetMinuitFCN(fcn_);
+  minuitx_->SetParameter(0,"loc",0.,100.,0.,metMax_);
+  minuitx_->SetParameter(1,"scale",100.,20.,0.,500.);
+  minuitx_->SetParameter(2,"shape",0.,0.05,-1.0,1.0);
+  minuitx_->SetParameter(3,"min",0.,0.05,0,1);
+  minuitx_->SetParameter(4,"max",1.,0.05,0,1);
+  minuitx_->SetMaxIterations(10000);
+  minuitx_->SetPrintLevel(2);
+  minuitx_->CreateMinimizer();
 
   TH1::SetDefaultSumw2(true);
   int nhBins = int((metMax_-metMin_)/50.+0.5);
   TH1* hAllHT = new TH1F("hAllHT","HT (inclusive)",nhBins,metMin_,metMax_);
   TH1* hAll = new TH1F("hAll","MET (inclusive)",nhBins,metMin_,metMax_);
   TH1* hAllS1 = new TH1F("hAllS1","MET (inclusive) s1",nhBins,metMin_,metMax_);
-  for ( size_t i=0; i<data.size(); ++i ) {
-    hAllHT->Fill(data[i].first);
-    hAll->Fill(data[i].second);
-    hAllS1->Fill(data[i].second,data[i].second);
+  for ( size_t i=0; i<data_.size(); ++i ) {
+    hAllHT->Fill(data_[i].first);
+    hAll->Fill(data_[i].second);
+    hAllS1->Fill(data_[i].second,data_[i].second);
   }
   hAllS1->Divide(hAll); // mean MET / MET bin
 
   // char hName[128], hTitle[256];
   char name[128], title[256];
   parGraphs_.clear(); // should delete previous graphs, if any ...
-  for ( size_t i=0; i<(size_t)minuitx->GetNumberTotalParameters(); ++i ) {
+  for ( size_t i=0; i<(size_t)minuitx_->GetNumberTotalParameters(); ++i ) {
     sprintf(name,"gPar%d",(int)i);
-    sprintf(title,"par %d (%s)",(int)i,minuitx->GetParName(i));
+    sprintf(title,"par %d (%s)",(int)i,minuitx_->GetParName(i));
     TGraphErrors* graph = new TGraphErrors();
     graph->SetNameTitle(name,title);
     graph->SetMarkerStyle(20);
@@ -411,12 +418,12 @@ LogLErfTest::fitMultiHT (const vector<string>& filenames, const vector<float>& f
   }
   for ( size_t iht=0; iht<htMin.size(); ++iht ) {
     cnv->cd(iht+1);
-    fcn->setHTmin(htMin[iht]);
-    fitSingleHT (minuitx,data,hAll,hAllS1,htMin[iht]);
+    fcn_->setHTmin(htMin[iht]);
+    fitSingleHT (hAll,hAllS1,htMin[iht]);
     for ( size_t i=0; i<parGraphs_.size(); ++i ) {
       TGraphErrors* graph = parGraphs_[i];
-      graph->SetPoint(iht,htMin[iht],minuitx->GetParameter(i));
-      graph->SetPointError(iht,0.,minuitx->GetParError(i));
+      graph->SetPoint(iht,htMin[iht],minuitx_->GetParameter(i));
+      graph->SetPointError(iht,0.,minuitx_->GetParError(i));
     }
   }
 
