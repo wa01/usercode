@@ -64,6 +64,27 @@ double htPolynomial (float ht, vector<double>::const_iterator iBegin, vector<dou
   return result;
 }
 
+double htPolynomial (float ht, const vector<double>& pars) {
+  return htPolynomial(ht,pars.begin(),pars.end());
+}
+
+double htPolynomialError (float ht, const vector< vector<double> >& covs) {
+  double result(0.);
+  double factorI(1.);
+  for ( size_t i=0; i<covs.size(); ++i ) {
+    assert (covs[i].size()==covs.size());
+    double sumJ(0.);
+    double factorJ(1.);
+    for ( size_t j=0; j<covs.size(); ++j ) {
+      sumJ += covs[i][j]*factorJ;
+      factorJ *= ht;
+    }
+    result += sumJ*factorI;
+    factorI *= ht;
+  }
+  return sqrt(result);
+}
+
 struct FixMask {
   FixMask () : mask(0) {}
   FixMask (unsigned int i) : mask(i) {}
@@ -476,19 +497,30 @@ LogLMultiErf::fitMultiHT (const vector<string>& filenames, const vector<float>& 
   ierr = minuitx_->Minimize();
   for ( size_t i=parIndices[0]; i<parIndices[1]; ++i )  minuitx_->ReleaseParameter(i);
   ierr = minuitx_->Minimize();
+  for ( size_t i=parIndices[0]; i<parIndices[2]; ++i )  minuitx_->FixParameter(i);
   for ( size_t i=parIndices[2]; i<parIndices[3]; ++i )  minuitx_->ReleaseParameter(i);
   ierr = minuitx_->Minimize();
+  for ( size_t i=parIndices[0]; i<parIndices[2]; ++i )  minuitx_->ReleaseParameter(i);
+  ierr = minuitx_->Minimize();
 
-  // // char hName[128], hTitle[256];
-  // parGraphs_.clear(); // should delete previous graphs, if any ...
-  // for ( size_t i=0; i<(size_t)minuitx_->GetNumberTotalParameters(); ++i ) {
-  //   sprintf(name,"gPar%d",(int)i);
-  //   sprintf(title,"par %d (%s)",(int)i,minuitx_->GetParName(i));
-  //   TGraphErrors* graph = new TGraphErrors();
-  //   graph->SetNameTitle(name,title);
-  //   graph->SetMarkerStyle(20);
-  //   parGraphs_.push_back(graph);
-  // }
+  // char hName[128], hTitle[256];
+  parGraphs_.clear(); // should delete previous graphs, if any ...
+  for ( size_t i=0; i<3; ++i ) {
+    TGraphErrors* graph = new TGraphErrors();
+    switch ( i ) {
+    case 0: 
+      graph->SetNameTitle("Location","Location");
+      break;
+    case 1: 
+      graph->SetNameTitle("Scale","Scale");
+      break;
+    case 2: 
+      graph->SetNameTitle("Shape","Shape");
+      break;
+    }
+    graph->SetMarkerStyle(20);
+    parGraphs_.push_back(graph);
+  }
 
   vector<double> resultPars;
   for ( size_t i=0; i<5; ++i ) {
@@ -530,15 +562,34 @@ LogLMultiErf::fitMultiHT (const vector<string>& filenames, const vector<float>& 
   }
   //   fcn_->setHTmin(htMin[iht]);
   //   fitSingleHT (hAll,hAllS1,htMin[iht]);
-  //   for ( size_t i=0; i<parGraphs_.size(); ++i ) {
-  //     TGraphErrors* graph = parGraphs_[i];
-  //     graph->SetPoint(iht,htMin[iht],minuitx_->GetParameter(i));
-  //     graph->SetPointError(iht,0.,minuitx_->GetParError(i));
-  //   }
-  // }
+  for ( size_t i=0; i<parGraphs_.size(); ++i ) {
+    TGraphErrors* graph = parGraphs_[i];
+    if ( mask.isFixed(i) ) {
+      vector<double> polyPars;
+      vector< vector<double> > polyCovs;
+      for ( size_t ip=parIndices[i]; ip<parIndices[i+1]; ++ip ) {
+	polyPars.push_back(minuitx_->GetParameter(ip));
+	vector<double> polyCov;
+	for ( size_t jp=parIndices[i]; jp<parIndices[i+1]; ++jp ) {
+	  polyCov.push_back(minuitx_->GetCovarianceMatrixElement(ip,jp));
+	}
+	polyCovs.push_back(polyCov);
+      }
+      for ( size_t iht=0; iht<htMins_.size(); ++iht ) {
+	graph->SetPoint(iht,htMins_[iht],htPolynomial(htMins_[iht],polyPars));
+	graph->SetPointError(iht,0.,htPolynomialError(htMins_[iht],polyCovs));
+      }
+    }
+    else {
+      for ( size_t iht=0; iht<htMins_.size(); ++iht ) {
+	graph->SetPoint(iht,htMins_[iht],minuitx_->GetParameter(parIndices[i]+iht));
+	graph->SetPointError(iht,0.,minuitx_->GetParError(parIndices[i]+iht));
+      }
+    }
+  }
 
-  // drawGraphs();
-  
+  drawGraphs();
+
 }
 
 void
