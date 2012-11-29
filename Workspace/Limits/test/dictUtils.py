@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import cPickle
 
 def countValues (filename):
@@ -135,6 +136,7 @@ def dictToHm0m12 (filename,preTemps,postTemps):
         d1 = d[msugra]
         for temp in postTemps:
             if temp != '':  d1 = d1[temp]
+#        if d1 < 0.0001 :  d1 = 0.0001
         h.Fill(m0,m12,d1)
     h.Draw("zcol")
     try:
