@@ -7,6 +7,10 @@
 #include "TGraphErrors.h"
 #include "TGraphAsymmErrors.h"
 #include "TKey.h"
+#include "TVectorT.h"
+#include "TMatrixDSym.h"
+#include "TObjString.h"
+#include "TObjArray.h"
 
 #include "HtMetTreeReader.h"
 
@@ -259,10 +263,12 @@ private:
 };
 
 struct FitResults {
+  FitResults () {}
   FitResults (FixMask _mask, const vector<unsigned int>& _indices,
 	      TFitterMinuit& fitter) : mask(_mask), indices(_indices) {
     cout << "LastIndex: " << indices.back() << endl;
     for ( size_t i=0; i<indices.back(); ++i ) {
+      names.push_back(fitter.GetParName(i));
       parameters.push_back(fitter.GetParameter(i));
       vector<double> row;
       for ( size_t j=0; j<indices.back(); ++j ) {
@@ -274,8 +280,32 @@ struct FitResults {
       covariance.push_back(row);
     }
   }
+  TObjArray* namesArray () const {
+    TObjArray* result = new TObjArray();
+    result->SetOwner(1);
+    for ( size_t i=0; i<parameters.size(); ++i ) {
+      result->Add(new TObjString(names[i].c_str()));
+    }
+    return result;
+  }
+  TVectorD* parTVector () const {
+    TVectorD* result = new TVectorD(parameters.size());
+    for ( size_t i=0; i<parameters.size(); ++i ) 
+      (*result)(i) = parameters[i];
+    return result;
+  }
+  TMatrixDSym* covTMatrix () const {
+    TMatrixDSym* result = new TMatrixDSym(parameters.size());
+    for ( size_t i=0; i<parameters.size(); ++i )  {
+      for ( size_t j=0; j<parameters.size(); ++j )  {
+	(*result)(i,j) = covariance[i][j];
+      }
+    }
+    return result;
+  }
   FixMask mask;
   vector<unsigned int> indices;
+  vector<string> names;
   vector<double> parameters;
   vector< vector<double> > covariance;
 };
@@ -337,6 +367,13 @@ vector<T*> getObjects (TDirectory& dir)
   return result;
 }
 
+template <class T>
+T* getObject (TDirectory& dir)
+{
+  vector<T*> objects = getObjects<T>(dir);
+  return objects.empty() ? (T*)0 : objects.front();
+}
+
 void drawResults (TFile* file) 
 {
   TDirectory* dir = gDirectory;
@@ -352,6 +389,15 @@ void drawResults (TFile* file)
   drawEfficiencies(efficiencies,erfs);
   drawGraphs(graphsFixed,graphsFinal);
 
+  file->cd("fixedResults");
+  TObjArray* fixedNames = getObject<TObjArray>(*gDirectory);
+  TVectorD* fixedPars = getObject<TVectorD>(*gDirectory);
+  TMatrixDSym* fixedCov = getObject<TMatrixDSym>(*gDirectory);
+  cout << fixedPars->GetNrows() << " " << fixedCov->GetNrows() << " " << fixedCov->GetNcols() << endl;
+  for ( int i=0; i<fixedPars->GetNrows(); ++i ) {
+    TObjString* str = (TObjString*)(*fixedNames)[i];
+    printf("%-20s %12.3f +- %10.3f\n",str->GetString().Data(),(*fixedPars)(i),sqrt((*fixedCov)(i,i)));
+  }
   dir->cd();
 }
 
@@ -445,7 +491,8 @@ private:
   vector<unsigned int> parIndices_;
 
   DataContainer data_;
-
+  FitResults fixedResults_;
+  FitResults finalResults_;
   vector<TEfficiency*> efficiencies_;
   vector<TF1*> erfFunctions_;
   vector<TGraphErrors*> parGraphsFixed_;
@@ -757,8 +804,8 @@ LogLMultiErf::fitMultiHT (const vector<string>& filenames, const vector<float>& 
   }
   hAllS1->Divide(hAll); // mean MET / MET bin
 
-  FitResults fixedResults_ = fitSinglePass(31);
-  FitResults finalResults_ = fitSinglePass(mask);
+  fixedResults_ = fitSinglePass(31);
+  finalResults_ = fitSinglePass(mask);
   // //
   // // first fit: location and scale
   // //
@@ -862,8 +909,8 @@ LogLMultiErf::fitMultiHT (const vector<string>& filenames, const vector<float>& 
   //   }
   // }
 
-  parGraphsFixed_ = createGraphs(fixedResults,"Fixed");
-  parGraphsFinal_ = createGraphs(finalResults,"Final");
+  parGraphsFixed_ = createGraphs(fixedResults_,"Fixed");
+  parGraphsFinal_ = createGraphs(finalResults_,"Final");
   drawGraphs(parGraphsFixed_,parGraphsFinal_);
 
 }
@@ -899,6 +946,24 @@ LogLMultiErf::writeResults (string name) const
     TGraphErrors* clone = (TGraphErrors*)parGraphsFinal_[i]->Clone();
     clone->Write();
   }
+
+  dir = f.mkdir("fixedResults");
+  dir->cd();
+  TObjArray* fixedNames = fixedResults_.namesArray();
+  fixedNames->Write("fixedNames",1);
+  TVectorD* fixedPars = fixedResults_.parTVector();
+  fixedPars->Write("fixedPars");
+  TMatrixDSym* fixedCov = fixedResults_.covTMatrix();
+  fixedCov->Write("fixedCov");
+  dir = f.mkdir("finalResults");
+  dir->cd();
+  TObjArray* finalNames = finalResults_.namesArray();
+  finalNames->Write("finalNames",1);
+  TVectorD* finalPars = finalResults_.parTVector();
+  finalPars->Write("finalPars");
+  TMatrixDSym* finalCov = finalResults_.covTMatrix();
+  finalCov->Write("finalCov");
+
   f.Write();
   f.Close();
 }
